@@ -1,0 +1,9 @@
+build-gui-hisi-Release/
+build-gui-Qt_4_8_6_x86-Debug/
+build-gui-x86-Debug/
+ext_libs/
+.svn/
+
+*.o
+*.a
+*.so
