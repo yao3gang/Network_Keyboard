@@ -1,0 +1,173 @@
+QPalette{background:#F0F0F0;}
+/*
+QLabel,QLineEdit,QTextEdit,QPlainTextEdit,QSpinBox,QGroupBox,QComboBox,QDateEdit,QTimeEdit,QDateTimeEdit,QSpinBox,QTreeView,QListView,QTableView,QTabWidget::pane{
+color:#232524;
+}
+*/
+QGroupBox{
+border:1px solid #D8D8D8;
+border-radius:5px;
+}
+
+QWidget#widget_title{
+background:qlineargradient(spread:pad,x1:0,y1:0,x2:0,y2:1,stop:0 #4D4D4D,stop:1 #292929);
+}
+
+QWidget#widget_datetime>QLabel
+{
+color:#FFFFFF;;
+padding-right: 5px;
+}
+
+QWidget#page_config QWidget#widget_left{
+background:qlineargradient(spread:pad,x1:0,y1:0,x2:0,y2:1,stop:0 #4D4D4D,stop:1 #292929);
+}
+
+QWidget#page_preview>QWidget#widget_left{
+background-color:rgba(255,255,255,255);
+}
+
+QWidget#page_preview>QFrame#frame{
+border:4px solid #FFFFFF;
+}
+
+QLabel#lab_Title, QWidget#widget_title>QLabel{
+border-radius:0px;
+color:#CACAD0;
+background-color:rgba(0,0,0,0);
+border-style:none;
+}
+
+QWidget#widget_top>QToolButton::menu-indicator, QWidget#widget_menu>QToolButton::menu-indicator{
+image:None;
+}
+
+QWidget#widget_top>QToolButton, QWidget#widget_top>QLabel{
+border-style:none;
+border-radius:0px;
+padding:5px;
+color:#CACAD0;
+background:qlineargradient(spread:pad,x1:0,y1:0,x2:0,y2:1,stop:0 #4D4D4D,stop:1 #292929);
+}
+
+QWidget#widget_top>QToolButton:pressed, QWidget#widget_top>QToolButton:hover, QWidget#widget_top>QToolButton:checked, QWidget#widget_top>QLabel:hover{
+border-style:solid;
+border-width:0px 0px 5px 0px;
+border-color:rgba(238,0,0,128);
+background:qlineargradient(spread:pad,x1:0,y1:0,x2:0,y2:1,stop:0 #636363,stop:1 #575757);
+}
+
+QWidget#widget_left>QPushButton, QWidget#widget_left>QToolButton{
+border-radius:0px;
+color:#CACAD0;
+background-color:rgba(0,0,0,0);
+border-style:none;
+text-align: right;
+padding-right: 15px;
+}
+
+QWidget#widget_left>QPushButton:hover, QWidget#widget_left>QToolButton:hover{
+color:#FFFFFF;
+background-color:rgba(238,0,0,128);
+}
+
+QWidget#widget_left>QPushButton:checked, QWidget#widget_left>QToolButton:checked, QWidget#widget_left>QPushButton:pressed, QWidget#widget_left>QToolButton:pressed{
+color:#000000;
+padding-right: 2px;
+/*border-style:solid;
+border-width:0px 5px 0px 0px;
+border-color:rgba(238,0,0,128);*/
+background-color:rgba(238,255,255,255);
+}
+/*
+QStackedWidget#stackedWidget QLineEdit
+{
+color: rgb(127, 0, 63);
+background-color: rgb(255, 255, 241);
+border: 2px groove gray;
+border-radius: 10px;
+padding-left: 10px;
+}
+*/
+
+QCheckBox
+{
+color: #232524;
+}
+
+QCheckBox::indicator{
+width: 20px;
+height: 20px;
+}
+
+QCheckBox::indicator:unchecked{
+image:url(:/image/checkbox_unchecked.png);
+}
+
+QCheckBox::indicator:checked{
+image:url(:/image/checkbox_checked.png);
+}
+
+QStackedWidget#stackedWidget_config QPushButton, QWidget#widget_left1>QPushButton, QWidget#widget_left2>QPushButton, QDialog#dlg_link_cfg QPushButton
+{
+border-style:none;
+border:1px solid #D8D8D8;
+color:#CACAD0;
+padding:5px;
+height:20px;
+border-radius:5px;
+background:qlineargradient(spread:pad,x1:0,y1:0,x2:0,y2:1,stop:0 #4D4D4D,stop:1 #292929);
+}
+
+QStackedWidget#stackedWidget_config QPushButton:hover, QWidget#widget_left1>QPushButton:hover, QWidget#widget_left2>QPushButton:hover, QDialog#dlg_link_cfg QPushButton:hover
+{
+background:qlineargradient(spread:pad,x1:0,y1:0,x2:0,y2:1,stop:0 #636363,stop:1 #575757);
+}
+
+QStackedWidget#stackedWidget_config QPushButton:pressed, QWidget#widget_left1>QPushButton:pressed, QWidget#widget_left2>QPushButton:pressed, QDialog#dlg_link_cfg QPushButton:pressed
+{
+background:qlineargradient(spread:pad,x1:0,y1:0,x2:0,y2:1,stop:0 #4D4D4D,stop:1 #292929);
+}
+
+QProgressBar{
+background:#D8D8D8;
+border-radius:5px;
+text-align:center;
+border:1px solid #D8D8D8;
+}
+
+QProgressBar::chunk{
+width:5px;
+margin:0.5px;
+background-color:#4D4D4D;
+}
+
+QWidget#widget_ptz>QPushButton[btn_ptz="true"]
+{
+border-style:none;
+}
+
+QWidget#widget_ptz>QPushButton[btn_ptz="true"]:pressed
+{
+padding-top: 2px;
+padding-bottom: -2px;
+}
+
+QWidget[Form="true"]{
+border:1px solid #575757;
+border-radius:0px;
+}
+
+QLabel#label_mac_warning
+{
+color: rgba(238,0,0,255);
+}
+
+/*message box*/
+QPushButton#btnMenu_Close{
+color:#FFFFFF;
+margin:1px 1px 2px 1px;
+}
+QPushButton#btnMenu_Close:hover{
+background-color:rgba(238,0,0,128);
+}
