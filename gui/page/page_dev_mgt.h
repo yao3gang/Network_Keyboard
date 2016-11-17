@@ -24,6 +24,7 @@ private slots:
     void cmbAddChange(int index);
     void tableWidgetSrhDBClicked(int row, int column);
     void on_btn_add_clicked();
+    void on_btn_info_clicked();
 
 private:
     Ui::page_dev_mgt *ui;

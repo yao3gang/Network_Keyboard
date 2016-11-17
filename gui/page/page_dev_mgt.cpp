@@ -50,7 +50,7 @@ page_dev_mgt::page_dev_mgt(QWidget *parent) :
     ui->tableWidget_dev->setColumnWidth(3,100);
 
     connect(ui->cmb_srh_type, SIGNAL(currentIndexChanged(int)), this, SLOT(cmbSrhChange(int)));
-    connect(ui->cmb_added_type, SIGNAL(currentIndexChanged(int)), this, SLOT(cmdAddChange(int)));
+    connect(ui->cmb_added_type, SIGNAL(currentIndexChanged(int)), this, SLOT(cmbAddChange(int)));
 
     connect(ui->tableWidget_srh, SIGNAL(cellDoubleClicked(int, int)), this, SLOT(tableWidgetSrhDBClicked(int, int)));
 }
@@ -70,6 +70,7 @@ void page_dev_mgt::on_btn_srh_clicked()
     std::vector<SBiz_DeviceInfo_t> vswitch_dec_list;
     std::vector<SBiz_DeviceInfo_t> *pvdev_list = NULL;
     std::vector<SBiz_DeviceInfo_t>::iterator iter;
+    //QTableWidgetItem *ptable_widget_item = NULL;
 
     int line = 0;
     int dev_type_idx = ui->cmb_srh_type->currentIndex();
@@ -120,8 +121,18 @@ void page_dev_mgt::on_btn_srh_clicked()
             ui->tableWidget_srh->setItem(line, 1, new QTableWidgetItem(strlist_devtype.at(iter->devicetype-1)));
             ui->tableWidget_srh->setItem(line, 2, new QTableWidgetItem(QString(inet_ntoa(in))));
             ui->tableWidget_srh->setItem(line, 3, new QTableWidgetItem(QString("%1").arg(iter->maxChnNum)));
+            //QTableWidgetItem *ptable_widget_item = new QTableWidgetItem(QString("%1").arg(iter->maxChnNum));
+            //ptable_widget_item->setIcon(QIcon(QPixmap(QString::fromUtf8(":/image/msg_error.png"))));
+            //ui->tableWidget_srh->setItem(line, 3, ptable_widget_item);
+            //ui->tableWidget_srh->item(0, 3);
         }
     }
+}
+
+void page_dev_mgt::on_btn_info_clicked()
+{
+
+
 }
 
 void page_dev_mgt::cmbSrhChange(int index)

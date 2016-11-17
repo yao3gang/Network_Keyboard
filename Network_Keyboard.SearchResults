@@ -1,6 +1,5 @@
----- BizDevSearch Matches (5 in 4 files) ----
-biz_device.cpp (mid_logic\src):int BizDevSearch(std::vector<SBiz_DeviceInfo_t> *pvnvr_list, 
-biz_device.h (mid_logic\inc):int BizDevSearch(std::vector<SBiz_DeviceInfo_t> *pvnvr_list, 
-page_dev_mgt.cpp (gui\page):    b_ret = BizDevSearch(&vnvr_list, &vpatrol_dec_list, &vswitch_dec_list);
-test.cpp (mid_logic):	BizDevSearch(&vnvr_list, &vpatrol_dec_list, &vswitch_dec_list);
-test.cpp (mid_logic):		BizDevSearch(&vnvr_list, &vpatrol_dec_list, &vswitch_dec_list);
+---- BizGetDevIdx Matches (4 in 3 files) ----
+biz_device.cpp (mid_logic\src):int BizGetDevIdx(EM_DEV_TYPE dev_type, u32 dev_ip)
+biz_device.h (mid_logic\inc):int BizGetDevIdx(EM_DEV_TYPE dev_type, u32 dev_ip);
+biz_preview.cpp (mid_logic\src):	ret = BizGetDevIdx(EM_NVR, dev_ip);
+biz_preview.cpp (mid_logic\src):		ERR_PRINT("BizGetDevIdx failed, ret: %d\n", ret);

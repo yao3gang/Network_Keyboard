@@ -279,7 +279,7 @@
            </column>
            <column>
             <property name="text">
-             <string>状态</string>
+             <string>连接状态</string>
             </property>
            </column>
           </widget>
