@@ -274,7 +274,7 @@ void* threadUpdateTime(void* pParam)
 
 			if (count++ > 60*60*12)//每隔12小时自动同步时间服务器
 			{
-				count == 0;
+				count = 0;
 				
 		        if (BizConfigGetTimeParam(stime_param))
 		        {

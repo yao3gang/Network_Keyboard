@@ -14,7 +14,17 @@ page_dev_mgt::page_dev_mgt(QWidget *parent) :
     ui(new Ui::page_dev_mgt)
 {
     ui->setupUi(this);
+    init_form();
+    init_data();
+}
 
+page_dev_mgt::~page_dev_mgt()
+{
+    delete ui;
+}
+
+void page_dev_mgt::init_form()//控件
+{
     strlist_devtype.append(QString::fromUtf8("NVR"));
     strlist_devtype.append(QString::fromUtf8("轮巡型解码器"));
     strlist_devtype.append(QString::fromUtf8("切换型解码器"));
@@ -51,13 +61,66 @@ page_dev_mgt::page_dev_mgt(QWidget *parent) :
 
     connect(ui->cmb_srh_type, SIGNAL(currentIndexChanged(int)), this, SLOT(cmbSrhChange(int)));
     connect(ui->cmb_added_type, SIGNAL(currentIndexChanged(int)), this, SLOT(cmbAddChange(int)));
-
     connect(ui->tableWidget_srh, SIGNAL(cellDoubleClicked(int, int)), this, SLOT(tableWidgetSrhDBClicked(int, int)));
 }
 
-page_dev_mgt::~page_dev_mgt()
+void page_dev_mgt::init_data()//设备信息
 {
-    delete ui;
+    int i;
+    EM_DEV_TYPE dev_type;
+    std::list<u32> dev_ip_list;
+    std::list<u32>::iterator iter;
+    MAP_IP_DEV *pmap = NULL;
+    SGuiDev_t *pdev = NULL;
+
+    QMutexLocker locker(&mutex);
+
+    for (i=0; EM_NVR+i < EM_DEV_TYPE_MAX; ++i)
+    {
+        dev_type = EM_NVR+i;
+        dev_ip_list.clear();
+
+        if (BizGetDevIPList(EM_NVR+i, &dev_ip_list))
+        {
+            ERR_PRINT("BizGetDevIPList failed, dev type:%d\n", dev_type);
+            return;
+        }
+
+        switch (dev_type)
+        {
+        case EM_NVR:
+            pmap = &map_nvr;
+            break;
+
+        case EM_PATROL_DEC:
+            pmap = &map_patrol_dec;
+            break;
+
+        case EM_SWITCH_DEC:
+            pmap = &map_switch_dec;
+            break;
+
+        default:
+            ERR_PRINT("dev_type%d exception\n", dev_type);
+            return;
+        }
+
+        for (iter = dev_ip_list.begin();
+             iter != dev_ip_list.end();
+             ++iter)
+        {
+            pdev = NULL;
+            pdev = new SGuiDev_t;
+
+            if (NULL == pdev)
+            {
+                ERR_PRINT("new SGuiDev_t failed\n");
+                return;
+            }
+
+        }
+
+    }
 }
 
 void page_dev_mgt::on_btn_srh_clicked()

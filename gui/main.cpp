@@ -69,12 +69,22 @@ bool myApplication::isRunning()
 
 int main(int argc, char *argv[])
 {
-    //初始化
+    //逻辑层初始化
     if (HisiSysInit())
     {
         qDebug("HisiSysInit failed\n");
+        return 0;
     }
+    qDebug("HisiSysInit success\n");
 
+    if (BizInit())
+    {
+        qDebug("BizInit failed\n");
+        return 0;
+    }
+    qDebug("BizInit success\n");
+
+    //应用层初始化
     QApplication app(argc, argv);
     QWSServer::setBackground(QColor(0, 0, 0, 0));
 
@@ -109,13 +119,6 @@ int main(int argc, char *argv[])
     file.open(QFile::ReadOnly);
     app.setStyleSheet(file.readAll());
 
-    //初始化
-    if (BizInit())
-    {
-        qDebug("BizInit failed\n");
-    }
-
-    qDebug("BizInit success\n");
     frmInput::Instance()->Init("control", "black", FontSize + 1, FontSize);
     page_main2 w;
     w.show();

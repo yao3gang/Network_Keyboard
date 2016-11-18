@@ -77,7 +77,7 @@ class CBizDeviceManager : public CObject
 public:
 	PATTERN_SINGLETON_DECLARE(CBizDeviceManager);
 	~CBizDeviceManager();
-	int GetDevList(EM_DEV_TYPE dev_type, std::list<s32> &dev_idx_list);
+	int GetDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip_list);
     int GetDevIdx(EM_DEV_TYPE dev_type, u32 dev_ip);
 	int AddDev(EM_DEV_TYPE dev_type, u32 dev_ip);
 	int DelDev(EM_DEV_TYPE dev_type, u32 dev_ip);	
@@ -564,13 +564,13 @@ VD_BOOL CBizDeviceManager::isInited()
 	return b_inited;
 }
 
-int CBizDeviceManager::GetDevList(EM_DEV_TYPE dev_type, std::list<s32> &dev_idx_list)
+int CBizDeviceManager::GetDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip_list)
 {
 	MAP_IP_IDX *pmap = NULL;
 	MAP_IP_IDX::iterator map_iter;
 	int ret = -FAILURE;
 
-	if (!dev_idx_list.empty())//·Ç¿Õ
+	if (!dev_ip_list.empty())//·Ç¿Õ
 	{
 		ERR_PRINT("param vdev_list is not empty\n");
 		return -FAILURE;
@@ -612,7 +612,7 @@ int CBizDeviceManager::GetDevList(EM_DEV_TYPE dev_type, std::list<s32> &dev_idx_
 	 	 map_iter != pmap->end();
 		 ++map_iter)
 	{				
-		dev_idx_list.push_back(map_iter->second);
+		dev_ip_list.push_back(map_iter->first);
 	}
 
     plock4param->Unlock();
@@ -3110,6 +3110,11 @@ int BizAddDev(EM_DEV_TYPE dev_type, u32 dev_ip)
 int BizDelDev(EM_DEV_TYPE dev_type, u32 dev_ip)
 {
 	return g_biz_device_manager.DelDev(dev_type, dev_ip);
+}
+
+int BizGetDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip_list)
+{
+	return g_biz_device_manager.GetDevIPList(dev_type, dev_ip_list);
 }
 
 int BizGetDevIdx(EM_DEV_TYPE dev_type, u32 dev_ip)

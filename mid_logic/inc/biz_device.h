@@ -137,6 +137,7 @@ int BizDevSearch(std::vector<SBiz_DeviceInfo_t> *pvnvr_list,
 
 int BizAddDev(EM_DEV_TYPE dev_type, u32 dev_ip);
 int BizDelDev(EM_DEV_TYPE dev_type, u32 dev_ip);
+int BizGetDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip_list);
 int BizGetDevIdx(EM_DEV_TYPE dev_type, u32 dev_ip);
 int BizReqStreamStart(s32 dev_idx, ifly_TCP_Stream_Req *preq, CMediaStream *pstream);
 int BizReqStreamStop(s32 dev_idx, s32 stream_idx);

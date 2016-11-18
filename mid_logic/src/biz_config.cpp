@@ -65,7 +65,7 @@ public:
 	int GetNetParam(SConfigNetParam &snet_param);
 
 	int GetTvWallList(std::vector<SConfigTvWallParam> &vtvwall_list);
-	int GetDevList(EM_DEV_TYPE dev_type, std::vector<uint> &vdev_list);\
+	int GetDevList(EM_DEV_TYPE dev_type, std::vector<uint> &vdev_list);
 		
 	int GetAlmLinkList(std::vector<SConfigAlmLinkParam> &valm_link_list);
 
