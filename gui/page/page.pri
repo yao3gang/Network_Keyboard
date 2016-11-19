@@ -15,8 +15,7 @@ HEADERS += \
     page/page_main2.h \
     page/frmmessagebox.h \
     page/iconhelper.h \
-    page/appdef.h \
-    page/gui_dev.h
+    page/appdef.h
 
 
 SOURCES += \

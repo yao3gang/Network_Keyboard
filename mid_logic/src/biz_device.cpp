@@ -1,3 +1,5 @@
+#include "gui_dev.h"
+
 #include "api.h"
 #include "singleton.h"
 #include "object.h"

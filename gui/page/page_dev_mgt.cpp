@@ -67,7 +67,7 @@ void page_dev_mgt::init_form()//控件
 void page_dev_mgt::init_data()//设备信息
 {
     int i;
-    EM_DEV_TYPE dev_type;
+    int dev_type;
     std::list<u32> dev_ip_list;
     std::list<u32>::iterator iter;
     MAP_IP_DEV *pmap = NULL;
@@ -75,12 +75,14 @@ void page_dev_mgt::init_data()//设备信息
 
     QMutexLocker locker(&mutex);
 
+    BizStartUpdateDevInfo();
+
     for (i=0; EM_NVR+i < EM_DEV_TYPE_MAX; ++i)
     {
         dev_type = EM_NVR+i;
         dev_ip_list.clear();
 
-        if (BizGetDevIPList(EM_NVR+i, &dev_ip_list))
+        if (BizGetDevIPList((EM_DEV_TYPE)dev_type, dev_ip_list))
         {
             ERR_PRINT("BizGetDevIPList failed, dev type:%d\n", dev_type);
             return;
