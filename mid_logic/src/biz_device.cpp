@@ -79,8 +79,9 @@ class CBizDeviceManager : public CObject
 public:
 	PATTERN_SINGLETON_DECLARE(CBizDeviceManager);
 	~CBizDeviceManager();
-	int GetDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip_list);
+	int GetDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip_list);//网络字节序
     int GetDevIdx(EM_DEV_TYPE dev_type, u32 dev_ip);
+	int StartNotifyDevInfo();//使能通知。设备层将信息通知给上层
 	int AddDev(EM_DEV_TYPE dev_type, u32 dev_ip);
 	int DelDev(EM_DEV_TYPE dev_type, u32 dev_ip);	
 	int ReqStreamStart(s32 dev_idx, ifly_TCP_Stream_Req *preq, CMediaStream *pstream);
@@ -116,6 +117,7 @@ private:
 	
 private:
 	VD_BOOL b_inited;
+	VD_BOOL b_notify_devinfo;
 
 	//设备管理
 	//内层
@@ -164,6 +166,7 @@ PATTERN_SINGLETON_IMPLEMENT(CBizDeviceManager);
 ********************************************************************/
 CBizDeviceManager::CBizDeviceManager()
 : b_inited(FALSE)
+, b_notify_devinfo(FALSE)
 , plock_dev_pool(NULL)
 , pplock_dev(NULL)
 , ppcdev(NULL)
@@ -614,7 +617,7 @@ int CBizDeviceManager::GetDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip
 	 	 map_iter != pmap->end();
 		 ++map_iter)
 	{				
-		dev_ip_list.push_back(map_iter->first);
+		dev_ip_list.push_back(ntohl(map_iter->first));
 	}
 
     plock4param->Unlock();
@@ -682,6 +685,21 @@ fail:
 	
 	plock4param->Unlock();
 	return ret;
+}
+
+int CBizDeviceManager::StartNotifyDevInfo()//使能通知。设备层将信息通知给上层
+{
+	if (plock4param->Wrlock())
+	{
+		ERR_PRINT("Wrlock failed\n");
+		return -FAILURE;
+	}
+	
+	b_notify_devinfo = TRUE;
+
+	plock4param->Unlock();
+
+	return SUCCESS;
 }
 
 int CBizDeviceManager::AddDev(EM_DEV_TYPE dev_type, u32 dev_ip)
@@ -3114,7 +3132,7 @@ int BizDelDev(EM_DEV_TYPE dev_type, u32 dev_ip)
 	return g_biz_device_manager.DelDev(dev_type, dev_ip);
 }
 
-int BizGetDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip_list)
+int BizGetDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip_list)//网络字节序
 {
 	return g_biz_device_manager.GetDevIPList(dev_type, dev_ip_list);
 }
@@ -3122,6 +3140,11 @@ int BizGetDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip_list)
 int BizGetDevIdx(EM_DEV_TYPE dev_type, u32 dev_ip)
 {
 	return g_biz_device_manager.GetDevIdx(dev_type, dev_ip);
+}
+
+int BizStartNotifyDevInfo(void)	//使能通知。设备层将信息通知给上层
+{
+	return g_biz_device_manager.StartNotifyDevInfo();
 }
 
 int BizReqStreamStart(s32 dev_idx, ifly_TCP_Stream_Req *preq, CMediaStream *pstream)

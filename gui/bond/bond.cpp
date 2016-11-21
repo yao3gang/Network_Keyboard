@@ -9,14 +9,34 @@ void Cbond::bondUpdateTime(SDateTime *pdt)
 
     if (b_inited)
     {
-        emit signalUpdateTime(dt);
+        emit signalNotifyUpdateTime(dt);
     }
 }
+
+void Cbond::bondNotifyDevInfo(SGuiDev_t *pdev)
+{
+	SGuiDev_t dev = *pdev;
+	
+	if (b_inited)
+    {
+        emit signalNotifyDevInfo(dev);
+    }
+}
+
+
+
 
 //extern function
 int notifyGuiUpdateTime(SDateTime *pdt)
 {
-    gp_bond->bondUpdateTime(pdt);
+    gp_bond->bondNotifyUpdateTime(pdt);
     return 0;
 }
+
+int notifyDevInfo(SGuiDev_t *pdev)//设备层将信息通知给上层
+{
+	gp_bond->bondNotifyDevInfo(pdev);
+    return 0;
+}
+
 

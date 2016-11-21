@@ -68,6 +68,8 @@ void page_dev_mgt::init_data()//设备信息
 {
     int i;
     int dev_type;
+    struct in_addr in;
+
     std::list<u32> dev_ip_list;
     std::list<u32>::iterator iter;
     MAP_IP_DEV *pmap = NULL;
@@ -75,7 +77,7 @@ void page_dev_mgt::init_data()//设备信息
 
     QMutexLocker locker(&mutex);
 
-    BizStartUpdateDevInfo();
+    BizStartNotifyDevInfo();
 
     for (i=0; EM_NVR+i < EM_DEV_TYPE_MAX; ++i)
     {
@@ -113,15 +115,26 @@ void page_dev_mgt::init_data()//设备信息
         {
             pdev = NULL;
             pdev = new SGuiDev_t;
+            in.s_addr = *iter;
 
             if (NULL == pdev)
             {
-                ERR_PRINT("new SGuiDev_t failed\n");
+                ERR_PRINT("new SGuiDev_t failed, ip: %s\n", inet_ntoa(in));
                 return;
             }
 
-        }
+            //if (BizGetDevInfo((EM_DEV_TYPE)dev_type, *iter, pdev))
+            {
+                ERR_PRINT("BizGetDevInfo failed, ip: %s\n", inet_ntoa(in));
+                //return;
+            }
 
+            if (!pmap->insert(std::make_pair(ntohl(*iter), pdev)).second)
+            {
+                ERR_PRINT("map insert failed, ip: %s\n", inet_ntoa(in));
+                return;
+            }
+        }
     }
 }
 

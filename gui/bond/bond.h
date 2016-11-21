@@ -5,6 +5,8 @@
 #include "biz_config.h"
 #include "biz_system_complex.h"
 
+#include "gui_dev.h"
+
 /**********************************************************/
 #ifdef GUI_BOND_CLASS_DECLARE   //仅 gui 部分需要看到类的声明
 
@@ -32,11 +34,11 @@ public:
 
     ~Cbond() {}
 
-    void bondUpdateTime(SDateTime *pdt);
-
+    void bondNotifyUpdateTime(SDateTime *pdt);
+	void bondNotifyDevInfo(SGuiDev_t *pdev);
 
 public:
-    static int b_inited;
+    static int b_inited;//main.cpp set
 
 private:
     explicit Cbond(QObject *parent = 0) {}
@@ -45,7 +47,8 @@ private:
     static Cbond *_instance;
 
 signals:
-    void signalUpdateTime(SDateTime dt);
+    void signalNotifyUpdateTime(SDateTime dt);
+	void signalNotifyDevInfo(SGuiDev_t dev);
 };
 
 #define gp_bond (Cbond::Instance())
@@ -60,6 +63,9 @@ extern "C" {
 #endif
 
 int notifyGuiUpdateTime(SDateTime *pdt);
+
+int notifyDevInfo(SGuiDev_t *pdev);//�豸�㽫��Ϣ֪ͨ���ϲ�
+
 
 #ifdef __cplusplus
 }

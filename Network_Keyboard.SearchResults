@@ -1,7 +1,4 @@
----- GetDevList Matches (6 in 2 files) ----
-biz_config.cpp (mid_logic\src):	int GetDevList(EM_DEV_TYPE dev_type, std::vector<uint> &vdev_list);
-biz_config.cpp (mid_logic\src):int CBizConfig::GetDevList(EM_DEV_TYPE dev_type, std::vector<uint> &vdev_list)
-biz_config.cpp (mid_logic\src):	return g_biz_config.GetDevList(EM_NVR, vdev_list);
-biz_config.cpp (mid_logic\src):	return g_biz_config.GetDevList(EM_PATROL_DEC, vdev_list);
-biz_config.cpp (mid_logic\src):	return g_biz_config.GetDevList(EM_SWITCH_DEC, vdev_list);
-page_dev_mgt.h (gui\page):    int GetDevList(EM_DEV_TYPE dev_type, std::list<s32> &dev_ip_list);
+---- notifyGuiUpdateTime Matches (3 in 3 files) ----
+biz_system_complex.cpp (mid_logic\src):				notifyGuiUpdateTime(&dt);
+bond.cpp (gui\bond):int notifyGuiUpdateTime(SDateTime *pdt)
+bond.h (gui\bond):int notifyGuiUpdateTime(SDateTime *pdt);

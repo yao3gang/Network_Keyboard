@@ -16,6 +16,7 @@
 #include "types.h"
 #include "biz_preview.h"
 #include "biz_config.h"
+#include "gui_dev.h"
 
 page_main2::page_main2(QWidget *parent) :
     QWidget(parent),
@@ -103,7 +104,10 @@ void page_main2::init_form() //init stackwidget
     registerPage(PAGE_CONFIG, config);
 
     qRegisterMetaType<SDateTime>("SDateTime");
-    connect(gp_bond, SIGNAL(signalUpdateTime(SDateTime)), this, SLOT(update_time(SDateTime)), Qt::QueuedConnection);
+    connect(gp_bond, SIGNAL(signalNotifyUpdateTime(SDateTime)), this, SLOT(update_time(SDateTime)), Qt::QueuedConnection);
+
+    qRegisterMetaType<SGuiDev_t>("SGuiDev_t");
+    connect(gp_bond, SIGNAL(signalNotifyDevInfo(SGuiDev_t)), this, SLOT(update_devinfo(SGuiDev_t)), Qt::QueuedConnection);
 
     ui->btn_tvWall->click();
 }
