@@ -1832,7 +1832,7 @@ void CBizDeviceManager::timerFuncReconnect(uint param)
 
 		if (map_fd_dev.empty()) //所有服务器连接完成|| 没有服务器需要重连
 		{
-			DBG_PRINT("all devs linked\n");
+			DBG_PRINT("map_fd_dev empty, work done\n");
 			break;
 		}
 

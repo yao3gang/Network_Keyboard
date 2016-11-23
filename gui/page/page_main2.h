@@ -30,7 +30,6 @@ private:
 private:
     void init_style();
     void init_form();
-
 };
 
 #endif // PAGE_MAIN2_H

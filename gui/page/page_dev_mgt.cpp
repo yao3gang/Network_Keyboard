@@ -44,9 +44,9 @@ void page_dev_mgt::init_form()//控件
     ui->tableWidget_srh->setColumnWidth(0,50);
     ui->tableWidget_srh->setColumnWidth(1,200);
     ui->tableWidget_srh->setColumnWidth(2,200);
-    ui->tableWidget_srh->setDragEnabled(true);//设置内部部件支持拖拽
-    ui->tableWidget_srh->setAcceptDrops(true);
-    ui->tableWidget_srh->setDropIndicatorShown(false);
+    //ui->tableWidget_srh->setDragEnabled(true);//设置内部部件支持拖拽
+    //ui->tableWidget_srh->setAcceptDrops(true);
+    //ui->tableWidget_srh->setDropIndicatorShown(false);
 
     //ui->tableWidget_dev->verticalHeader()->setVisible(false);//列表头不可见
     ui->tableWidget_dev->setFocusPolicy(Qt::NoFocus);//让table失去焦点，防止没有选中行时，删除第一行
@@ -62,6 +62,9 @@ void page_dev_mgt::init_form()//控件
     connect(ui->cmb_srh_type, SIGNAL(currentIndexChanged(int)), this, SLOT(cmbSrhChange(int)));
     connect(ui->cmb_added_type, SIGNAL(currentIndexChanged(int)), this, SLOT(cmbAddChange(int)));
     connect(ui->tableWidget_srh, SIGNAL(cellDoubleClicked(int, int)), this, SLOT(tableWidgetSrhDBClicked(int, int)));
+
+    qRegisterMetaType<SGuiDev>("SGuiDev");
+    connect(gp_bond, SIGNAL(signalNotifyDevInfo(SGuiDev)), this, SLOT(updateDevInfo(SGuiDev)), Qt::QueuedConnection);
 }
 
 void page_dev_mgt::init_data()//设备信息
@@ -73,7 +76,7 @@ void page_dev_mgt::init_data()//设备信息
     std::list<u32> dev_ip_list;
     std::list<u32>::iterator iter;
     MAP_IP_DEV *pmap = NULL;
-    SGuiDev_t *pdev = NULL;
+    SGuiDev *pdev = NULL;
 
     QMutexLocker locker(&mutex);
 
@@ -114,12 +117,12 @@ void page_dev_mgt::init_data()//设备信息
              ++iter)
         {
             pdev = NULL;
-            pdev = new SGuiDev_t;
+            pdev = new SGuiDev;
             in.s_addr = *iter;
 
             if (NULL == pdev)
             {
-                ERR_PRINT("new SGuiDev_t failed, ip: %s\n", inet_ntoa(in));
+                ERR_PRINT("new SGuiDev failed, ip: %s\n", inet_ntoa(in));
                 return;
             }
 
@@ -138,6 +141,107 @@ void page_dev_mgt::init_data()//设备信息
     }
 }
 
+void page_dev_mgt::setLineTableSrh(int line, const SBiz_DeviceInfo_t *pdev)
+{
+    struct in_addr in;
+    in.s_addr = pdev->deviceIP;
+
+    QTableWidgetItem *pitem = new QTableWidgetItem;
+    pitem->setCheckState(Qt::Unchecked);
+    ui->tableWidget_srh->setItem(line, 0, pitem);
+    ui->tableWidget_srh->setItem(line, 1, new QTableWidgetItem(strlist_devtype.at(pdev->devicetype-1)));
+    ui->tableWidget_srh->setItem(line, 2, new QTableWidgetItem(QString(inet_ntoa(in))));
+    ui->tableWidget_srh->setItem(line, 3, new QTableWidgetItem(QString("%1").arg(pdev->maxChnNum)));
+    //QTableWidgetItem *ptable_widget_item = new QTableWidgetItem(QString("%1").arg(iter->maxChnNum));
+    //ptable_widget_item->setIcon(QIcon(QPixmap(QString::fromUtf8(":/image/msg_error.png"))));
+    //ui->tableWidget_srh->setItem(line, 3, ptable_widget_item);
+    //ui->tableWidget_srh->item(0, 3);
+}
+
+void page_dev_mgt::setLineTableDev(int line, const SGuiDev *pdev)
+{
+
+}
+
+void page_dev_mgt::updateDevInfo(SGuiDev dev)
+{
+    QTableWidgetItem *ptable_widget_item = NULL;
+    MAP_IP_DEV *pmap = NULL;
+    MAP_IP_DEV::iterator iter;
+    SGuiDev *pdev = NULL;
+    int dev_type = dev.devicetype;
+    u32 ip_le = ntohl(dev.deviceIP);
+    int index;
+    struct in_addr in;
+
+    in.s_addr = dev.deviceIP;
+    QString ip_qstr(inet_ntoa(in));
+
+
+    QMutexLocker locker(&mutex);
+
+    switch (dev_type)
+    {
+    case EM_NVR:
+        pmap = &map_nvr;
+        break;
+
+    case EM_PATROL_DEC:
+        pmap = &map_patrol_dec;
+        break;
+
+    case EM_SWITCH_DEC:
+        pmap = &map_switch_dec;
+        break;
+
+    default:
+        ERR_PRINT("dev_type%d exception\n", dev_type);
+        return;
+    }
+
+    //iter = pmap->find(ip_le);
+    //if (iter != pmap->end())
+    for (index = 0, iter = pmap->begin(); iter != pmap->end(); ++index, ++iter)
+    {
+        if (iter->first != ip_le)//确定排序后的序号，下面改变tableWidget_dev的index行
+        {
+            continue;
+        }
+
+        pdev = iter->second;
+        if (pdev->devicetype != dev.devicetype)
+        {
+            ERR_PRINT("pdev->devicetype(%d) != dev.devicetype(%d)\n", pdev->devicetype, dev.devicetype);
+            continue;
+        }
+
+        if (pdev->dev_idx != dev.dev_idx)
+        {
+            ERR_PRINT("pdev->dev_idx(%d) != dev.dev_idx(%d)\n", pdev->dev_idx, dev.dev_idx);
+            continue;
+        }
+
+        pdev->maxChnNum = dev.maxChnNum;
+
+        if (pdev->b_alive != dev.b_alive)
+        {
+            if (ui->cmb_added_type->currentIndex() == dev.devicetype-1)//当前正在显示该类型的所有设备，需要改变界面控件
+            {
+                ptable_widget_item = ui->tableWidget_dev->item(index, 0);
+                if (ip_qstr != ptable_widget_item->text())
+                {
+                    ERR_PRINT("index: %d, dev ip(%s) != ptable_widget_item(%s)\n", \
+                              index, ip_qstr.toUtf8().constData(), ptable_widget_item->text().toUtf8().constData());
+                    return;
+                }
+
+
+            }
+        }
+    }
+
+}
+
 void page_dev_mgt::on_btn_srh_clicked()
 {
     VD_BOOL b_ret = FALSE;
@@ -153,8 +257,10 @@ void page_dev_mgt::on_btn_srh_clicked()
     int line = 0;
     int dev_type_idx = ui->cmb_srh_type->currentIndex();
 
+    ui->tableWidget_srh->clearContents();//清除内容，释放内存，表头保留
     ui->tableWidget_srh->setRowCount(0);
-    ui->tableWidget_srh->clearContents();
+    ui->tableWidget_srh->verticalHeader()->hide();
+    qApp->processEvents();//刷新页面
 
     switch (dev_type_idx)
     {
@@ -180,7 +286,7 @@ void page_dev_mgt::on_btn_srh_clicked()
     //setCursor(QCursor(Qt::WaitCursor));
     if (!b_ret)
     {
-        ui->tableWidget_srh->setRowCount(pvdev_list->size());//行数，该类设备总数
+        //ui->tableWidget_srh->setRowCount(pvdev_list->size());//行数，该类设备总数
 
         for (line = 0, iter = pvdev_list->begin();
              iter != pvdev_list->end();
@@ -192,18 +298,16 @@ void page_dev_mgt::on_btn_srh_clicked()
                       strlist_devtype.at(iter->devicetype-1).toUtf8().constData(),
                       line,
                       inet_ntoa(in));
-            QTableWidgetItem *pitem = new QTableWidgetItem;
-            pitem->setCheckState(Qt::Unchecked);
-            //ui->tableWidget_srh->setItem(line, 0, new QTableWidgetItem(QString("%1").arg(line+1)));
-            ui->tableWidget_srh->setItem(line, 0, pitem);
-            ui->tableWidget_srh->setItem(line, 1, new QTableWidgetItem(strlist_devtype.at(iter->devicetype-1)));
-            ui->tableWidget_srh->setItem(line, 2, new QTableWidgetItem(QString(inet_ntoa(in))));
-            ui->tableWidget_srh->setItem(line, 3, new QTableWidgetItem(QString("%1").arg(iter->maxChnNum)));
-            //QTableWidgetItem *ptable_widget_item = new QTableWidgetItem(QString("%1").arg(iter->maxChnNum));
-            //ptable_widget_item->setIcon(QIcon(QPixmap(QString::fromUtf8(":/image/msg_error.png"))));
-            //ui->tableWidget_srh->setItem(line, 3, ptable_widget_item);
-            //ui->tableWidget_srh->item(0, 3);
+
+            ui->tableWidget_srh->insertRow(line);
+            setLineTableSrh(line, &*iter);
         }
+    }
+
+    if (ui->tableWidget_srh->rowCount() != 0)
+    {
+        ui->tableWidget_srh->verticalHeader()->show();
+        ui->tableWidget_srh->sortByColumn(2, Qt::AscendingOrder);
     }
 }
 
@@ -211,30 +315,6 @@ void page_dev_mgt::on_btn_info_clicked()
 {
 
 
-}
-
-void page_dev_mgt::cmbSrhChange(int index)
-{
-    ui->tableWidget_srh->setRowCount(0);
-    ui->tableWidget_srh->clearContents();
-}
-
-void page_dev_mgt::cmbAddChange(int index)
-{
-
-}
-
-void page_dev_mgt::tableWidgetSrhDBClicked(int row, int column)
-{
-    //ui->tableWidget_srh->setCurrentCell(row, column, QItemSelectionModel::Select);//设置该行为选中
-    ui->tableWidget_srh->selectRow(row);
-    DBG_PRINT("DoubleClicked row: %d, col: %d\n", row, column);
-}
-
-void page_dev_mgt::showEvent( QShowEvent * event )
-{
-    ui->tableWidget_srh->setRowCount(0);
-    ui->tableWidget_srh->clearContents();
 }
 
 void page_dev_mgt::on_btn_add_clicked()
@@ -265,5 +345,33 @@ void page_dev_mgt::on_btn_add_clicked()
 
     ui->tableWidget_dev->sortByColumn(2, Qt::AscendingOrder);
 }
+
+void page_dev_mgt::cmbSrhChange(int index)
+{
+    ui->tableWidget_srh->setRowCount(0);
+    ui->tableWidget_srh->clearContents();
+}
+
+void page_dev_mgt::cmbAddChange(int index)
+{
+
+}
+
+void page_dev_mgt::tableWidgetSrhDBClicked(int row, int column)
+{
+    //ui->tableWidget_srh->setCurrentCell(row, column, QItemSelectionModel::Select);//设置该行为选中
+    ui->tableWidget_srh->selectRow(row);
+    DBG_PRINT("DoubleClicked row: %d, col: %d\n", row, column);
+}
+
+
+
+void page_dev_mgt::showEvent( QShowEvent * event )
+{
+    ui->tableWidget_srh->setRowCount(0);
+    ui->tableWidget_srh->clearContents();
+}
+
+
 
 

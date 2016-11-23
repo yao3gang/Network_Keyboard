@@ -3,7 +3,7 @@
 Cbond *Cbond::_instance = 0;
 int Cbond::b_inited = 0;
 
-void Cbond::bondUpdateTime(SDateTime *pdt)
+void Cbond::bondNotifyUpdateTime(SDateTime *pdt)
 {
     SDateTime dt = *pdt;
 
@@ -13,9 +13,9 @@ void Cbond::bondUpdateTime(SDateTime *pdt)
     }
 }
 
-void Cbond::bondNotifyDevInfo(SGuiDev_t *pdev)
+void Cbond::bondNotifyDevInfo(SGuiDev *pdev)
 {
-	SGuiDev_t dev = *pdev;
+	SGuiDev dev = *pdev;
 	
 	if (b_inited)
     {
@@ -33,7 +33,7 @@ int notifyGuiUpdateTime(SDateTime *pdt)
     return 0;
 }
 
-int notifyDevInfo(SGuiDev_t *pdev)//设备层将信息通知给上层
+int notifyDevInfo(SGuiDev *pdev)//设备层将信息通知给上层
 {
 	gp_bond->bondNotifyDevInfo(pdev);
     return 0;

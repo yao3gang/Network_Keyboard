@@ -7,7 +7,9 @@
 #include <QMutex>
 
 #include "biz_config.h"
+#include "biz_device.h"
 #include "gui_dev.h"
+#include "bond.h"
 
 namespace Ui {
 class page_dev_mgt;
@@ -22,22 +24,25 @@ public:
     ~page_dev_mgt();
 
     int GetDevList(EM_DEV_TYPE dev_type, std::list<s32> &dev_ip_list);
-    int GetDevInfo(EM_DEV_TYPE dev_type, u32 ip, SGuiDev_t *p);
+    int GetDevInfo(EM_DEV_TYPE dev_type, u32 ip, SGuiDev *p);
 
 protected:
     void showEvent( QShowEvent * event );
 
 private slots:
     void on_btn_srh_clicked();
-    void cmbSrhChange(int index);
-    void cmbAddChange(int index);
-    void tableWidgetSrhDBClicked(int row, int column);
     void on_btn_add_clicked();
     void on_btn_info_clicked();
+    void cmbSrhChange(int index);
+    void cmbAddChange(int index);
+    void tableWidgetSrhDBClicked(int row, int column);    
+    void updateDevInfo(SGuiDev dev);
 
 private:
     void init_form();//控件
     void init_data();//设备信息
+    void setLineTableSrh(int line, const SBiz_DeviceInfo_t *pdev);
+    void setLineTableDev(int line, const SGuiDev *pdev);
 
 private:
     Ui::page_dev_mgt *ui;

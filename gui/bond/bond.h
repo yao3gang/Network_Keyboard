@@ -35,7 +35,7 @@ public:
     ~Cbond() {}
 
     void bondNotifyUpdateTime(SDateTime *pdt);
-	void bondNotifyDevInfo(SGuiDev_t *pdev);
+	void bondNotifyDevInfo(SGuiDev *pdev);
 
 public:
     static int b_inited;//main.cpp set
@@ -48,7 +48,7 @@ private:
 
 signals:
     void signalNotifyUpdateTime(SDateTime dt);
-	void signalNotifyDevInfo(SGuiDev_t dev);
+	void signalNotifyDevInfo(SGuiDev dev);
 };
 
 #define gp_bond (Cbond::Instance())
@@ -64,7 +64,7 @@ extern "C" {
 
 int notifyGuiUpdateTime(SDateTime *pdt);
 
-int notifyDevInfo(SGuiDev_t *pdev);//设备层将信息通知给上层
+int notifyDevInfo(SGuiDev *pdev); //设备层将信息通知给上层
 
 
 #ifdef __cplusplus

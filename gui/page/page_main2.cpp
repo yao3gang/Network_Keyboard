@@ -106,9 +106,6 @@ void page_main2::init_form() //init stackwidget
     qRegisterMetaType<SDateTime>("SDateTime");
     connect(gp_bond, SIGNAL(signalNotifyUpdateTime(SDateTime)), this, SLOT(update_time(SDateTime)), Qt::QueuedConnection);
 
-    qRegisterMetaType<SGuiDev_t>("SGuiDev_t");
-    connect(gp_bond, SIGNAL(signalNotifyDevInfo(SGuiDev_t)), this, SLOT(update_devinfo(SGuiDev_t)), Qt::QueuedConnection);
-
     ui->btn_tvWall->click();
 }
 

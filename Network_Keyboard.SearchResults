@@ -1,4 +1,4 @@
----- notifyGuiUpdateTime Matches (3 in 3 files) ----
-biz_system_complex.cpp (mid_logic\src):				notifyGuiUpdateTime(&dt);
-bond.cpp (gui\bond):int notifyGuiUpdateTime(SDateTime *pdt)
-bond.h (gui\bond):int notifyGuiUpdateTime(SDateTime *pdt);
+---- isSockIOErr Matches (3 in 3 files) ----
+biz_device.cpp (mid_logic\src):				if (isSockIOErr(fd_tmp)) //socket ³ö´í
+net.c (low_module\net\src):VD_BOOL isSockIOErr(int sock)
+net.h (low_module\net\inc):VD_BOOL isSockIOErr(int sock);

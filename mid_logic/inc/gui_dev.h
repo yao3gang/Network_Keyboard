@@ -4,7 +4,7 @@
 #include <map>
 #include "types.h"
 
-typedef struct SGuiDev
+typedef struct GuiDev
 {
     u8	maxChnNum;
     u8 	devicetype;
@@ -12,7 +12,7 @@ typedef struct SGuiDev
     u32	deviceIP;
     s32 dev_idx; //dev pool index
 
-    SGuiDev()
+    GuiDev()
     : maxChnNum(0)
     , devicetype(0)
     , b_alive(0)
@@ -21,8 +21,8 @@ typedef struct SGuiDev
     {
 
     }
-} SGuiDev_t;
+} SGuiDev;
 
-typedef std::map<u32, SGuiDev_t *> MAP_IP_DEV;   //IP需要 ntohl，好排序
+typedef std::map<u32, SGuiDev *> MAP_IP_DEV;   //IP需要 ntohl，好排序
 
 #endif // GUI_DEV_H
