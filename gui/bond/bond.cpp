@@ -3,7 +3,7 @@
 Cbond *Cbond::_instance = 0;
 int Cbond::b_inited = 0;
 
-void Cbond::bondNotifyUpdateTime(SDateTime *pdt)
+void Cbond::bondUpdateTime(SDateTime *pdt)
 {
     SDateTime dt = *pdt;
 
