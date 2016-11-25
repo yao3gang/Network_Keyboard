@@ -5,6 +5,7 @@
 
 #include <QWidget>
 #include <QMutex>
+#include <QStringList>
 
 #include "biz_config.h"
 #include "biz_device.h"
@@ -41,13 +42,14 @@ private slots:
 private:
     void init_form();//控件
     void init_data();//设备信息
-    void addLineTableSrh(int line, const SBiz_DeviceInfo_t *pdev); //搜索表 添加一行
-    void modifyLineTableDev(int line, const SGuiDev *pdev);
-    void addLineTableDev(int line, const SGuiDev *pdev);
+    void addRowTableSrh(int row, const SBiz_DeviceInfo_t *pdev); //搜索表 添加一行
+    void addRowTableDev(int row, const SGuiDev *pdev);
+    void modifyRowTableDev(int row, const SGuiDev *pdev);
+    int addDev(const SGuiDev *pdev);
 
 private:
     Ui::page_dev_mgt *ui;
-
+    bool b_inited;
     QMutex mutex;
     QStringList strlist_devtype;    
     MAP_IP_DEV map_nvr;

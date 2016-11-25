@@ -1,4 +1,4 @@
-#include "gui_dev.h"
+
 
 #include "api.h"
 #include "singleton.h"
@@ -81,6 +81,7 @@ public:
 	~CBizDeviceManager();
 	int GetDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip_list);//网络字节序
     int GetDevIdx(EM_DEV_TYPE dev_type, u32 dev_ip);
+	int GetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pdev);
 	int StartNotifyDevInfo();//使能通知。设备层将信息通知给上层
 	int AddDev(EM_DEV_TYPE dev_type, u32 dev_ip);
 	int DelDev(EM_DEV_TYPE dev_type, u32 dev_ip);	
@@ -685,6 +686,100 @@ fail:
 	
 	plock4param->Unlock();
 	return ret;
+}
+
+int CBizDeviceManager::GetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pgdev)
+{
+	MAP_IP_IDX *pmap = NULL;
+	MAP_IP_IDX::iterator map_iter;
+	CBizDevice *pcdev = NULL;
+	std::string str_dev_type;
+	s32 dev_idx;
+	int ret = -FAILURE;
+	u32 ip_le = ntohl(dev_ip);
+	struct in_addr in;
+	in.s_addr = dev_ip;
+
+	if (!b_inited)
+	{
+		ERR_PRINT("module not init\n");
+		return -FAILURE;
+	}
+	
+	if (plock4param->Rdlock())
+	{
+		ERR_PRINT("Rdlock failed\n");
+		return -FAILURE;
+	}
+	
+	switch (dev_type)
+	{
+		case EM_NVR:
+			pmap = &map_nvr;
+			str_dev_type = "EM_NVR";
+			break;
+			
+		case EM_PATROL_DEC:
+			pmap = &map_patrol_dec;
+			str_dev_type = "EM_PATROL_DEC";
+			break;
+			
+		case EM_SWITCH_DEC:
+			pmap = &map_switch_dec;
+			str_dev_type = "EM_SWITCH_DEC";
+			break;
+
+		default:
+			ERR_PRINT("dev_type%d exception\n", dev_type);
+			ret = -EPARAM;
+			goto fail;
+	}
+
+	map_iter = pmap->find(ip_le);
+	if (map_iter == pmap->end())
+	{
+		ERR_PRINT("%s map not found IP(%s) failed\n", str_dev_type.c_str(), inet_ntoa(in));
+		ret = -EDEV_NOTFOUND;
+		goto fail;
+	}
+
+	dev_idx = map_iter->second;
+	if ((dev_idx < 0) || (dev_idx >= pool_size))
+	{
+		ERR_PRINT("%s dev(%s) idx(%d) out of range, pool_size: %d\n", 
+			str_dev_type.c_str(), inet_ntoa(in), dev_idx, pool_size);
+		
+		ret = -EDEV_NOTFOUND;
+		goto fail;
+	}
+
+	pplock_dev[dev_idx]->Lock();
+	
+	pcdev = ppcdev[dev_idx];
+	if (NULL == pcdev)
+	{	
+		ERR_PRINT("IP(%s) pdev == NULL\n", inet_ntoa(in));
+		
+		pplock_dev[dev_idx]->Unlock();
+		ret = -EDEV_NOTFOUND;
+		goto fail;		
+	}
+
+	pgdev->b_alive = pcdev->b_alive;
+	pgdev->devicetype = pcdev->dev_info.devicetype;
+	pgdev->deviceIP= pcdev->dev_info.deviceIP;
+	pgdev->maxChnNum= pcdev->dev_info.maxChnNum;
+	pgdev->dev_idx= pcdev->dev_idx;	
+
+	pplock_dev[dev_idx]->Unlock();	
+	plock4param->Unlock();
+	return SUCCESS;
+
+fail:
+	
+	plock4param->Unlock();
+	return ret;
+
 }
 
 int CBizDeviceManager::StartNotifyDevInfo()//使能通知。设备层将信息通知给上层
@@ -1300,7 +1395,7 @@ void CBizDeviceManager::_SplitDevFromMap(EM_DEV_TYPE dev_type,
 
 		if ((dev_idx < 0) || (dev_idx >= pool_size))
 		{
-			DBG_PRINT("%s dev(%s) idx(%d) out of range, pool_size: %d\n", 
+			ERR_PRINT("%s dev(%s) idx(%d) out of range, pool_size: %d\n", 
 				str_dev_type.c_str(), inet_ntoa(in), dev_idx, pool_size);
 			
 			continue;
@@ -3140,6 +3235,11 @@ int BizGetDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip_list)//网络字节
 int BizGetDevIdx(EM_DEV_TYPE dev_type, u32 dev_ip)
 {
 	return g_biz_device_manager.GetDevIdx(dev_type, dev_ip);
+}
+
+int BizGetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pdev)
+{
+	return g_biz_device_manager.GetDevInfo(dev_type, dev_ip, pdev);
 }
 
 int BizStartNotifyDevInfo(void)	//使能通知。设备层将信息通知给上层

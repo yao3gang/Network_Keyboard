@@ -14,7 +14,7 @@
 #include "cthread.h"
 #include "biz_config.h"
 #include "biz_remote_stream_define.h"
-
+#include "gui_dev.h"
 
 
 //设备信息
@@ -139,6 +139,7 @@ int BizAddDev(EM_DEV_TYPE dev_type, u32 dev_ip);
 int BizDelDev(EM_DEV_TYPE dev_type, u32 dev_ip);
 int BizGetDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip_list);//网络字节序
 int BizGetDevIdx(EM_DEV_TYPE dev_type, u32 dev_ip);
+int BizGetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pdev);
 int BizStartNotifyDevInfo();//使能通知。设备层将信息通知给上层
 
 
