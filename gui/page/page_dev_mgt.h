@@ -41,8 +41,9 @@ private slots:
 private:
     void init_form();//控件
     void init_data();//设备信息
-    void setLineTableSrh(int line, const SBiz_DeviceInfo_t *pdev);
-    void setLineTableDev(int line, const SGuiDev *pdev);
+    void addLineTableSrh(int line, const SBiz_DeviceInfo_t *pdev); //搜索表 添加一行
+    void modifyLineTableDev(int line, const SGuiDev *pdev);
+    void addLineTableDev(int line, const SGuiDev *pdev);
 
 private:
     Ui::page_dev_mgt *ui;

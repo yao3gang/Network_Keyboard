@@ -141,26 +141,96 @@ void page_dev_mgt::init_data()//设备信息
     }
 }
 
-void page_dev_mgt::setLineTableSrh(int line, const SBiz_DeviceInfo_t *pdev)
+void page_dev_mgt::addLineTableSrh(int line, const SBiz_DeviceInfo_t *pdev)
 {
     struct in_addr in;
     in.s_addr = pdev->deviceIP;
 
-    QTableWidgetItem *pitem = new QTableWidgetItem;
+    ui->tableWidget_srh->insertRow(line);//添加一个空行，此时item(line, x)返回 NULL
+
+    QTableWidgetItem *ptable_widget_item = new QTableWidgetItem;
     pitem->setCheckState(Qt::Unchecked);
-    ui->tableWidget_srh->setItem(line, 0, pitem);
+    ui->tableWidget_srh->setItem(line, 0, ptable_widget_item);
     ui->tableWidget_srh->setItem(line, 1, new QTableWidgetItem(strlist_devtype.at(pdev->devicetype-1)));
     ui->tableWidget_srh->setItem(line, 2, new QTableWidgetItem(QString(inet_ntoa(in))));
     ui->tableWidget_srh->setItem(line, 3, new QTableWidgetItem(QString("%1").arg(pdev->maxChnNum)));
     //QTableWidgetItem *ptable_widget_item = new QTableWidgetItem(QString("%1").arg(iter->maxChnNum));
-    //ptable_widget_item->setIcon(QIcon(QPixmap(QString::fromUtf8(":/image/msg_error.png"))));
+    //ptable_widget_item->setIcon(QIcon(QPixmap(QString::fromUtf8(":/image/msg_error.png"))));msg_info.png
     //ui->tableWidget_srh->setItem(line, 3, ptable_widget_item);
     //ui->tableWidget_srh->item(0, 3);
 }
 
-void page_dev_mgt::setLineTableDev(int line, const SGuiDev *pdev)
+void page_dev_mgt::addLineTableDev(int line, const SGuiDev *pdev)
 {
+    struct in_addr in;
+    in.s_addr = pdev->deviceIP;
 
+    ui->tableWidget_srh->insertRow(line);//添加一个空行，此时item(line, x)返回 NULL
+
+    QTableWidgetItem *ptable_widget_item = new QTableWidgetItem;
+    pitem->setCheckState(Qt::Unchecked);
+    ui->tableWidget_srh->setItem(line, 0, ptable_widget_item);
+    ui->tableWidget_srh->setItem(line, 1, new QTableWidgetItem(strlist_devtype.at(pdev->devicetype-1)));
+    ui->tableWidget_srh->setItem(line, 2, new QTableWidgetItem(QString(inet_ntoa(in))));
+    ui->tableWidget_srh->setItem(line, 3, new QTableWidgetItem(QString("%1").arg(pdev->maxChnNum)));
+
+    ptable_widget_item = new QTableWidgetItem;
+    if (pdev->b_alive)//online
+    {
+        ptable_widget_item->setIcon(QIcon(QPixmap(QString::fromUtf8(":/image/msg_info.png"))));
+    }
+    else//offline
+    {
+        ptable_widget_item->setIcon(QIcon(QPixmap(QString::fromUtf8(":/image/msg_error.png"))));
+    }
+    ui->tableWidget_srh->setItem(line, 4, ptable_widget_item);
+}
+
+void page_dev_mgt::modifyLineTableDev(int line, const SGuiDev *pdev)
+{
+    struct in_addr in;
+    QTableWidgetItem *ptable_widget_item = NULL;
+
+    in.s_addr = pdev->deviceIP;
+    QString ip_qstr(inet_ntoa(in));
+
+    ptable_widget_item = ui->tableWidget_dev->item(line, 2);//ip
+    if (NULL == ptable_widget_item)
+    {
+        ERR_PRINT("line: %d, col: %d, item == NULL\n", line, 2);
+        return;
+    }
+
+    if (ip_qstr != ptable_widget_item->text())
+    {
+        ERR_PRINT("line: %d, dev ip(%s) != ptable_widget_item(%s)\n", \
+                  line, ip_qstr.toUtf8().constData(), ptable_widget_item->text().toUtf8().constData());
+        return;
+    }
+
+    ptable_widget_item = ui->tableWidget_dev->item(line, 3);//dev chn
+    if (NULL == ptable_widget_item)
+    {
+        ERR_PRINT("line: %d, col: %d, item == NULL\n", line, 3);
+        return;
+    }
+    ptable_widget_item->setText(QString("%1").arg(pdev->maxChnNum));
+
+    ptable_widget_item = ui->tableWidget_dev->item(line, 4);//link status
+    if (NULL == ptable_widget_item)
+    {
+        ERR_PRINT("line: %d, col: %d, item == NULL\n", line, 4);
+        return;
+    }
+
+    if (pdev->b_alive)//online
+    {
+        ptable_widget_item->setIcon(QIcon(QPixmap(QString::fromUtf8(":/image/msg_info.png"))));
+    }
+    else//offline
+    {
+        ptable_widget_item->setIcon(QIcon(QPixmap(QString::fromUtf8(":/image/msg_error.png"))));
+    }
 }
 
 void page_dev_mgt::updateDevInfo(SGuiDev dev)
@@ -175,8 +245,7 @@ void page_dev_mgt::updateDevInfo(SGuiDev dev)
     struct in_addr in;
 
     in.s_addr = dev.deviceIP;
-    QString ip_qstr(inet_ntoa(in));
-
+    DBG_PRINT("dev type: %d, ip: %s\n", dev_type, inet_ntoa(in));
 
     QMutexLocker locker(&mutex);
 
@@ -201,9 +270,10 @@ void page_dev_mgt::updateDevInfo(SGuiDev dev)
 
     //iter = pmap->find(ip_le);
     //if (iter != pmap->end())
+    //查找对应ip的设备行号
     for (index = 0, iter = pmap->begin(); iter != pmap->end(); ++index, ++iter)
     {
-        if (iter->first != ip_le)//确定排序后的序号，下面改变tableWidget_dev的index行
+        if (iter->first != ip_le)//确定排序后的行号，下面改变tableWidget_dev的index行中单元格
         {
             continue;
         }
@@ -223,19 +293,13 @@ void page_dev_mgt::updateDevInfo(SGuiDev dev)
 
         pdev->maxChnNum = dev.maxChnNum;
 
-        if (pdev->b_alive != dev.b_alive)
+        if (pdev->b_alive != dev.b_alive)//在线状态发生改变
         {
-            if (ui->cmb_added_type->currentIndex() == dev.devicetype-1)//当前正在显示该类型的所有设备，需要改变界面控件
+            pdev->b_alive = dev.b_alive;
+
+            if (ui->cmb_added_type->currentIndex() == pdev->devicetype-1)//当前正在显示该类型的设备，需要改变界面控件
             {
-                ptable_widget_item = ui->tableWidget_dev->item(index, 0);
-                if (ip_qstr != ptable_widget_item->text())
-                {
-                    ERR_PRINT("index: %d, dev ip(%s) != ptable_widget_item(%s)\n", \
-                              index, ip_qstr.toUtf8().constData(), ptable_widget_item->text().toUtf8().constData());
-                    return;
-                }
-
-
+                modifyLineTableDev(index, pdev);
             }
         }
     }
@@ -299,8 +363,8 @@ void page_dev_mgt::on_btn_srh_clicked()
                       line,
                       inet_ntoa(in));
 
-            ui->tableWidget_srh->insertRow(line);
-            setLineTableSrh(line, &*iter);
+
+            addLineTableSrh(line, &*iter);
         }
     }
 
@@ -322,9 +386,9 @@ void page_dev_mgt::on_btn_add_clicked()
     //DBG_PRINT("currentRow: %d\n", ui->tableWidget_srh->currentRow());
     //ui->tableWidget_srh->clearSelection();//取消选中状态
     //DBG_PRINT("rowCount: %d\n", ui->tableWidget_srh->rowCount());
-    u32 srh_row = ui->tableWidget_srh->rowCount();
-    u32 add_row = 0;
-    u32 i=0;
+    int srh_row = ui->tableWidget_srh->rowCount();
+    int add_row = 0;
+    int i=0;
 
     for (i=0; i<srh_row; ++i)//扫描搜索表格所有行
     {
