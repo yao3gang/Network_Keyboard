@@ -26,12 +26,12 @@ typedef struct DeviceInfo_t
 	u32	deviceIP; 		//…Ë±∏IP  
 	bool operator==(const DeviceInfo_t &a) const
 	{
-		return a.deviceIP == deviceIP;
+		return deviceIP == a.deviceIP;
 	}
 
 	bool operator!=(const DeviceInfo_t &a) const
 	{
-		return a.deviceIP != deviceIP;
+		return deviceIP != a.deviceIP;
 	}
 
 	bool operator<(const DeviceInfo_t &a) const
@@ -41,10 +41,10 @@ typedef struct DeviceInfo_t
 
 	DeviceInfo_t& operator=(const DeviceInfo_t &a)
 	{
-		maxChnNum = maxChnNum;
-		devicetype = devicetype;
-		devicePort = devicePort;
-		deviceIP = deviceIP;
+		maxChnNum = a.maxChnNum;
+		devicetype = a.devicetype;
+		devicePort = a.devicePort;
+		deviceIP = a.deviceIP;
 		return *this;
 	}
 	

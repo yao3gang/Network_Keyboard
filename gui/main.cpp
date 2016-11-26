@@ -84,6 +84,8 @@ int main(int argc, char *argv[])
     }
     qDebug("BizInit success\n");
 
+    sleep(5);
+
     //应用层初始化
     QApplication app(argc, argv);
     QWSServer::setBackground(QColor(0, 0, 0, 0));
