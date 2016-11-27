@@ -40,13 +40,13 @@ int main(void)
 	
 	BizInit();
 
-	BizDelDev(EM_NVR, 4244744384);
+	BizAddDev(EM_NVR, 4244744384);
 	sleep(3);
 	//printf("\n\n\n\n");
 	//BizPreviewInit();
 	//BizPreviewStart((u32)4244744384, 1, 1);//chn1 main-stream
 
-	//sleep(3);
+	sleep(3);
 
 	//BizPreviewStop();
 
