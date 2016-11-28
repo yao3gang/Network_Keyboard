@@ -650,6 +650,7 @@ void page_dev_mgt::cmbAddChange(int index)
     }
 }
 
+//双击
 void page_dev_mgt::tableWidgetSrhDBClicked(int row, int column)
 {
     //ui->tableWidget_srh->setCurrentCell(row, column, QItemSelectionModel::Select);//设置该行为选中
