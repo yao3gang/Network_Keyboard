@@ -63,17 +63,16 @@ void page_dev_mgt::init_form()//控件
     connect(ui->cmb_srh_type, SIGNAL(currentIndexChanged(int)), this, SLOT(cmbSrhChange(int)));
     connect(ui->cmb_added_type, SIGNAL(currentIndexChanged(int)), this, SLOT(cmbAddChange(int)));
     connect(ui->tableWidget_srh, SIGNAL(cellDoubleClicked(int, int)), this, SLOT(tableWidgetSrhDBClicked(int, int)));
+    connect(ui->tableWidget_dev, SIGNAL(cellDoubleClicked(int, int)), this, SLOT(tableWidgetDevDBClicked(int, int)));
 }
 
 void page_dev_mgt::init_data()//初始化设备信息
 {
-    int i, row;
     int dev_type;
     struct in_addr in;
     std::list<u32> dev_ip_list;
     std::list<u32>::iterator iter;
     MAP_IP_DEV *pmap = NULL;
-    MAP_IP_DEV::iterator map_iter;
     SGuiDev *pdev = NULL;
 
     QMutexLocker locker(&mutex);
@@ -81,35 +80,16 @@ void page_dev_mgt::init_data()//初始化设备信息
     qRegisterMetaType<SGuiDev>("SGuiDev");
     connect(gp_bond, SIGNAL(signalNotifyDevInfo(SGuiDev)), this, SLOT(updateDevInfo(SGuiDev)), Qt::QueuedConnection);
 
-    BizStartNotifyDevInfo();//让 biz dev模块开始上传设备信息
+    //BizStartNotifyDevInfo();//让 biz dev模块开始上传设备信息
 
-    for (i=0; EM_NVR+i < EM_DEV_TYPE_MAX; ++i)
+    for (dev_type = EM_NVR; dev_type < EM_DEV_TYPE_MAX; ++dev_type)
     {
-        dev_type = EM_NVR+i;
         dev_ip_list.clear();
+        pmap = &map_dev[dev_type-EM_NVR];
 
         if (BizGetDevIPList((EM_DEV_TYPE)dev_type, dev_ip_list))
         {
             ERR_PRINT("BizGetDevIPList failed, dev type:%d\n", dev_type);
-            return;
-        }
-
-        switch (dev_type)
-        {
-        case EM_NVR:
-            pmap = &map_nvr;
-            break;
-
-        case EM_PATROL_DEC:
-            pmap = &map_patrol_dec;
-            break;
-
-        case EM_SWITCH_DEC:
-            pmap = &map_switch_dec;
-            break;
-
-        default:
-            ERR_PRINT("dev_type%d exception\n", dev_type);
             return;
         }
 
@@ -128,48 +108,79 @@ void page_dev_mgt::init_data()//初始化设备信息
                 return;
             }
 
-            if (BizGetDevInfo((EM_DEV_TYPE)dev_type, *iter, pdev))
-            {
-                ERR_PRINT("BizGetDevInfo failed, ip: %s\n", inet_ntoa(in));
-                return;
-            }
+            pdev->devicetype = dev_type;
+            pdev->deviceIP = *iter;
 
             if (!pmap->insert(std::make_pair(ntohl(*iter), pdev)).second)
             {
+                delete pdev;
+                pdev = NULL;
+
                 ERR_PRINT("map insert failed, ip: %s\n", inet_ntoa(in));
-                return;
+                continue;
             }
         }
     }
+}
 
-    //填充 tableWidget_dev
-    dev_type = EM_NVR + ui->cmb_added_type->currentIndex();
-    //DBG_PRINT("cmb_added_type: %d\n", dev_type);
-    switch (dev_type)
+void page_dev_mgt::syncAllDevInfo()
+{
+    int dev_type = 0;
+    struct in_addr in;
+    MAP_IP_DEV *pmap = NULL;
+    MAP_IP_DEV::iterator map_iter;
+    SGuiDev *pdev = NULL;
+
+    QMutexLocker locker(&mutex);
+
+    for (dev_type = EM_NVR; dev_type < EM_DEV_TYPE_MAX; ++dev_type)
     {
-    case EM_NVR:
-        pmap = &map_nvr;
-        break;
+        pmap = &map_dev[dev_type-EM_NVR];
 
-    case EM_PATROL_DEC:
-        pmap = &map_patrol_dec;
-        break;
+        for (map_iter = pmap->begin(); map_iter != pmap->end(); ++map_iter)
+        {
+            pdev = map_iter->second;
+            in.s_addr = pdev->deviceIP;
 
-    case EM_SWITCH_DEC:
-        pmap = &map_switch_dec;
-        break;
+            if (BizGetDevInfo((EM_DEV_TYPE)dev_type, pdev->deviceIP, pdev))
+            {
+                ERR_PRINT("BizGetDevInfo failed, ip: %s\n", inet_ntoa(in));
+            }
+        }
+    }
+}
 
-    default:
-        ERR_PRINT("dev_type%d cmb_added_type exception\n", dev_type);
+void page_dev_mgt::showEvent( QShowEvent * event )
+{
+    int dev_type = 0;
+    int row = 0;
+    struct in_addr in;
+    MAP_IP_DEV *pmap = NULL;
+    MAP_IP_DEV::iterator map_iter;
+
+    QMutexLocker locker(&mutex);
+
+    ui->tableWidget_srh->clearContents();
+    ui->tableWidget_srh->setRowCount(0);
+
+    ui->tableWidget_dev->clearContents();
+    ui->tableWidget_dev->setRowCount(0);
+
+    //flash tableWidget_dev
+    dev_type = EM_NVR + ui->cmb_added_type->currentIndex();
+    if (dev_type >= EM_DEV_TYPE_MAX)
+    {
+        ERR_PRINT("dev_type(%d) >= EM_DEV_TYPE_MAX\n", dev_type);
         return;
     }
+    pmap = &map_dev[dev_type-EM_NVR];
 
     for (row = 0, map_iter = pmap->begin();
          map_iter != pmap->end();
          ++row, ++map_iter)
     {
-        //in.s_addr = ntohl(map_iter->first);
-        //DBG_PRINT("addRowTableDev type: %d, ip: %s\n", map_iter->second->devicetype, inet_ntoa(in));
+        in.s_addr = ntohl(map_iter->first);
+        DBG_PRINT("addRowTableDev type: %d, ip: %s\n", map_iter->second->devicetype, inet_ntoa(in));
         addRowTableDev(row, map_iter->second);
     }
 }
@@ -284,28 +295,16 @@ int page_dev_mgt::addDev(SGuiDev *pdev)
     if (ret)
     {
         DBG_PRINT("BizAddDev failed, ret: %d, ip: %s\n", ret, inet_ntoa(in));
-        return 0;
+        return ret;
     }
 
-    //add to MAP_IP_DEV
-    switch (dev_type)
+    if (dev_type >= EM_DEV_TYPE_MAX)
     {
-    case EM_NVR:
-        pmap = &map_nvr;
-        break;
-
-    case EM_PATROL_DEC:
-        pmap = &map_patrol_dec;
-        break;
-
-    case EM_SWITCH_DEC:
-        pmap = &map_switch_dec;
-        break;
-
-    default:
-        ERR_PRINT("dev_type%d exception\n", dev_type);
-        return -FAILURE;
+        ERR_PRINT("dev_type(%d) >= EM_DEV_TYPE_MAX\n", dev_type);
+        return -EPARAM;
     }
+
+    pmap = &map_dev[dev_type-EM_NVR];
 
     //DBG_PRINT("currentIndex: %d\n", ui->cmb_added_type->currentIndex());
     //DBG_PRINT("devicetype: %d\n", pdev->devicetype);
@@ -332,7 +331,7 @@ int page_dev_mgt::addDev(SGuiDev *pdev)
     if (!pmap->insert(std::make_pair(ip_le, pdev)).second)
     {
         ERR_PRINT("map insert failed, ip: %s\n", inet_ntoa(in));
-        return -FAILURE;
+        return -EIP_CONFLICT;
     }
 
     return SUCCESS;
@@ -340,7 +339,6 @@ int page_dev_mgt::addDev(SGuiDev *pdev)
 
 void page_dev_mgt::updateDevInfo(SGuiDev dev)
 {
-    QTableWidgetItem *ptable_widget_item = NULL;
     MAP_IP_DEV *pmap = NULL;
     MAP_IP_DEV::iterator iter;
     SGuiDev *pdev = NULL;
@@ -354,24 +352,13 @@ void page_dev_mgt::updateDevInfo(SGuiDev dev)
 
     QMutexLocker locker(&mutex);
 
-    switch (dev_type)
+    if (dev_type >= EM_DEV_TYPE_MAX)
     {
-    case EM_NVR:
-        pmap = &map_nvr;
-        break;
-
-    case EM_PATROL_DEC:
-        pmap = &map_patrol_dec;
-        break;
-
-    case EM_SWITCH_DEC:
-        pmap = &map_switch_dec;
-        break;
-
-    default:
-        ERR_PRINT("dev_type%d exception\n", dev_type);
+        ERR_PRINT("dev_type(%d) >= EM_DEV_TYPE_MAX\n", dev_type);
         return;
     }
+
+    pmap = &map_dev[dev_type-EM_NVR];
 
     //iter = pmap->find(ip_le);
     //if (iter != pmap->end())
@@ -418,7 +405,7 @@ void page_dev_mgt::updateDevInfo(SGuiDev dev)
         {
             pdev->b_alive = dev.b_alive;
 
-            if (ui->cmb_added_type->currentIndex() == pdev->devicetype-1)//当前正在显示该类型的设备，需要改变界面控件
+            if ((isVisible()) && (ui->cmb_added_type->currentIndex() == pdev->devicetype-1))//当前正在显示该类型的设备，需要改变界面控件
             {
                 modifyRowTableDev(row, pdev);
             }
@@ -503,12 +490,12 @@ void page_dev_mgt::on_btn_info_clicked()
 void page_dev_mgt::on_btn_del_clicked()
 {
     MAP_IP_DEV *pmap = NULL;
-    MAP_IP_DEV::iterator iter;
+    MAP_IP_DEV::iterator map_iter;
     QString qstr;
     struct in_addr in;
     u32 dev_ip = 0;
     int dev_index = 0;
-    int devicetype = 0;
+    int dev_type = 0;
     int row = 0;
     int ret = SUCCESS;
     SGuiDev *pdev = NULL;
@@ -528,7 +515,13 @@ void page_dev_mgt::on_btn_del_clicked()
                 ERR_PRINT("dev type indexOf failed, row: %d\n", row);
                 goto next_row;
             }
-            devicetype = EM_NVR + dev_index;
+
+            dev_type = EM_NVR + dev_index;
+            if (dev_type >= EM_DEV_TYPE_MAX)
+            {
+                ERR_PRINT("dev_type(%d) >= EM_DEV_TYPE_MAX\n", dev_type);
+                goto next_row;
+            }
 
             //dev ip
             qstr = ui->tableWidget_dev->item(row, 2)->text();
@@ -541,7 +534,7 @@ void page_dev_mgt::on_btn_del_clicked()
             in.s_addr = dev_ip;
             DBG_PRINT("delete dev %s row: %d\n", inet_ntoa(in), row);
 
-            ret = BizDelDev(EM_DEV_TYPE(devicetype), dev_ip);
+            ret = BizDelDev(EM_DEV_TYPE(dev_type), dev_ip);
             if (ret)
             {
                 ERR_PRINT("BizDelDev failed, ret: %d, ip: %s\n", ret, inet_ntoa(in));
@@ -549,41 +542,24 @@ void page_dev_mgt::on_btn_del_clicked()
             }
 
             //map delete
-            switch (devicetype)
+            pmap = &map_dev[dev_type-EM_NVR];
+
+            map_iter = pmap->find(ntohl(dev_ip));
+            if (map_iter == pmap->end())
             {
-            case EM_NVR:
-                pmap = &map_nvr;
-                break;
-
-            case EM_PATROL_DEC:
-                pmap = &map_patrol_dec;
-                break;
-
-            case EM_SWITCH_DEC:
-                pmap = &map_switch_dec;
-                break;
-
-            default:
-                ERR_PRINT("dev_type%d exception\n", devicetype);
-                return;
-            }
-
-            iter = pmap->find(ntohl(dev_ip));
-            if (iter == pmap->end())
-            {
-                ERR_PRINT("map not found IP(%s) failed, dev type: %d\n", inet_ntoa(in), devicetype);
+                ERR_PRINT("map not found IP(%s) failed, dev type: %d\n", inet_ntoa(in), dev_type);
                 goto next_row;
             }
 
-            pdev = iter->second;
+            pdev = map_iter->second;
             delete pdev;
             pdev = NULL;
 
-            pmap->erase(iter);
+            pmap->erase(map_iter);
 
             //ui delete
             ui->tableWidget_dev->removeRow(row);
-            DBG_PRINT("delete dev success, ip: %s, dev type: %d\n", inet_ntoa(in), devicetype);
+            DBG_PRINT("delete dev success, ip: %s, dev type: %d\n", inet_ntoa(in), dev_type);
             continue;
         }
 
@@ -595,7 +571,6 @@ next_row:
 void page_dev_mgt::on_btn_add_clicked()
 {
     int i=0;
-    int add_row = 0;
     int srh_row = ui->tableWidget_srh->rowCount();
     SGuiDev *pdev = NULL;
     QString qstr;
@@ -672,30 +647,73 @@ void page_dev_mgt::on_btn_add_clicked()
 
 void page_dev_mgt::cmbSrhChange(int index)
 {
-    ui->tableWidget_srh->setRowCount(0);
     ui->tableWidget_srh->clearContents();
+    ui->tableWidget_srh->setRowCount(0);
 }
 
 void page_dev_mgt::cmbAddChange(int index)
 {
+    int dev_type = 0;
+    int row = 0;
+    struct in_addr in;
+    MAP_IP_DEV *pmap = NULL;
+    MAP_IP_DEV::iterator map_iter;
 
+    ui->tableWidget_dev->clearContents();
+    ui->tableWidget_dev->setRowCount(0);
+
+    QMutexLocker locker(&mutex);
+
+    //flash tableWidget_dev
+    dev_type = EM_NVR + index;
+    if (dev_type >= EM_DEV_TYPE_MAX)
+    {
+        ERR_PRINT("dev_type(%d) >= EM_DEV_TYPE_MAX\n", dev_type);
+        return;
+    }
+    pmap = &map_dev[dev_type-EM_NVR];
+
+    for (row = 0, map_iter = pmap->begin();
+         map_iter != pmap->end();
+         ++row, ++map_iter)
+    {
+        in.s_addr = ntohl(map_iter->first);
+        DBG_PRINT("addRowTableDev type: %d, ip: %s\n", map_iter->second->devicetype, inet_ntoa(in));
+        addRowTableDev(row, map_iter->second);
+    }
 }
 
 void page_dev_mgt::tableWidgetSrhDBClicked(int row, int column)
 {
     //ui->tableWidget_srh->setCurrentCell(row, column, QItemSelectionModel::Select);//设置该行为选中
-    ui->tableWidget_srh->selectRow(row);
-    DBG_PRINT("DoubleClicked row: %d, col: %d\n", row, column);
+    //ui->tableWidget_srh->selectRow(row);
+    //DBG_PRINT("DoubleClicked row: %d, col: %d\n", row, column);
+    QTableWidgetItem *ptable_widget_item = ui->tableWidget_srh->item(row, 0);
+    if (ptable_widget_item->checkState())
+    {
+        ptable_widget_item->setCheckState(Qt::Unchecked);
+    }
+    else
+    {
+        ptable_widget_item->setCheckState(Qt::Checked);
+    }
 }
 
-
-
-void page_dev_mgt::showEvent( QShowEvent * event )
+void page_dev_mgt::tableWidgetDevDBClicked(int row, int column)
 {
-    ui->tableWidget_srh->setRowCount(0);
-    ui->tableWidget_srh->clearContents();
+    //ui->tableWidget_srh->setCurrentCell(row, column, QItemSelectionModel::Select);//设置该行为选中
+    //ui->tableWidget_srh->selectRow(row);
+    //DBG_PRINT("DoubleClicked row: %d, col: %d\n", row, column);
+    QTableWidgetItem *ptable_widget_item = ui->tableWidget_dev->item(row, 0);
+    if (ptable_widget_item->checkState())
+    {
+        ptable_widget_item->setCheckState(Qt::Unchecked);
+    }
+    else
+    {
+        ptable_widget_item->setCheckState(Qt::Checked);
+    }
 }
-
 
 
 

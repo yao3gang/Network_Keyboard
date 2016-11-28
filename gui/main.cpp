@@ -15,6 +15,7 @@
 
 #include "appdef.h"
 #include "page_manager.h"
+#include "page_dev_mgt.h"
 #include "page_main.h"
 #include "page_main2.h"
 #include "frminput.h"
@@ -84,7 +85,7 @@ int main(int argc, char *argv[])
     }
     qDebug("BizInit success\n");
 
-    sleep(5);
+    //sleep(5);
 
     //应用层初始化
     QApplication app(argc, argv);
@@ -124,9 +125,13 @@ int main(int argc, char *argv[])
     frmInput::Instance()->Init("control", "black", FontSize + 1, FontSize);
     page_main2 w;
     w.show();
-
     registerPage(PAGE_MAIN, &w);
-    Cbond::b_inited = 1;//初始化完成
+
+    gp_bond->guiEnableRcvNotify();//初始化完成，是能接收下层通知信息
+
+    //同步所有设备信息
+    page_dev_mgt * page_dev = (page_dev_mgt *)getPage(PAGE_DEV_MGT);
+    page_dev->syncAllDevInfo();
 
     return app.exec();
 }

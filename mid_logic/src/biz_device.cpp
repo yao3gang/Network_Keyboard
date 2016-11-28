@@ -119,7 +119,7 @@ private:
 	
 private:
 	VD_BOOL b_inited;
-	VD_BOOL b_notify_devinfo;
+	//VD_BOOL b_notify_devinfo;
 	/*
 	//设备管理
 	//内层
@@ -169,7 +169,7 @@ PATTERN_SINGLETON_IMPLEMENT(CBizDeviceManager);
 ********************************************************************/
 CBizDeviceManager::CBizDeviceManager()
 : b_inited(FALSE)
-, b_notify_devinfo(FALSE)
+//, b_notify_devinfo(FALSE)
 , plock_dev_pool(NULL)
 , pplock_dev(NULL)
 , ppcdev(NULL)
@@ -792,7 +792,7 @@ int CBizDeviceManager::StartNotifyDevInfo()//使能通知。设备层将信息通知给上层
 		return -FAILURE;
 	}
 	
-	b_notify_devinfo = TRUE;
+	//b_notify_devinfo = TRUE;
 
 	plock4param->Unlock();
 
@@ -2033,14 +2033,17 @@ void CBizDeviceManager::timerFuncReconnect(uint param)
 					DBG_PRINT("svr(%s) connect success\n", inet_ntoa(in));
 					
 					//通知设备在线
-					memset(&gdev, 0, sizeof(gdev));
-					gdev.b_alive = pcdev->b_alive;
-					gdev.devicetype = pcdev->dev_info.devicetype;
-					gdev.deviceIP= pcdev->dev_info.deviceIP;
-					gdev.maxChnNum= pcdev->dev_info.maxChnNum;
-					gdev.dev_idx= pcdev->dev_idx;
-					
-					notifyDevInfo(&gdev);
+					//if (b_notify_devinfo)
+					{
+						memset(&gdev, 0, sizeof(gdev));
+						gdev.b_alive = pcdev->b_alive;
+						gdev.devicetype = pcdev->dev_info.devicetype;
+						gdev.deviceIP= pcdev->dev_info.deviceIP;
+						gdev.maxChnNum= pcdev->dev_info.maxChnNum;
+						gdev.dev_idx= pcdev->dev_idx;
+						
+						notifyDevInfo(&gdev);
+					}
 				}
 				
 remove:
@@ -2270,15 +2273,18 @@ void CBizDeviceManager::threadKeepAlive(uint param)
 				if (b_dev_offline)
 				{
 					b_dev_offline = FALSE;
-					
-					memset(&gdev, 0, sizeof(gdev));
-					gdev.b_alive = pcdev->b_alive;
-					gdev.devicetype = pcdev->dev_info.devicetype;
-					gdev.deviceIP= pcdev->dev_info.deviceIP;
-					gdev.maxChnNum= pcdev->dev_info.maxChnNum;
-					gdev.dev_idx= pcdev->dev_idx;
-					
-					notifyDevInfo(&gdev);
+
+					//if (b_notify_devinfo)
+					{
+						memset(&gdev, 0, sizeof(gdev));
+						gdev.b_alive = pcdev->b_alive;
+						gdev.devicetype = pcdev->dev_info.devicetype;
+						gdev.deviceIP= pcdev->dev_info.deviceIP;
+						gdev.maxChnNum= pcdev->dev_info.maxChnNum;
+						gdev.dev_idx= pcdev->dev_idx;
+						
+						notifyDevInfo(&gdev);
+					}
 				}
 			}
 		}

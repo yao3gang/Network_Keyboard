@@ -1,13 +1,21 @@
 #include "bond.h"
 
-Cbond *Cbond::_instance = 0;
-int Cbond::b_inited = 0;
+QMutex Cbond::mutex;
+Cbond *Cbond::_instance = NULL;
+
+void Cbond::guiEnableRcvNotify()
+{
+	QMutexLocker locker(&mutex);
+	b_recv = true;
+}
 
 void Cbond::bondNotifyUpdateTime(SDateTime *pdt)
 {
     SDateTime dt = *pdt;
 
-    if (b_inited)
+	QMutexLocker locker(&mutex);
+	
+    if (b_recv)
     {
         emit signalNotifyUpdateTime(dt);
     }
@@ -16,8 +24,10 @@ void Cbond::bondNotifyUpdateTime(SDateTime *pdt)
 void Cbond::bondNotifyDevInfo(SGuiDev *pdev)
 {
 	SGuiDev dev = *pdev;
+
+	QMutexLocker locker(&mutex);
 	
-	if (b_inited)
+	if (b_recv)
     {
         emit signalNotifyDevInfo(dev);
     }

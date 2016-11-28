@@ -20,7 +20,7 @@ class Cbond: public QObject
 public:
     static Cbond *Instance()
     {
-        static QMutex mutex;
+        //static QMutex mutex;
         if (!_instance)
         {
             QMutexLocker locker(&mutex);
@@ -33,18 +33,19 @@ public:
     }
 
     ~Cbond() {}
-
+	void guiEnableRcvNotify();
     void bondNotifyUpdateTime(SDateTime *pdt);
 	void bondNotifyDevInfo(SGuiDev *pdev);
 
 public:
-    static int b_inited;//main.cpp set
+    bool b_recv;//main.cpp set
 
 private:
-    explicit Cbond(QObject *parent = 0) {}
+    explicit Cbond(QObject *parent = 0): b_recv(false){}
 
 private:
     static Cbond *_instance;
+	static QMutex mutex;
 
 signals:
     void signalNotifyUpdateTime(SDateTime dt);

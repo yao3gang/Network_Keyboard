@@ -1,4 +1,4 @@
----- notifyGuiUpdateTime Matches (3 in 3 files) ----
-biz_system_complex.cpp (mid_logic\src):				notifyGuiUpdateTime(&dt);
-bond.cpp (gui\bond):int notifyGuiUpdateTime(SDateTime *pdt)
-bond.h (gui\bond):int notifyGuiUpdateTime(SDateTime *pdt);
+---- b_notify_devinfo Matches (3 in 1 files) ----
+biz_device.cpp (mid_logic\src):	VD_BOOL b_notify_devinfo;
+biz_device.cpp (mid_logic\src):, b_notify_devinfo(FALSE)
+biz_device.cpp (mid_logic\src):	b_notify_devinfo = TRUE;

@@ -24,8 +24,9 @@ public:
     explicit page_dev_mgt(QWidget *parent = 0);
     ~page_dev_mgt();
 
-    int GetDevList(EM_DEV_TYPE dev_type, std::list<s32> &dev_ip_list);
-    int GetDevInfo(EM_DEV_TYPE dev_type, u32 ip, SGuiDev *p);
+    int getDevList(EM_DEV_TYPE dev_type, std::list<s32> &dev_ip_list);//同级其他模块调用
+    int getDevInfo(EM_DEV_TYPE dev_type, u32 ip, SGuiDev *p);//同级其他模块调用
+    void syncAllDevInfo();//从下层 BIZ_DEV 同步设备信息
 
 protected:
     void showEvent( QShowEvent * event );
@@ -37,7 +38,8 @@ private slots:
     void on_btn_del_clicked();
     void cmbSrhChange(int index);
     void cmbAddChange(int index);
-    void tableWidgetSrhDBClicked(int row, int column);    
+    void tableWidgetSrhDBClicked(int row, int column);
+    void tableWidgetDevDBClicked(int row, int column);
     void updateDevInfo(SGuiDev dev);
 
 private:
@@ -52,10 +54,11 @@ private:
     Ui::page_dev_mgt *ui;
     bool b_inited;
     QMutex mutex;
-    QStringList strlist_devtype;    
-    MAP_IP_DEV map_nvr;
-    MAP_IP_DEV map_patrol_dec;
-    MAP_IP_DEV map_switch_dec;
+    QStringList strlist_devtype;
+    MAP_IP_DEV map_dev[EM_DEV_TYPE_MAX - EM_NVR];
+    //MAP_IP_DEV map_nvr;
+    //MAP_IP_DEV map_patrol_dec;
+    //MAP_IP_DEV map_switch_dec;
 };
 
 #endif // PAGE_DEV_MGT_H
