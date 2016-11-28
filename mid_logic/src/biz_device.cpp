@@ -19,7 +19,6 @@
 #include "ctimer.h"
 #include "ctrlprotocol.h"
 #include "net.h"
-#include "bond.h"
 
 
 #include <stdio.h>
@@ -119,11 +118,15 @@ private:
 	
 private:
 	VD_BOOL b_inited;
+<<<<<<< HEAD
 	//VD_BOOL b_notify_devinfo;
 	/*
+=======
+	VD_BOOL b_notify_devinfo;
+
+>>>>>>> origin/master
 	//设备管理
 	//内层
-	*/
 	C_Lock *plock_dev_pool;//设备池
 	C_Lock **pplock_dev;
 	CBizDevice **ppcdev;
@@ -1763,7 +1766,6 @@ void CBizDeviceManager::timerFuncReconnect(uint param)
 	MAP_FD_IDX::iterator map_iter;	
 	CBizDevice *pcdev = NULL;
 	s32 dev_idx;
-	SGuiDev gdev;
 	
 	struct sockaddr_in svr_addr;
 	struct in_addr in;
@@ -2031,8 +2033,8 @@ void CBizDeviceManager::timerFuncReconnect(uint param)
 					pplock_dev[dev_idx]->Unlock();
 
 					DBG_PRINT("svr(%s) connect success\n", inet_ntoa(in));
-					
 					//通知设备在线
+<<<<<<< HEAD
 					//if (b_notify_devinfo)
 					{
 						memset(&gdev, 0, sizeof(gdev));
@@ -2044,6 +2046,8 @@ void CBizDeviceManager::timerFuncReconnect(uint param)
 						
 						notifyDevInfo(&gdev);
 					}
+=======
+>>>>>>> origin/master
 				}
 				
 remove:
@@ -2092,8 +2096,6 @@ void CBizDeviceManager::threadKeepAlive(uint param)
 	u64 cur_tick = 0;
 	u64 keep_alive_pre_tick = 0;
 	int fd_tmp = INVALID_SOCKET;
-	VD_BOOL b_dev_offline = FALSE;
-	SGuiDev gdev;
 	
 	DBG_PRINT("CBizDeviceManager::threadKeepAlive running\n");
 	
@@ -2252,14 +2254,11 @@ void CBizDeviceManager::threadKeepAlive(uint param)
 
 					fd_tmp = pcdev->sock_cmd;
 					pcdev->CleanSock();
-					
 					//通知设备离线
 					
 
 					//移除接收map_fd_idx
 					_DelMapRcv(fd_tmp);
-
-					b_dev_offline = TRUE;
 				}
 				else //成功，设备在线，如果需要，对流连接重连
 				{
@@ -2268,6 +2267,7 @@ void CBizDeviceManager::threadKeepAlive(uint param)
 				}
 
 				pplock_dev[dev_idx]->Unlock();
+<<<<<<< HEAD
 
 				//通知设备离线
 				if (b_dev_offline)
@@ -2286,6 +2286,8 @@ void CBizDeviceManager::threadKeepAlive(uint param)
 						notifyDevInfo(&gdev);
 					}
 				}
+=======
+>>>>>>> origin/master
 			}
 		}
 		

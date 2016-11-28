@@ -1,4 +1,11 @@
+<<<<<<< HEAD
 ---- b_notify_devinfo Matches (3 in 1 files) ----
 biz_device.cpp (mid_logic\src):	VD_BOOL b_notify_devinfo;
 biz_device.cpp (mid_logic\src):, b_notify_devinfo(FALSE)
 biz_device.cpp (mid_logic\src):	b_notify_devinfo = TRUE;
+=======
+---- isSockIOErr Matches (3 in 3 files) ----
+biz_device.cpp (mid_logic\src):				if (isSockIOErr(fd_tmp)) //socket ³ö´í
+net.c (low_module\net\src):VD_BOOL isSockIOErr(int sock)
+net.h (low_module\net\inc):VD_BOOL isSockIOErr(int sock);
+>>>>>>> origin/master

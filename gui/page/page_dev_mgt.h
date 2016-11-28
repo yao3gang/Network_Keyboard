@@ -35,7 +35,6 @@ private slots:
     void on_btn_srh_clicked();
     void on_btn_add_clicked();
     void on_btn_info_clicked();
-    void on_btn_del_clicked();
     void cmbSrhChange(int index);
     void cmbAddChange(int index);
     void tableWidgetSrhDBClicked(int row, int column);
@@ -48,7 +47,7 @@ private:
     void addRowTableSrh(int row, const SBiz_DeviceInfo_t *pdev); //搜索表 添加一行
     void addRowTableDev(int row, const SGuiDev *pdev);
     void modifyRowTableDev(int row, const SGuiDev *pdev);
-    int addDev(SGuiDev *pdev);
+    int addDev(const SGuiDev *pdev);
 
 private:
     Ui::page_dev_mgt *ui;
