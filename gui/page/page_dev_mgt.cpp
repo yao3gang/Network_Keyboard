@@ -97,12 +97,10 @@ void page_dev_mgt::init_data()//初始化设备信息
              iter != dev_ip_list.end();
              ++iter)
         {
-            pdev = NULL;
-            pdev = new SGuiDev;
             in.s_addr = *iter;
 
-            //DBG_PRINT("dev type: %d, ip: %s\n", dev_type, inet_ntoa(in));
-
+            pdev = NULL;
+            pdev = new SGuiDev;
             if (NULL == pdev)
             {
                 ERR_PRINT("new SGuiDev failed, ip: %s\n", inet_ntoa(in));
@@ -114,11 +112,8 @@ void page_dev_mgt::init_data()//初始化设备信息
 
             if (!pmap->insert(std::make_pair(ntohl(*iter), pdev)).second)
             {
-                if (pdev)
-                {
-                    delete pdev;
-                    pdev = NULL;
-                }
+                delete pdev;
+                pdev = NULL;
 
                 ERR_PRINT("map insert failed, ip: %s\n", inet_ntoa(in));
                 continue;
@@ -366,39 +361,61 @@ void page_dev_mgt::updateDevInfo(SGuiDev dev)
     //iter = pmap->find(ip_le);
     //if (iter != pmap->end())
     //查找对应ip的设备行号
-    for (index = 0, iter = pmap->begin(); iter != pmap->end(); ++index, ++iter)
+    for (index = 0, iter = pmap->begin();
+         iter != pmap->end();
+         ++index, ++iter)
     {
-        if (iter->first != ip_le)//确定排序后的行号，下面改变tableWidget_dev的index行中单元格
+        if (iter->first == ip_le)//确定排序后的行号，下面改变tableWidget_dev的index行中单元格
         {
-            continue;
-        }
-
-        pdev = iter->second;
-        if (pdev->devicetype != dev.devicetype)
-        {
-            ERR_PRINT("pdev->devicetype(%d) != dev.devicetype(%d)\n", pdev->devicetype, dev.devicetype);
-            continue;
-        }
-
-        if (pdev->dev_idx != dev.dev_idx)
-        {
-            ERR_PRINT("pdev->dev_idx(%d) != dev.dev_idx(%d)\n", pdev->dev_idx, dev.dev_idx);
-            continue;
-        }
-
-        pdev->maxChnNum = dev.maxChnNum;
-
-        if (pdev->b_alive != dev.b_alive)//在线状态发生改变
-        {
-            pdev->b_alive = dev.b_alive;
-
-            if ((isVisible()) && (ui->cmb_added_type->currentIndex() == pdev->devicetype-1))//当前正在显示该类型的设备，需要改变界面控件
-            {
-                modifyRowTableDev(index, pdev);
-            }
+            break;
         }
     }
 
+    if (iter != pmap->end())
+    {
+        DBG_PRINT("find dev(%s) at row: %d\n", inet_ntoa(in), index);
+    }
+    else
+    {
+        DBG_PRINT("not find dev(%s)\n", inet_ntoa(in));
+        return;
+    }
+
+    pdev = iter->second;
+    if (NULL == pdev)
+    {
+        ERR_PRINT("find dev(%s), but NULL == pdev\n", inet_ntoa(in));
+        return;
+    }
+
+    if (pdev->devicetype != dev.devicetype)
+    {
+        ERR_PRINT("pdev->devicetype(%d) != dev.devicetype(%d)\n", pdev->devicetype, dev.devicetype);
+        return;
+    }
+
+    if (pdev->dev_idx == -1)//首次添加，构造结构体初始值 = -1
+    {
+        pdev->dev_idx = dev.dev_idx;
+    }
+
+    if (pdev->dev_idx != dev.dev_idx)
+    {
+        ERR_PRINT("pdev->dev_idx(%d) != dev.dev_idx(%d)\n", pdev->dev_idx, dev.dev_idx);
+        return;
+    }
+
+    pdev->maxChnNum = dev.maxChnNum;
+
+    //if (pdev->b_alive != dev.b_alive)//在线状态发生改变
+    {
+        pdev->b_alive = dev.b_alive;
+
+        if ((isVisible()) && (ui->cmb_added_type->currentIndex() == pdev->devicetype-1))//当前正在显示该类型的设备，需要改变界面控件
+        {
+            modifyRowTableDev(index, pdev);
+        }
+    }
 }
 
 void page_dev_mgt::on_btn_srh_clicked()
@@ -553,6 +570,7 @@ void page_dev_mgt::on_btn_del_clicked()
             DBG_PRINT("delete dev success, ip: %s, dev type: %d\n", inet_ntoa(in), dev_type);
             continue;
         }
+
 next_row:
         ++row;
     }
@@ -562,10 +580,12 @@ void page_dev_mgt::on_btn_add_clicked()
 {
     int i=0;
     int srh_row = ui->tableWidget_srh->rowCount();
-    SGuiDev dev;
+    SGuiDev *pdev = NULL;
     QString qstr;
     int dev_index = 0;
     bool ok = true;
+    int dev_type = 0;
+    int dev_ip = 0;
     int maxChnNum = 0;
 
     for (i=0; i<srh_row; ++i)//扫描搜索表格所有行
@@ -580,11 +600,17 @@ void page_dev_mgt::on_btn_add_clicked()
                 ERR_PRINT("row: %d, dev type indexOf failed\n", i);
                 continue;
             }
-            dev.devicetype = EM_NVR + dev_index;
+            dev_type = EM_NVR + dev_index;
+            DBG_PRINT("row: %d, dev_type: %d\n", i, dev_type);
 
             //dev ip
             qstr = ui->tableWidget_srh->item(i, 2)->text();
-            dev.deviceIP = inet_addr(qstr.toUtf8().constData());
+            dev_ip = inet_addr(qstr.toUtf8().constData());
+            if (INADDR_NONE == dev_ip)
+            {
+                ERR_PRINT("row: %d, dev ip invalid\n", i);
+                continue;
+            }
 
             //dev chnnum
             qstr = ui->tableWidget_srh->item(i, 3)->text();
@@ -594,13 +620,25 @@ void page_dev_mgt::on_btn_add_clicked()
                 ERR_PRINT("row: %d, chn num toInt failed\n", i);
                 continue;
             }
-            dev.maxChnNum = maxChnNum;
 
-            addDev(&dev);
+            pdev = NULL;
+            pdev = new SGuiDev;
+            if (NULL == pdev)
+            {
+                ERR_PRINT("row: %d, new SGuiDev failed\n", i);
+                return;
+            }
+            pdev->deviceIP = dev_ip;
+            pdev->devicetype = dev_type;
+            pdev->maxChnNum = maxChnNum;
+
+            if (addDev(pdev))
+            {
+                delete pdev;
+                pdev = NULL;
+            }
         }
     }
-
-    //ui->tableWidget_dev->sortByColumn(2, Qt::AscendingOrder);
 }
 
 void page_dev_mgt::cmbSrhChange(int index)

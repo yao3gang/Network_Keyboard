@@ -1761,7 +1761,7 @@ void CBizDeviceManager::timerFuncReconnect(uint param)
 	MAP_FD_IDX map_fd_dev;
 	MAP_FD_IDX::iterator map_iter;	
 	CBizDevice *pcdev = NULL;
-	GuiDev gdev;
+	SGuiDev gdev;
 	s32 dev_idx;
 	
 	struct sockaddr_in svr_addr;
@@ -2082,7 +2082,7 @@ void CBizDeviceManager::threadKeepAlive(uint param)
 	std::list<s32>::iterator list_iter;
 	s32 dev_idx;
 	CBizDevice *pcdev = NULL;
-	GuiDev gdev;
+	SGuiDev gdev;
 	
 	ifly_DeviceInfo_t device_info;
 	struct in_addr in;
