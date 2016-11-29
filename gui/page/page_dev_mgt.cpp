@@ -553,7 +553,6 @@ void page_dev_mgt::on_btn_del_clicked()
             DBG_PRINT("delete dev success, ip: %s, dev type: %d\n", inet_ntoa(in), dev_type);
             continue;
         }
-
 next_row:
         ++row;
     }
@@ -642,6 +641,7 @@ void page_dev_mgt::cmbAddChange(int index)
     }
 }
 
+//双击
 void page_dev_mgt::tableWidgetSrhDBClicked(int row, int column)
 {
     //ui->tableWidget_srh->setCurrentCell(row, column, QItemSelectionModel::Select);//设置该行为选中

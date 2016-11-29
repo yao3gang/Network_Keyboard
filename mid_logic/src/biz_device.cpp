@@ -2032,6 +2032,7 @@ void CBizDeviceManager::timerFuncReconnect(uint param)
 					DBG_PRINT("svr(%s) connect success\n", inet_ntoa(in));
 					
 					//通知设备在线
+
 					//if (b_notify_devinfo)
 					{
 						memset(&gdev, 0, sizeof(gdev));
