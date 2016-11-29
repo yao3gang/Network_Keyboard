@@ -59,7 +59,7 @@
          <item>
           <widget class="QLabel" name="lab_srh_type">
            <property name="text">
-            <string>设备类型</string>
+            <string>搜索设备</string>
            </property>
           </widget>
          </item>
@@ -178,19 +178,9 @@
           <number>0</number>
          </property>
          <item>
-          <widget class="QLabel" name="lab_dev_all">
-           <property name="text">
-            <string>已添加设备</string>
-           </property>
-           <property name="alignment">
-            <set>Qt::AlignCenter</set>
-           </property>
-          </widget>
-         </item>
-         <item>
           <widget class="QLabel" name="lab_added_type">
            <property name="text">
-            <string>设备类型</string>
+            <string>已添加设备</string>
            </property>
           </widget>
          </item>
@@ -232,7 +222,6 @@
           </widget>
          </item>
         </layout>
-        <zorder>lab_dev_all</zorder>
         <zorder>btn_info</zorder>
         <zorder>btn_del</zorder>
         <zorder>btn_del_all</zorder>
