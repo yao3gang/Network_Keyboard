@@ -1,24 +1,24 @@
-#include "page_config.h"
-#include "ui_page_config.h"
-#include "wzd_tvwall_layout.h"
 #include <QtGui>
 #include <QDialog>
 #include <QtDebug>
 #include <QDate>
 #include <QTime>
 #include <QDateTime>
-
 #include <string>
 
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "bond.h"
 #include "page_main.h"
 #include "page_manager.h"
 #include "frmmessagebox.h"
+#include "page_config.h"
+#include "ui_page_config.h"
+#include "wzd_tvwall_layout.h"
+#include "form_tvwall_config.h"
 
+#include "bond.h"
 #include "biz.h"
 #include "biz_config.h"
 #include "biz_system_complex.h"
@@ -178,22 +178,9 @@ void page_config::button_clicked()
 
 void page_config::on_btn_tvWall_add_clicked()
 {
-    //qDebug() << "on_btn_tvWall_add";
-    wzd_tvWall_layout::Instance()->setModal(false);
-    wzd_tvWall_layout::Instance()->setWindowFlags(Qt::WindowStaysOnTopHint);
-    wzd_tvWall_layout::Instance()->restart();
-    wzd_tvWall_layout::Instance()->show();
-    //wzd_tvWall_layout::Instance()->raise();
-    //page_main* pmain = static_cast<page_main*>(getPage(PAGE_MAIN));
-    //pmain->close();
-    //Dialogtest test;
-    //test.exec();
-    //test.setModal(false);
-    //关键是下面这行
-    //test.setWindowFlags(Qt::WindowStaysOnTopHint);
-    //test.show();
-    //test.setWindowFlags(Qt::WindowStaysOnTopHint);
-    //pmain->show();
+    form_tvwall_config *page_tvwall_config = new form_tvwall_config;
+    page_tvwall_config->show();
+
 }
 
 void page_config::on_btn_tvWall_del_clicked()

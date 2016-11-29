@@ -2491,7 +2491,7 @@ int CBizDevice::_DevSetAlarmUpload(u8 upload_enable)
 	ret = g_biz_device_manager.NetDialogue(sock_cmd, CTRL_CMD_ALARMUPLOADCENTER, &upload_enable,sizeof(upload_enable), buf, sizeof(buf), &realacklen);
 	if (SUCCESS != ret)
 	{
-		ERR_PRINT("NetDialogue CTRL_CMD_LOGOFF invalid\n");
+		ERR_PRINT("NetDialogue CTRL_CMD_ALARMUPLOADCENTER invalid\n");
 		return -FAILURE;
 	}
 	
