@@ -15,7 +15,8 @@ HEADERS += \
     page/page_main2.h \
     page/frmmessagebox.h \
     page/iconhelper.h \
-    page/appdef.h
+    page/appdef.h \
+    page/form_tvwall_config.h
 
 
 SOURCES += \
@@ -31,7 +32,8 @@ SOURCES += \
     page/page_manager.cpp \
     page/page_main2.cpp \
     page/frmmessagebox.cpp \
-    page/iconhelper.cpp
+    page/iconhelper.cpp \
+    page/form_tvwall_config.cpp
 
 FORMS += \
     page/page_main.ui \
@@ -44,7 +46,8 @@ FORMS += \
     page/dlg_dev_tree.ui \
     page/page_preview.ui \
     page/page_main2.ui \
-    page/frmmessagebox.ui
+    page/frmmessagebox.ui \
+    page/form_tvwall_config.ui
 
 RESOURCES += \
     other/rc.qrc
