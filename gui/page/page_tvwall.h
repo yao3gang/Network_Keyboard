@@ -14,7 +14,10 @@ class page_tvWall : public QWidget
 public:
     explicit page_tvWall(QWidget *parent = 0);
     ~page_tvWall();
-    
+
+private:
+    void init_form();
+
 private:
     Ui::page_tvWall *ui;
 };

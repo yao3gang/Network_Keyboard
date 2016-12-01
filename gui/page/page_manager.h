@@ -3,8 +3,11 @@
 
 #include <QWidget>
 
+#include "types.h"
+
 typedef enum
 {
+    PAGE_NONE,
     PAGE_ALM,
     PAGE_CONFIG,
     PAGE_DEV_MGT,

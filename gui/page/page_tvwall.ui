@@ -223,25 +223,10 @@
          </property>
          <layout class="QHBoxLayout" name="horizontalLayout_3">
           <item>
-           <widget class="QTableWidget" name="tableWidget">
+           <widget class="tablewidget_tvwall" name="tableWidget_tvwall">
             <attribute name="horizontalHeaderStretchLastSection">
              <bool>true</bool>
             </attribute>
-            <column>
-             <property name="text">
-              <string>屏画面</string>
-             </property>
-            </column>
-            <column>
-             <property name="text">
-              <string>NVR通道</string>
-             </property>
-            </column>
-            <column>
-             <property name="text">
-              <string>操作</string>
-             </property>
-            </column>
            </widget>
           </item>
           <item>
@@ -284,6 +269,13 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>tablewidget_tvwall</class>
+   <extends>QTableWidget</extends>
+   <header>tablewidget_tvwall.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

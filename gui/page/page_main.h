@@ -1,7 +1,7 @@
 #ifndef PAGE_MAIN_H
 #define PAGE_MAIN_H
 
-#include <QDialog>
+#include <QWidget>
 #include "types.h"
 #include "biz_system_complex.h"
 
@@ -9,7 +9,7 @@ namespace Ui {
 class page_main;
 }
 
-class page_main : public QDialog
+class page_main : public QWidget
 {
     Q_OBJECT
     
@@ -17,15 +17,6 @@ public:
     explicit page_main(QWidget *parent = 0);
     ~page_main();
     void setTimeFormat(u8 date_format, u8 time_format);
-
-protected:
-#if 0
-    //鼠标拖动
-    void mouseMoveEvent(QMouseEvent *e);
-    void mousePressEvent(QMouseEvent *e);
-    void mouseReleaseEvent(QMouseEvent *e);
-    //鼠标拖动 end
-#endif
 
 private slots:
     void button_clicked();
@@ -39,13 +30,6 @@ private:
 private:
     void init_style();
     void init_form();
-
-#if 0
-    //鼠标拖动
-    QPoint mousePoint;  //鼠标拖动自定义标题栏时的坐标
-    bool mousePressed;  //鼠标是否按下
-    //鼠标拖动 end
-#endif
 };
 
 #endif // PAGE_MAIN_H

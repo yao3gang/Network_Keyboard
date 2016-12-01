@@ -24,8 +24,8 @@ public:
     explicit page_dev_mgt(QWidget *parent = 0);
     ~page_dev_mgt();
 
-    int getDevList(EM_DEV_TYPE dev_type, std::list<s32> &dev_ip_list);//同级其他模块调用
-    int getDevInfo(EM_DEV_TYPE dev_type, u32 ip, SGuiDev *p);//同级其他模块调用
+    int getDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip_list);//同级其他模块调用
+    int getDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev &dev);//同级其他模块调用
     void syncAllDevInfo();//从下层 BIZ_DEV 同步设备信息
 
 protected:

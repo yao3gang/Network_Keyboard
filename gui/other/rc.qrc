@@ -56,5 +56,10 @@
         <file>image/search.png</file>
         <file>image/ptz_direct.png</file>
         <file>translations/qt_zh_CN.qm</file>
+        <file>image/chn.ico</file>
+        <file>image/dev_offline.ico</file>
+        <file>image/dev_online.ico</file>
+        <file>image/test_1.ico</file>
+        <file>image/test_2.ico</file>
     </qresource>
 </RCC>

@@ -114,7 +114,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QTableWidget" name="tableWidget_tvwall">
+      <widget class="tablewidget_tvwall" name="tableWidget_tvwall">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
          <horstretch>0</horstretch>
@@ -133,25 +133,10 @@
        <attribute name="horizontalHeaderStretchLastSection">
         <bool>true</bool>
        </attribute>
-       <column>
-        <property name="text">
-         <string>屏幕</string>
-        </property>
-       </column>
-       <column>
-        <property name="text">
-         <string>解码器</string>
-        </property>
-       </column>
-       <column>
-        <property name="text">
-         <string>解除绑定</string>
-        </property>
-       </column>
       </widget>
      </item>
      <item>
-      <widget class="QTreeWidget" name="treeWidget">
+      <widget class="treewidget_dev" name="tree_swich_dec">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
          <horstretch>0</horstretch>
@@ -171,7 +156,7 @@
         </size>
        </property>
        <attribute name="headerVisible">
-        <bool>false</bool>
+        <bool>true</bool>
        </attribute>
        <column>
         <property name="text">
@@ -215,6 +200,18 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>treewidget_dev</class>
+   <extends>QTreeWidget</extends>
+   <header>treewidget_dev.h</header>
+  </customwidget>
+  <customwidget>
+   <class>tablewidget_tvwall</class>
+   <extends>QTableWidget</extends>
+   <header>tablewidget_tvwall.h</header>
+  </customwidget>
+ </customwidgets>
  <tabstops>
   <tabstop>lineEdit_tvwall_name</tabstop>
   <tabstop>lineEdit_tvwall_rows</tabstop>
@@ -223,7 +220,7 @@
   <tabstop>btn_ok</tabstop>
   <tabstop>btn_cancel</tabstop>
   <tabstop>tableWidget_tvwall</tabstop>
-  <tabstop>treeWidget</tabstop>
+  <tabstop>tree_swich_dec</tabstop>
  </tabstops>
  <resources/>
  <connections/>

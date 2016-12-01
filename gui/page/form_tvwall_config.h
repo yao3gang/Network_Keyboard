@@ -12,7 +12,13 @@ class form_tvwall_config : public QWidget
     Q_OBJECT
     
 public:
-    explicit form_tvwall_config(QWidget *parent = 0);
+    enum OpenMode
+    {
+        OpenModeNew = 1,
+        OpenModeModfiy,
+    };
+
+    explicit form_tvwall_config(QWidget *parent = 0, OpenMode mode = OpenModeNew);
     ~form_tvwall_config();
 
 private slots:
@@ -24,6 +30,7 @@ private:
 
 private:
     Ui::form_tvwall_config *ui;
+    OpenMode open_mode;
 };
 
 #endif // FORM_TVWALL_CONFIG_H

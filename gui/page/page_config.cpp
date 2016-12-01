@@ -20,7 +20,6 @@
 
 #include "bond.h"
 #include "biz.h"
-#include "biz_config.h"
 #include "biz_system_complex.h"
 
 page_config::page_config(QWidget *parent) :
@@ -28,8 +27,8 @@ page_config::page_config(QWidget *parent) :
     ui(new Ui::page_config)
 {
     ui->setupUi(this);
-    this->init_form();
-
+    init_form();
+    init_data();
     ui->btn_date->click();
 }
 
@@ -39,7 +38,6 @@ page_config::~page_config()
     delete pvalidator_ipaddr;
     delete ui;
 }
-
 
 void page_config::init_form() //init stackwidget
 {
@@ -77,6 +75,14 @@ void page_config::init_form() //init stackwidget
     ui->lineEdit_dns1->setValidator(pvalidator_ipaddr);
     ui->lineEdit_dns2->setValidator(pvalidator_ipaddr);
 
+}
+
+void page_config::init_data()
+{
+    if (BizConfigGetTvWallList(vtvwall_list))
+    {
+        ERR_PRINT("BizConfigGetTvWallList failed\n");
+    }
 }
 
 void page_config::button_clicked()
@@ -178,9 +184,8 @@ void page_config::button_clicked()
 
 void page_config::on_btn_tvWall_add_clicked()
 {
-    form_tvwall_config *page_tvwall_config = new form_tvwall_config;
+    form_tvwall_config *page_tvwall_config = new form_tvwall_config(NULL, form_tvwall_config::OpenModeNew);
     page_tvwall_config->show();
-
 }
 
 void page_config::on_btn_tvWall_del_clicked()
@@ -259,6 +264,11 @@ void page_config::on_btn_date_apply_clicked()
 
     //notify page_main
     page_main* pmain = (page_main*)getPage(PAGE_MAIN);
+    if (NULL == pmain)
+    {
+        ERR_PRINT("getPage(PAGE_MAIN) failed\n");
+        return;
+    }
     pmain->setTimeFormat(stime_param.ndate_format, stime_param.ntime_format);
 }
 

@@ -12,12 +12,12 @@
 #include "bond.h"
 #include "biz.h"
 #include "hisi_sys.h"
+#include "types.h"
 
 #include "appdef.h"
 #include "page_manager.h"
 #include "page_dev_mgt.h"
 #include "page_main.h"
-#include "page_main2.h"
 #include "frminput.h"
 
 #if 0
@@ -123,14 +123,24 @@ int main(int argc, char *argv[])
     app.setStyleSheet(file.readAll());
 
     frmInput::Instance()->Init("control", "black", FontSize + 1, FontSize);
-    page_main2 w;
+    page_main w;
     w.show();
-    registerPage(PAGE_MAIN, &w);
+    if (registerPage(PAGE_MAIN, &w))
+    {
+        ERR_PRINT("registerPage PAGE_MAIN failed\n");
+        return -FAILURE;
+    }
 
     gp_bond->guiEnableRcvNotify();//初始化完成，是能接收下层通知信息
 
     //同步所有设备信息
     page_dev_mgt * page_dev = (page_dev_mgt *)getPage(PAGE_DEV_MGT);
+    if (NULL == page_dev)
+    {
+        ERR_PRINT("getPage(PAGE_DEV_MGT) failed\n");
+        return -FAILURE;
+    }
+
     page_dev->syncAllDevInfo();
 
     return app.exec();

@@ -110,6 +110,12 @@ void page_dev_mgt::init_data()//初始化设备信息
             pdev->devicetype = dev_type;
             pdev->deviceIP = *iter;
 
+            if (NULL == inet_ntoa(in))
+            {
+                ERR_PRINT("device ip invalid\n");
+                continue;
+            }
+
             if (!pmap->insert(std::make_pair(ntohl(*iter), pdev)).second)
             {
                 delete pdev;
@@ -712,5 +718,57 @@ void page_dev_mgt::tableWidgetDevDBClicked(int row, int column)
     }
 }
 
+//同级其他模块调用
+int page_dev_mgt::getDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip_list)
+{
+    MAP_IP_DEV *pmap = NULL;
+    MAP_IP_DEV::iterator map_iter;
 
+    QMutexLocker locker(&mutex);
+
+    if (dev_type <= EM_DEV_TYPE_NONE
+            || dev_type >= EM_DEV_TYPE_MAX)
+    {
+        ERR_PRINT("dev_type(%d) not support\n", dev_type);
+        return -EPARAM;
+    }
+    pmap = &map_dev[dev_type-EM_NVR];
+
+    for (map_iter = pmap->begin();
+         map_iter != pmap->end();
+         ++map_iter)
+    {
+        dev_ip_list.push_back(ntohl(map_iter->first));
+    }
+
+    return SUCCESS;
+}
+
+int page_dev_mgt::getDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev &dev)
+{
+    MAP_IP_DEV *pmap = NULL;
+    MAP_IP_DEV::iterator map_iter;
+    struct in_addr in;
+    in.s_addr = dev_ip;
+
+    QMutexLocker locker(&mutex);
+
+    if (dev_type <= EM_DEV_TYPE_NONE
+            || dev_type >= EM_DEV_TYPE_MAX)
+    {
+        ERR_PRINT("dev_type(%d) not support\n", dev_type);
+        return -EPARAM;
+    }
+    pmap = &map_dev[dev_type-EM_NVR];
+
+    map_iter = pmap->find(ntohl(dev_ip));
+    if (map_iter == pmap->end())
+    {
+        ERR_PRINT("map not found IP(%s) failed, dev type: %d\n", inet_ntoa(in), dev_type);
+        return -EPARAM;
+    }
+
+    dev = *(map_iter->second);
+    return SUCCESS;
+}
 

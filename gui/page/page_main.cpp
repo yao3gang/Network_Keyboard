@@ -1,9 +1,10 @@
-#include <QtGui>
 #include <QtDebug>
-#include "bond.h"
+#include <QDate>
+#include <QTime>
 #include "page_main.h"
-#include "page_manager.h"
 #include "ui_page_main.h"
+#include "bond.h"
+#include "page_manager.h"
 
 #include "page_config.h"
 #include "page_dev_mgt.h"
@@ -15,21 +16,22 @@
 #include "types.h"
 #include "biz_preview.h"
 #include "biz_config.h"
+#include "gui_dev.h"
 
 page_main::page_main(QWidget *parent) :
-    QDialog(parent),
+    QWidget(parent),
     ui(new Ui::page_main)
 {
     ui->setupUi(this);
     this->init_style();
     this->init_form();
-    //this->setGeometry(qApp->desktop()->availableGeometry());
 }
 
 page_main::~page_main()
 {
     delete ui;
 }
+
 
 //初始化无边框窗体
 void page_main::init_style()
@@ -79,30 +81,54 @@ void page_main::init_form() //init stackwidget
 
     page_preview *preview = new page_preview;
     ui->stackedWidget->addWidget(preview);
-    registerPage(PAGE_PREVIEW, preview);
+    if (registerPage(PAGE_PREVIEW, preview))
+    {
+        ERR_PRINT("registerPage PAGE_PREVIEW failed\n");
+        return ;
+    }
 
     page_playback *playback = new page_playback;
     ui->stackedWidget->addWidget(playback);
-    registerPage(PAGE_PLAYBACK, playback);
+    if (registerPage(PAGE_PLAYBACK, playback))
+    {
+        ERR_PRINT("registerPage PAGE_PLAYBACK failed\n");
+        return ;
+    }
 
     page_tvWall *tvWall = new page_tvWall;
     ui->stackedWidget->addWidget(tvWall);
-    registerPage(PAGE_TVWALL, tvWall);
+    if (registerPage(PAGE_TVWALL, tvWall))
+    {
+        ERR_PRINT("registerPage PAGE_TVWALL failed\n");
+        return ;
+    }
 
     page_alm *alm = new page_alm;
     ui->stackedWidget->addWidget(alm);
-    registerPage(PAGE_ALM, alm);
+    if (registerPage(PAGE_ALM, alm))
+    {
+        ERR_PRINT("registerPage PAGE_ALM failed\n");
+        return ;
+    }
 
     page_dev_mgt *dev_mgt = new page_dev_mgt;
     ui->stackedWidget->addWidget(dev_mgt);
-    registerPage(PAGE_DEV_MGT, dev_mgt);
+    if (registerPage(PAGE_DEV_MGT, dev_mgt))
+    {
+        ERR_PRINT("registerPage PAGE_DEV_MGT failed\n");
+        return ;
+    }
 
     page_config *config = new page_config;
     ui->stackedWidget->addWidget(config);
-    registerPage(PAGE_CONFIG, config);
+    if (registerPage(PAGE_CONFIG, config))
+    {
+        ERR_PRINT("registerPage PAGE_CONFIG failed\n");
+        return ;
+    }
 
     qRegisterMetaType<SDateTime>("SDateTime");
-    connect(gp_bond, SIGNAL(signalUpdateTime(SDateTime)), this, SLOT(update_time(SDateTime)), Qt::QueuedConnection);
+    connect(gp_bond, SIGNAL(signalNotifyUpdateTime(SDateTime)), this, SLOT(update_time(SDateTime)), Qt::QueuedConnection);
 
     ui->btn_tvWall->click();
 }
@@ -201,28 +227,3 @@ void page_main::update_time(SDateTime dt)
         ui->lab_time->setText(qt.toString("hh:mm:ss"));
     }
 }
-
-#if 0
-void page_main::mouseMoveEvent(QMouseEvent *e)
-{
-    if (mousePressed && (e->buttons() && Qt::LeftButton)) {
-        this->move(e->globalPos() - mousePoint);
-        e->accept();
-    }
-}
-
-void page_main::mousePressEvent(QMouseEvent *e)
-{
-    qDebug() << "mousePressEvent" <<endl;
-    if (e->button() == Qt::LeftButton) {
-        mousePressed = true;
-        mousePoint = e->globalPos() - this->pos();
-        e->accept();
-    }
-}
-
-void page_main::mouseReleaseEvent(QMouseEvent *)
-{
-    mousePressed = false;
-}
-#endif

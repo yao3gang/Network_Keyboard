@@ -8,21 +8,26 @@ int registerPage(PAGE_TYPE page_type, QWidget *ppage)
 {
     QMutexLocker locker(&mutex);
 
-    if (page_type < 0 || page_type >= PAGE_MAX)
+    if (page_type <= PAGE_NONE || page_type >= PAGE_MAX)
     {
-        return -1;
+        return -EPARAM;
+    }
+
+    if (page[page_type])
+    {
+        ERR_PRINT("page(%d) != NULL\n", page_type);
+        return -FAILURE;
     }
 
     page[page_type] = ppage;
-
-    return 0;
+    return SUCCESS;
 }
 
 QWidget * getPage(PAGE_TYPE page_type)
 {
     QMutexLocker locker(&mutex);
 
-    if (page_type < 0 || page_type >= PAGE_MAX)
+    if (page_type <= PAGE_NONE || page_type >= PAGE_MAX)
     {
         return NULL;
     }

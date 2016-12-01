@@ -4,6 +4,7 @@
 #include <QWidget>
 #include <QRegExpValidator>
 
+#include "biz_config.h"
 #include "biz_system_complex.h"
 
 namespace Ui {
@@ -21,10 +22,12 @@ public:
 private:
     QRegExpValidator *pvalidator_ipaddr;
     QRegExpValidator *pvalidator_mac;
+    std::vector<SConfigTvWallParam> vtvwall_list;
 
 private:
     Ui::page_config *ui;
     void init_form();
+    void init_data();
 
 private slots:
     void button_clicked();

@@ -27,6 +27,7 @@ LIBS += -L$${TL_APP_LIB_PATH} -lhdmi -lmpi -ltde -lvqe -lVoiceEngine -ljpeg -lre
 
 include($$PWD/input/input.pri)
 include($$PWD/page/page.pri)
+include($$PWD/custom_widget/custom_widget.pri)
 include($$PWD/bond/bond.pri)
 
 SOURCES += main.cpp

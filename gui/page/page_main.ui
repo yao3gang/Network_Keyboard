@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>page_main</class>
- <widget class="QDialog" name="page_main">
+ <widget class="QWidget" name="page_main">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -11,12 +11,9 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>Form</string>
   </property>
-  <property name="sizeGripEnabled">
-   <bool>false</bool>
-  </property>
-  <layout class="QVBoxLayout" name="verticalLayout" stretch="0,0">
+  <layout class="QVBoxLayout" name="verticalLayout">
    <property name="spacing">
     <number>0</number>
    </property>
@@ -494,6 +491,7 @@
   </layout>
  </widget>
  <resources>
+  <include location="../other/rc.qrc"/>
   <include location="../other/rc.qrc"/>
  </resources>
  <connections/>
