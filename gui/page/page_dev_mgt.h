@@ -24,6 +24,7 @@ public:
     explicit page_dev_mgt(QWidget *parent = 0);
     ~page_dev_mgt();
 
+    int getDevTypeStrList(QStringList &str_list);
     int getDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip_list);//同级其他模块调用
     int getDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev &dev);//同级其他模块调用
     void syncAllDevInfo();//从下层 BIZ_DEV 同步设备信息
@@ -40,7 +41,7 @@ private slots:
     void cmbAddChange(int index);
     void tableWidgetSrhDBClicked(int row, int column);
     void tableWidgetDevDBClicked(int row, int column);
-    void updateDevInfo(SGuiDev dev);
+    void refreshDevInfo(SGuiDev dev);
 
 private:
     void init_form();//控件
@@ -59,6 +60,9 @@ private:
     //MAP_IP_DEV map_nvr;
     //MAP_IP_DEV map_patrol_dec;
     //MAP_IP_DEV map_switch_dec;
+
+signals:
+    void signalDevInfoChange(SGuiDev dev);
 };
 
 #endif // PAGE_DEV_MGT_H

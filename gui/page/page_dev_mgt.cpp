@@ -78,7 +78,7 @@ void page_dev_mgt::init_data()//初始化设备信息
     QMutexLocker locker(&mutex);
 
     qRegisterMetaType<SGuiDev>("SGuiDev");
-    connect(gp_bond, SIGNAL(signalNotifyDevInfo(SGuiDev)), this, SLOT(updateDevInfo(SGuiDev)), Qt::QueuedConnection);
+    connect(gp_bond, SIGNAL(signalNotifyDevInfo(SGuiDev)), this, SLOT(refreshDevInfo(SGuiDev)), Qt::QueuedConnection);
 
     //BizStartNotifyDevInfo();//让 biz dev模块开始上传设备信息
 
@@ -341,7 +341,7 @@ int page_dev_mgt::addDev(SGuiDev *pdev)
     return SUCCESS;
 }
 
-void page_dev_mgt::updateDevInfo(SGuiDev dev)
+void page_dev_mgt::refreshDevInfo(SGuiDev dev)
 {
     MAP_IP_DEV *pmap = NULL;
     MAP_IP_DEV::iterator iter;
@@ -354,13 +354,15 @@ void page_dev_mgt::updateDevInfo(SGuiDev dev)
     in.s_addr = dev.deviceIP;
     DBG_PRINT("dev type: %d, ip: %s\n", dev_type, inet_ntoa(in));
 
-    QMutexLocker locker(&mutex);
-
-    if (dev_type >= EM_DEV_TYPE_MAX)
+    if (dev_type <= EM_DEV_TYPE_NONE
+            || dev_type >= EM_DEV_TYPE_MAX)
     {
-        ERR_PRINT("dev_type(%d) >= EM_DEV_TYPE_MAX\n", dev_type);
+        ERR_PRINT("dev_type(%d) not support\n", dev_type);
         return;
     }
+
+    //QMutexLocker locker(&mutex);
+    mutex.lock();
 
     pmap = &map_dev[dev_type-EM_NVR];
 
@@ -384,6 +386,8 @@ void page_dev_mgt::updateDevInfo(SGuiDev dev)
     else
     {
         DBG_PRINT("not find dev(%s)\n", inet_ntoa(in));
+
+        mutex.unlock();
         return;
     }
 
@@ -391,12 +395,16 @@ void page_dev_mgt::updateDevInfo(SGuiDev dev)
     if (NULL == pdev)
     {
         ERR_PRINT("find dev(%s), but NULL == pdev\n", inet_ntoa(in));
+
+        mutex.unlock();
         return;
     }
 
     if (pdev->devicetype != dev.devicetype)
     {
         ERR_PRINT("pdev->devicetype(%d) != dev.devicetype(%d)\n", pdev->devicetype, dev.devicetype);
+
+        mutex.unlock();
         return;
     }
 
@@ -408,12 +416,14 @@ void page_dev_mgt::updateDevInfo(SGuiDev dev)
     if (pdev->dev_idx != dev.dev_idx)
     {
         ERR_PRINT("pdev->dev_idx(%d) != dev.dev_idx(%d)\n", pdev->dev_idx, dev.dev_idx);
+
+        mutex.unlock();
         return;
     }
 
     pdev->maxChnNum = dev.maxChnNum;
 
-    //if (pdev->b_alive != dev.b_alive)//在线状态发生改变
+    if (pdev->b_alive != dev.b_alive)//在线状态发生改变
     {
         pdev->b_alive = dev.b_alive;
 
@@ -422,6 +432,10 @@ void page_dev_mgt::updateDevInfo(SGuiDev dev)
             modifyRowTableDev(index, pdev);
         }
     }
+
+    mutex.unlock();
+
+    emit signalDevInfoChange(dev);//通知其他的页面
 }
 
 void page_dev_mgt::on_btn_srh_clicked()
@@ -719,6 +733,18 @@ void page_dev_mgt::tableWidgetDevDBClicked(int row, int column)
 }
 
 //同级其他模块调用
+int page_dev_mgt::getDevTypeStrList(QStringList &str_list)
+{
+    if (strlist_devtype.isEmpty())
+    {
+        ERR_PRINT("strlist_devtype.isEmpty() \n");
+        return -FAILURE;
+    }
+
+    str_list = strlist_devtype;
+    return SUCCESS;
+}
+
 int page_dev_mgt::getDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip_list)
 {
     MAP_IP_DEV *pmap = NULL;

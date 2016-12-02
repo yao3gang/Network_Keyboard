@@ -66,3 +66,23 @@ void tablewidget_tvwall::setupStyle(QString str)
 
     setAcceptDrops(true);//拖拽效果 接受落下
 }
+
+void tablewidget_tvwall::dragEnterEvent(QDragEnterEvent *event)
+{
+
+}
+
+void tablewidget_tvwall::dragLeaveEvent(QDragLeaveEvent *event)
+{
+
+}
+
+void tablewidget_tvwall::dragMoveEvent(QDragMoveEvent *event)
+{
+
+}
+
+void tablewidget_tvwall::dropEvent(QDropEvent *event)
+{
+
+}
