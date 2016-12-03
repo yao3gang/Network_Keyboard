@@ -16,73 +16,63 @@ tablewidget_tvwall::~tablewidget_tvwall()
 
 void tablewidget_tvwall::setupStyle(QString str)
 {
-    QStringList header;
+    //QStringList header;
     style = str;
-
-    if (style == style_screen)//
-    {
-        //设置表头
-        setColumnCount(3);
-        QTableWidgetItem *__qtablewidgetitem = new QTableWidgetItem();
-        setHorizontalHeaderItem(0, __qtablewidgetitem);
-        QTableWidgetItem *__qtablewidgetitem1 = new QTableWidgetItem();
-        setHorizontalHeaderItem(1, __qtablewidgetitem1);
-        QTableWidgetItem *__qtablewidgetitem2 = new QTableWidgetItem();
-        setHorizontalHeaderItem(2, __qtablewidgetitem2);
-
-        header.append(QString::fromUtf8("屏幕"));
-        header.append(QString::fromUtf8("解码器"));
-        header.append(QString::fromUtf8("解除绑定"));
-
-    }
-    else if (style == style_chn)
-    {
-        //设置表头
-        setColumnCount(3);
-        QTableWidgetItem *__qtablewidgetitem = new QTableWidgetItem();
-        setHorizontalHeaderItem(0, __qtablewidgetitem);
-        QTableWidgetItem *__qtablewidgetitem1 = new QTableWidgetItem();
-        setHorizontalHeaderItem(1, __qtablewidgetitem1);
-        QTableWidgetItem *__qtablewidgetitem2 = new QTableWidgetItem();
-        setHorizontalHeaderItem(2, __qtablewidgetitem2);
-
-        header.append(QString::fromUtf8("屏幕画面"));
-        header.append(QString::fromUtf8("NVR通道"));
-        header.append(QString::fromUtf8("解除绑定"));
-    }
-    else
-    {
-        ERR_PRINT("style(%s) not support\n", str.toUtf8().constData());
-        return;
-    }
-
-    setHorizontalHeaderLabels(header);
-    verticalHeader()->setVisible(false);//列表头不可见
-    setFocusPolicy(Qt::NoFocus);//让table失去焦点，防止没有选中行时，添加第一行
-    setSelectionBehavior(QAbstractItemView::SelectRows);//点击选择整行
-    setAlternatingRowColors(true);//奇偶行不同颜色显示
-    setColumnWidth(0,100);
-    setColumnWidth(1,200);
-
-    setAcceptDrops(true);//拖拽效果 接受落下
 }
 
 void tablewidget_tvwall::dragEnterEvent(QDragEnterEvent *event)
 {
-
+    if (event->mimeData()->hasFormat("network_keyboard"))
+    {
+        event->accept();
+    }
+    else
+    {
+        event->ignore();
+    }
 }
 
 void tablewidget_tvwall::dragLeaveEvent(QDragLeaveEvent *event)
 {
-
+    event->accept();
 }
 
 void tablewidget_tvwall::dragMoveEvent(QDragMoveEvent *event)
 {
-
+    if (event->mimeData()->hasFormat("network_keyboard"))
+    {
+        event->accept();
+    }
+    else
+    {
+        event->ignore();
+    }
 }
 
 void tablewidget_tvwall::dropEvent(QDropEvent *event)
 {
+    if (!event->mimeData()->hasFormat("network_keyboard"))
+    {
+        event->ignore();
+        return ;
+    }
 
+    QModelIndex index = indexAt(event->pos());
+    DBG_PRINT("drop at row: %d, col: %d\n", index.row(), index.column());
+
+    QTableWidgetItem *ptable_item = item(index.row(), 1); //得到 解码器列 item
+    if (!ptable_item)
+    {
+        event->ignore();
+        return ;
+    }
+
+    QByteArray data = event->mimeData()->data("network_keyboard");
+    DBG_PRINT("mime data: %d\n", data.size());
+    QString item_str = QString::fromUtf8(data);
+    DBG_PRINT("item_str: %s\n", item_str.toUtf8().constData());
+    DBG_PRINT("item_str: %c\n", *(item_str.toUtf8().constData()));
+    ptable_item->setText(item_str);
+
+    event->accept();
 }

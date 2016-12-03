@@ -184,7 +184,8 @@ void page_config::button_clicked()
 
 void page_config::on_btn_tvWall_add_clicked()
 {
-    form_tvwall_config *page_tvwall_config = new form_tvwall_config(NULL, form_tvwall_config::OpenModeNew);
+    tvwall_open_mode = form_tvwall_config::OpenModeNew;
+    form_tvwall_config *page_tvwall_config = new form_tvwall_config(tvwall_open_mode);
     page_tvwall_config->show();
 }
 

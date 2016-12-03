@@ -110,7 +110,7 @@ typedef struct ConfigTvWallParam
 {
 	u32 ndevs_per_line;	//电视墙行屏幕数	
 	u32 ndevs_per_col;	//电视墙列屏幕数
-	std::vector<uint> devlist;	//二维电视墙转化为一维设备列表，屏和设备一一对应，空格间隔，0表示该屏未设置解码器
+	std::vector<u32> devlist;	//二维电视墙转化为一维设备列表，屏和设备一一对应，空格间隔，0表示该屏未设置解码器
 	bool operator==(const ConfigTvWallParam &a)
 	{
 		return ((a.ndevs_per_line == ndevs_per_line) \
@@ -157,9 +157,9 @@ typedef struct
 	SConfigTimeParam stime_param;	//时间配置参数
 	SConfigNetParam snet_param;	//网络配置参数
 	std::vector<SConfigTvWallParam> vtvwall_list;
-	std::vector<uint> vnvr_list;
-	std::vector<uint> vpatrol_dec_list; //轮巡型解码器列表
-	std::vector<uint> vswitch_dec_list; //切换型解码器列表
+	std::vector<u32> vnvr_list;
+	std::vector<u32> vpatrol_dec_list; //轮巡型解码器列表
+	std::vector<u32> vswitch_dec_list; //切换型解码器列表
 	std::vector<SConfigAlmLinkParam> valm_link_list; //报警联动列表
 } SConfigAllParam;
 
@@ -180,9 +180,9 @@ int BizConfigGetTimeParam(SConfigTimeParam &stimme_param);
 int BizConfigGetNetParam(SConfigNetParam &snet_param);
 
 int BizConfigGetTvWallList(std::vector<SConfigTvWallParam> &vtvwall_list);
-int BizConfigGetNvrList(std::vector<uint> &vdev_list);
-int BizConfigGetPatrolDecList(std::vector<uint> &vdev_list);
-int BizConfigGetSwitchDecList(std::vector<uint> &vdev_list);
+int BizConfigGetNvrList(std::vector<u32> &vdev_list);
+int BizConfigGetPatrolDecList(std::vector<u32> &vdev_list);
+int BizConfigGetSwitchDecList(std::vector<u32> &vdev_list);
 int BizConfigGetAlmLinkList(std::vector<SConfigAlmLinkParam> &valm_link_list);
 
 //设置参数
@@ -207,23 +207,23 @@ int BizConfigDelAllAlmLinkParamList();
 int BizConfigModifyAlmLinkParam(u32 index, SConfigAlmLinkParam &salm_link_param);
 
 
-int BizConfigAddNvr(uint dev_ip);
-int BizConfigDelNvr(uint dev_ip);
-int BizConfigAddNvrList(std::vector<uint> &vdev_list);//nvr IP list
-int BizConfigDelNvrList(std::vector<uint> &vdev_list);
+int BizConfigAddNvr(u32 dev_ip);
+int BizConfigDelNvr(u32 dev_ip);
+int BizConfigAddNvrList(std::vector<u32> &vdev_list);//nvr IP list
+int BizConfigDelNvrList(std::vector<u32> &vdev_list);
 int BizConfigDelAllNvrList();
 
-int BizConfigAddPatrolDec(uint dev_ip);
-int BizConfigDelPatrolDec(uint dev_ip);
-int BizConfigAddPatrolDecList(std::vector<uint> &vdev_list);
-int BizConfigDelPatrolDecList(std::vector<uint> &vdev_list);
+int BizConfigAddPatrolDec(u32 dev_ip);
+int BizConfigDelPatrolDec(u32 dev_ip);
+int BizConfigAddPatrolDecList(std::vector<u32> &vdev_list);
+int BizConfigDelPatrolDecList(std::vector<u32> &vdev_list);
 int BizConfigDelAllPatrolDecList();
 
-int BizConfigAddSwitchDec(uint dev_ip);
-int BizConfigDelSwitchDec(uint dev_ip);
-int BizConfigAddSwitchDecList(std::vector<uint> &vdev_list);
-int BizConfigDelSwitchDecList(std::vector<uint> &vdev_list);
-int BizConfigDelAllSwitchDecList(std::vector<uint> &vdev_list);
+int BizConfigAddSwitchDec(u32 dev_ip);
+int BizConfigDelSwitchDec(u32 dev_ip);
+int BizConfigAddSwitchDecList(std::vector<u32> &vdev_list);
+int BizConfigDelSwitchDecList(std::vector<u32> &vdev_list);
+int BizConfigDelAllSwitchDecList(std::vector<u32> &vdev_list);
 
 
 #ifdef __cplusplus

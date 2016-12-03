@@ -1,11 +1,5 @@
-<<<<<<< HEAD
----- b_notify_devinfo Matches (3 in 1 files) ----
-biz_device.cpp (mid_logic\src):	VD_BOOL b_notify_devinfo;
-biz_device.cpp (mid_logic\src):, b_notify_devinfo(FALSE)
-biz_device.cpp (mid_logic\src):	b_notify_devinfo = TRUE;
-=======
----- isSockIOErr Matches (3 in 3 files) ----
-biz_device.cpp (mid_logic\src):				if (isSockIOErr(fd_tmp)) //socket ³ö´í
-net.c (low_module\net\src):VD_BOOL isSockIOErr(int sock)
-net.h (low_module\net\inc):VD_BOOL isSockIOErr(int sock);
->>>>>>> origin/master
+---- BizConfigGetDvrProperty Matches (4 in 3 files) ----
+biz_config.cpp (mid_logic\src):int BizConfigGetDvrProperty(SConfigDvrProperty &sdev_property)
+biz_config.h (mid_logic\inc):int BizConfigGetDvrProperty(SConfigDvrProperty &sdev_property);
+biz_device.cpp (mid_logic\src):	ret = BizConfigGetDvrProperty(sdev_property);
+biz_device.cpp (mid_logic\src):		ERR_PRINT("BizConfigGetDvrProperty failed\n");

@@ -65,7 +65,7 @@ public:
 	int GetNetParam(SConfigNetParam &snet_param);
 
 	int GetTvWallList(std::vector<SConfigTvWallParam> &vtvwall_list);
-	int GetDevList(EM_DEV_TYPE dev_type, std::vector<uint> &vdev_list);
+	int GetDevList(EM_DEV_TYPE dev_type, std::vector<u32> &vdev_list);
 		
 	int GetAlmLinkList(std::vector<SConfigAlmLinkParam> &valm_link_list);
 
@@ -85,8 +85,8 @@ public:
 	int DelAllAlmLinkParamList();
 	int ModifyAlmLinkParam(u32 index, SConfigAlmLinkParam &salm_link_param);
 
-	int AddDevList(EM_DEV_TYPE dev_type, std::vector<uint> &vdev_list);//dev IP list
-	int DelDevList(EM_DEV_TYPE dev_type, std::vector<uint> &vdev_list);//dev IP list
+	int AddDevList(EM_DEV_TYPE dev_type, std::vector<u32> &vdev_list);//dev IP list
+	int DelDevList(EM_DEV_TYPE dev_type, std::vector<u32> &vdev_list);//dev IP list
 	int DelAllDevList(EM_DEV_TYPE dev_type);
 	
 private:
@@ -114,8 +114,8 @@ private:
 	int GetTvWallParamFromFile(std::vector<SConfigTvWallParam> &vtvwall_list, const char *file_name);
 	int SetTvWallParam2File(std::vector<SConfigTvWallParam> &vtvwall_list);//外部加锁
 	//从配置文件加载NVR\patrol dec\switch dec 列表
-	int GetDevListFromFile(EM_DEV_TYPE dev_type, std::vector<uint> &vdev_list, const char *file_name);
-	int SetDevList2File(EM_DEV_TYPE dev_type, std::vector<uint> &vdev_list);//外部加锁
+	int GetDevListFromFile(EM_DEV_TYPE dev_type, std::vector<u32> &vdev_list, const char *file_name);
+	int SetDevList2File(EM_DEV_TYPE dev_type, std::vector<u32> &vdev_list);//外部加锁
 #if 0	
 	VD_BOOL GetNvrListFromFile(std::vector<uint> &vnvr_list, const char *file_name);
 	//从配置文件加载patrol dec 列表
@@ -999,7 +999,7 @@ int CBizConfig::GetNetParamFromFile(SConfigNetParam &snet_param, const char *fil
 
 int CBizConfig::SetNetParam2File(SConfigNetParam &snet_param)
 {
-	uint itmp;
+	s32 itmp;
 	char stmp[100];
 	struct in_addr in;
 	char file_name[100];
@@ -1206,7 +1206,7 @@ fail:
 
 int CBizConfig::SetTvWallParam2File(std::vector<SConfigTvWallParam> &vtvwall_list)
 {
-	uint itmp;
+	s32 itmp;
 	char str_item[100];
 	struct in_addr in;
 	char file_name[100];
@@ -1298,7 +1298,7 @@ int CBizConfig::SetTvWallParam2File(std::vector<SConfigTvWallParam> &vtvwall_lis
 
 
 //从配置文件加载NVR 列表
-int CBizConfig::GetDevListFromFile(EM_DEV_TYPE dev_type, std::vector<uint> &vdev_list, const char *file_name)
+int CBizConfig::GetDevListFromFile(EM_DEV_TYPE dev_type, std::vector<u32> &vdev_list, const char *file_name)
 {
 	int itmp;
 	uint i, dev_nums;
@@ -1364,7 +1364,7 @@ int CBizConfig::GetDevListFromFile(EM_DEV_TYPE dev_type, std::vector<uint> &vdev
 	return SUCCESS;
 }
 
-int CBizConfig::SetDevList2File(EM_DEV_TYPE dev_type, std::vector<uint> &vdev_list)
+int CBizConfig::SetDevList2File(EM_DEV_TYPE dev_type, std::vector<u32> &vdev_list)
 {
 	int itmp;
 	uint i, dev_nums;
@@ -2114,9 +2114,9 @@ int CBizConfig::GetTvWallList(std::vector<SConfigTvWallParam> &vtvwall_list)
 	return SUCCESS;
 }
 
-int CBizConfig::GetDevList(EM_DEV_TYPE dev_type, std::vector<uint> &vdev_list)
+int CBizConfig::GetDevList(EM_DEV_TYPE dev_type, std::vector<u32> &vdev_list)
 {
-	std::vector<uint> *pvdev_list = NULL;
+	std::vector<u32> *pvdev_list = NULL;
 	
 	if (!b_inited)
 	{
@@ -2810,10 +2810,10 @@ fail:
 }
 
 //按由小到大顺序插入
-int CBizConfig::AddDevList(EM_DEV_TYPE dev_type, std::vector<uint> &vdev_list_add)//dev IP list
+int CBizConfig::AddDevList(EM_DEV_TYPE dev_type, std::vector<u32> &vdev_list_add)//dev IP list
 {
-	std::vector<uint>::iterator iter, iter_add;
-	std::vector<uint> *pvdev_list = NULL;
+	std::vector<u32>::iterator iter, iter_add;
+	std::vector<u32> *pvdev_list = NULL;
 	struct in_addr in;
 	EM_MSG_TYPE msg_type = EM_MSG_TYPE_MAX;
 	VD_BOOL b_save = FALSE;
@@ -2924,10 +2924,10 @@ fail:
 	return -FAILURE;
 }
 
-int CBizConfig::DelDevList(EM_DEV_TYPE dev_type, std::vector<uint> &vdev_list_del)
+int CBizConfig::DelDevList(EM_DEV_TYPE dev_type, std::vector<u32> &vdev_list_del)
 {
-	std::vector<uint>::iterator iter, iter_del, iter_find;
-	std::vector<uint> *pvdev_list = NULL;
+	std::vector<u32>::iterator iter, iter_del, iter_find;
+	std::vector<u32> *pvdev_list = NULL;
 	
 	EM_MSG_TYPE msg_type = EM_MSG_TYPE_MAX;
 	VD_BOOL b_save = FALSE;
@@ -3038,7 +3038,7 @@ fail:
 int CBizConfig::DelAllDevList(EM_DEV_TYPE dev_type)
 {
 	VD_BOOL b_save = FALSE;
-	std::vector<uint> *pvdev_list = NULL;
+	std::vector<u32> *pvdev_list = NULL;
 	EM_MSG_TYPE msg_type = EM_MSG_TYPE_MAX;
 	
 	if (!b_inited)
@@ -3181,17 +3181,17 @@ int BizConfigGetTvWallList(std::vector<SConfigTvWallParam> &vtvwall_list)
 	return g_biz_config.GetTvWallList(vtvwall_list);
 }
 
-int BizConfigGetNvrList(std::vector<uint> &vdev_list)
+int BizConfigGetNvrList(std::vector<u32> &vdev_list)
 {
 	return g_biz_config.GetDevList(EM_NVR, vdev_list);
 }
 
-int BizConfigGetPatrolDecList(std::vector<uint> &vdev_list)
+int BizConfigGetPatrolDecList(std::vector<u32> &vdev_list)
 {
 	return g_biz_config.GetDevList(EM_PATROL_DEC, vdev_list);
 }
 
-int BizConfigGetSwitchDecList(std::vector<uint> &vdev_list)
+int BizConfigGetSwitchDecList(std::vector<u32> &vdev_list)
 {
 	return g_biz_config.GetDevList(EM_SWITCH_DEC, vdev_list);
 }
@@ -3286,28 +3286,28 @@ int BizConfigModifyAlmLinkParam(u32 index, SConfigAlmLinkParam &salm_link_param)
 	return g_biz_config.ModifyAlmLinkParam(index, salm_link_param);
 }
 
-int BizConfigAddNvr(uint dev_ip)//nvr IP list	
+int BizConfigAddNvr(u32 dev_ip)//nvr IP list	
 {
-	std::vector<uint> vdev_list;
+	std::vector<u32> vdev_list;
 	vdev_list.push_back(dev_ip);
 	
 	return g_biz_config.AddDevList(EM_NVR, vdev_list);
 }
 
-int BizConfigAddNvrList(std::vector<uint> &vdev_list)//nvr IP list	
+int BizConfigAddNvrList(std::vector<u32> &vdev_list)//nvr IP list	
 {
 	return g_biz_config.AddDevList(EM_NVR, vdev_list);
 }
 
-int BizConfigDelNvr(uint dev_ip)//nvr IP list	
+int BizConfigDelNvr(u32 dev_ip)//nvr IP list	
 {
-	std::vector<uint> vdev_list;
+	std::vector<u32> vdev_list;
 	vdev_list.push_back(dev_ip);
 	
 	return g_biz_config.DelDevList(EM_NVR, vdev_list);
 }
 
-int BizConfigDelNvrList(std::vector<uint> &vdev_list)
+int BizConfigDelNvrList(std::vector<u32> &vdev_list)
 {
 	return g_biz_config.DelDevList(EM_NVR, vdev_list);
 }
@@ -3317,28 +3317,28 @@ int BizConfigDelAllNvrList()
 	return g_biz_config.DelAllDevList(EM_NVR);
 }
 
-int BizConfigAddPatrolDec(uint dev_ip)//nvr IP list	
+int BizConfigAddPatrolDec(u32 dev_ip)//nvr IP list	
 {
-	std::vector<uint> vdev_list;
+	std::vector<u32> vdev_list;
 	vdev_list.push_back(dev_ip);
 	
 	return g_biz_config.AddDevList(EM_PATROL_DEC, vdev_list);
 }
 
-int BizConfigAddPatrolDecList(std::vector<uint> &vdev_list)	
+int BizConfigAddPatrolDecList(std::vector<u32> &vdev_list)	
 {
 	return g_biz_config.AddDevList(EM_PATROL_DEC, vdev_list);
 }
 
-int BizConfigDelPatrolDec(uint dev_ip)//nvr IP list	
+int BizConfigDelPatrolDec(u32 dev_ip)//nvr IP list	
 {
-	std::vector<uint> vdev_list;
+	std::vector<u32> vdev_list;
 	vdev_list.push_back(dev_ip);
 	
 	return g_biz_config.DelDevList(EM_PATROL_DEC, vdev_list);
 }
 
-int BizConfigDelPatrolDecList(std::vector<uint> &vdev_list)	
+int BizConfigDelPatrolDecList(std::vector<u32> &vdev_list)	
 {
 	return g_biz_config.DelDevList(EM_PATROL_DEC, vdev_list);
 }
@@ -3348,28 +3348,28 @@ int BizConfigAllDelPatrolDecList()
 	return g_biz_config.DelAllDevList(EM_PATROL_DEC);
 }
 
-int BizConfigAddSwitchDec(uint dev_ip)//nvr IP list	
+int BizConfigAddSwitchDec(u32 dev_ip)//nvr IP list	
 {
-	std::vector<uint> vdev_list;
+	std::vector<u32> vdev_list;
 	vdev_list.push_back(dev_ip);
 	
 	return g_biz_config.AddDevList(EM_SWITCH_DEC, vdev_list);
 }
 
-int BizConfigAddSwitchDecList(std::vector<uint> &vdev_list)	
+int BizConfigAddSwitchDecList(std::vector<u32> &vdev_list)	
 {
 	return g_biz_config.AddDevList(EM_SWITCH_DEC, vdev_list);
 }
 
-int BizConfigDelSwitchDec(uint dev_ip)//nvr IP list	
+int BizConfigDelSwitchDec(u32 dev_ip)//nvr IP list	
 {
-	std::vector<uint> vdev_list;
+	std::vector<u32> vdev_list;
 	vdev_list.push_back(dev_ip);
 	
 	return g_biz_config.DelDevList(EM_SWITCH_DEC, vdev_list);
 }
 
-int BizConfigDelSwitchDecList(std::vector<uint> &vdev_list)	
+int BizConfigDelSwitchDecList(std::vector<u32> &vdev_list)	
 {
 	return g_biz_config.DelDevList(EM_SWITCH_DEC, vdev_list);
 }

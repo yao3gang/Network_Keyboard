@@ -1,9 +1,7 @@
 #ifndef TABLEWIDGET_TVWALL_H
 #define TABLEWIDGET_TVWALL_H
 
-#include <QHeaderView>
-#include <QTableWidget>
-#include <QString>
+#include <QtGui>
 
 #include "types.h"
 

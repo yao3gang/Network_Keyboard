@@ -164,7 +164,7 @@ int BizDealClientDataLink(
 //处理网络服务器事件通知
 void BizDealSvrNotify(u32 svr_ip, u16 event, s8 *pbyMsgBuf, int msgLen)
 {
-	u32 ip_le = ntohl(svr_ip);
+	//s32 ip_le = ntohl(svr_ip);
 	struct in_addr in;
 	in.s_addr = svr_ip;
 		

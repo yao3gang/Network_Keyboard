@@ -1,8 +1,8 @@
 #ifndef PAGE_CONFIG_H
 #define PAGE_CONFIG_H
 
-#include <QWidget>
-#include <QRegExpValidator>
+#include <QtGui>
+#include "form_tvwall_config.h"
 
 #include "biz_config.h"
 #include "biz_system_complex.h"
@@ -23,6 +23,7 @@ private:
     QRegExpValidator *pvalidator_ipaddr;
     QRegExpValidator *pvalidator_mac;
     std::vector<SConfigTvWallParam> vtvwall_list;
+    form_tvwall_config::OpenMode tvwall_open_mode;
 
 private:
     Ui::page_config *ui;

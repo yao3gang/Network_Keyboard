@@ -66,7 +66,7 @@ void SearchDevice_CB(ifly_DeviceInfo_t dev, void* pContext);
 
 //设备IP地址和设备类指针
 //MAP_IP_IDX 中IP地址需要ntohl  操作，好排序
-//<u32 IP_le, u32 pool_index> 设备池中的索引
+//<u32 IP_le, s32 pool_index> 设备池中的索引
 typedef std::map<u32, s32> MAP_IP_IDX;
 
 //<s32 socket fd, u32 pool_index>
@@ -106,8 +106,8 @@ private:
 	void threadRcv(uint param);// 1.接收服务器回应---2. 接收服务器报警
 	//按是否在线, 分离添加的设备
 	void _SplitDevFromMap(EM_DEV_TYPE dev_type, 
-								std::list<s32> &list_devs_online, 
-								std::list<s32> &list_devs_offline);
+								std::list<u32> &list_devs_online, 
+								std::list<u32> &list_devs_offline);
 	int _UnlinkAllDevs();
 	//add and del  map_fd_idx 需要接收网络信息的表
 	int _AddMapRcv(s32 sock_fd, s32 dev_idx);
@@ -146,7 +146,7 @@ private:
 	
 	//待删除设备
 	C_Lock *plock_list_del;//Mutex
-	std::list<s32> list_dev_del;//待删除的设备列表	
+	std::list<u32> list_dev_del;//待删除的设备列表	
 
 	//集中接收设备消息
 	C_Lock *plock_map_fd_idx;
@@ -1352,8 +1352,8 @@ fail:
 
 //按是否在线, 分离添加的设备
 void CBizDeviceManager::_SplitDevFromMap(EM_DEV_TYPE dev_type, 
-							std::list<s32> &list_devs_online, 
-							std::list<s32> &list_devs_offline)
+							std::list<u32> &list_devs_online, 
+							std::list<u32> &list_devs_offline)
 {
 	MAP_IP_IDX *pmap = NULL;
 	MAP_IP_IDX::iterator map_iter;
@@ -1756,8 +1756,8 @@ fail:
 //重连
 void CBizDeviceManager::timerFuncReconnect(uint param)
 {
-	std::list<s32> *plist_devs_offline = (std::list<s32> *)param;
-	std::list<s32>::iterator list_iter;
+	std::list<u32> *plist_devs_offline = (std::list<u32> *)param;
+	std::list<u32>::iterator list_iter;
 	MAP_FD_IDX map_fd_dev;
 	MAP_FD_IDX::iterator map_iter;	
 	CBizDevice *pcdev = NULL;
@@ -1966,6 +1966,7 @@ void CBizDeviceManager::timerFuncReconnect(uint param)
 			{
 				if (isSockIOErr(fd_tmp)) //socket 出错
 				{
+					ERR_PRINT("isSockIOErr failed\n");
 					close(fd_tmp);
 					goto remove;
 				}
@@ -2077,9 +2078,9 @@ remove:
 void CBizDeviceManager::threadKeepAlive(uint param)
 {
 	//list dev_idx
-	std::list<s32> list_devs_online;
-	std::list<s32> list_devs_offline;
-	std::list<s32>::iterator list_iter;
+	std::list<u32> list_devs_online;
+	std::list<u32> list_devs_offline;
+	std::list<u32>::iterator list_iter;
 	s32 dev_idx;
 	CBizDevice *pcdev = NULL;
 	SGuiDev gdev;
