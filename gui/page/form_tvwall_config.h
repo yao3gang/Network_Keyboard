@@ -25,9 +25,10 @@ public:
     ~form_tvwall_config();
 
 private slots:
+    void on_btn_clr_clicked();
     void on_btn_cancel_clicked();
     void on_btn_ok_clicked();
-    void btn_clicked();
+    void btn_unbind_clicked();
     void rowsChanged(QString text);
     void colsChanged(QString text);
 
@@ -49,6 +50,9 @@ private:
     u32 nTvwall_devs_per_col;
     std::vector<u32> vdev;
     QRegExpValidator *pvalidator;
+
+signals:
+    void signal_tvwall_data(QByteArray data);
 };
 
 #endif // FORM_TVWALL_CONFIG_H

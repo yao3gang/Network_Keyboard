@@ -133,7 +133,6 @@ void treewidget_dev::startDrag(Qt::DropActions supportedActions)
     DBG_PRINT("mime str: %s\n", mime_str.toUtf8().constData());
 
     dataStream << mime_str.toUtf8().constData();
-    DBG_PRINT("size: %d\n", itemData.size());
     mimeData = new QMimeData;
     mimeData->setData("network_keyboard", itemData);
 
@@ -148,10 +147,8 @@ void treewidget_dev::startDrag(Qt::DropActions supportedActions)
 
 void treewidget_dev::dragEnterEvent(QDragEnterEvent *event)
 {
-    //DBG_PRINT(" 1\n");
     if (event->mimeData()->hasFormat("network_keyboard"))
     {
-        //DBG_PRINT(" 2\n");
         event->accept();
     }
     else
@@ -168,10 +165,9 @@ void treewidget_dev::dragLeaveEvent(QDragLeaveEvent *event)
 
 void treewidget_dev::dragMoveEvent(QDragMoveEvent *event)
 {
-    //DBG_PRINT(" 1\n");
     if (event->mimeData()->hasFormat("network_keyboard"))
     {
-        //DBG_PRINT(" 2\n");
+        event->setDropAction(Qt::MoveAction);
         event->accept();
     }
     else
@@ -185,7 +181,7 @@ void treewidget_dev::dropEvent(QDropEvent *event)
     //DBG_PRINT(" 1\n");
     if (event->mimeData()->hasFormat("network_keyboard"))
     {
-        //DBG_PRINT(" 2\n");
+        event->setDropAction(Qt::MoveAction);
         event->accept();
     }
     else

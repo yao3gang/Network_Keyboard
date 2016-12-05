@@ -29,6 +29,7 @@ private:
     Ui::page_config *ui;
     void init_form();
     void init_data();
+    void refreshTableTvWall();
 
 private slots:
     void button_clicked();
@@ -43,6 +44,8 @@ private slots:
 
     void on_btn_tvWall_add_clicked();
     void on_btn_tvWall_del_clicked();
+    void on_btn_tvWall_modify_clicked();
+    void accept_tvwall_data(QByteArray data);
 
 };
 

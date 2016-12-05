@@ -7,6 +7,7 @@
 
 #include "page_manager.h"
 #include "page_dev_mgt.h"
+#include "frmmessagebox.h"
 
 #include "biz_device.h"
 #include "biz_config.h"
@@ -24,6 +25,7 @@ form_tvwall_config::form_tvwall_config(OpenMode mode, int _rows, int _cols, std:
     pvalidator(NULL)
 {
     ui->setupUi(this);
+    setAttribute(Qt::WA_DeleteOnClose);//窗口关闭时销毁
 
     if (NULL == pvdev)
     {
@@ -40,6 +42,7 @@ form_tvwall_config::form_tvwall_config(OpenMode mode, int _rows, int _cols, std:
             ERR_PRINT("rows(%d) * cols(%d) != vdev.size (%d)\n", rows, cols, vdev.size());
         }
     }
+
     init_form();
 
     //限制值
@@ -59,18 +62,30 @@ form_tvwall_config::form_tvwall_config(OpenMode mode, int _rows, int _cols, std:
 
 form_tvwall_config::~form_tvwall_config()
 {
-    delete pvalidator;
+    if (pvalidator)
+    {
+        delete pvalidator;
+    }
+
     delete ui;
 }
 
 void form_tvwall_config::rowsChanged(QString text)
 {
     bool ok = true;
+
+    if (text.isEmpty())
+        return;
+
     u32 _rows = text.toInt(&ok);
 
     if (!ok)
     {
         ERR_PRINT("rows: text.toInt failed, text: %s\n", text.toUtf8().constData());
+
+        ShowMessageBoxInfo(QString(QString::fromUtf8("格式错误，请输入数字")));
+        ui->lineEdit_tvwall_rows->setText(QString::fromUtf8("0"));
+
         return ;
     }
 
@@ -83,6 +98,10 @@ void form_tvwall_config::rowsChanged(QString text)
     if (_rows >= nTvwall_devs_per_line)
     {
         ERR_PRINT("_rows(%d) >= nTvwall_devs_per_line(%d)\n", _rows, nTvwall_devs_per_line);
+
+        ShowMessageBoxError(QString(QString::fromUtf8("列数超所限制值(%1)")).arg(nTvwall_devs_per_line));
+        ui->lineEdit_tvwall_rows->setText(QString::fromUtf8("0"));
+
         return ;
     }
 
@@ -90,6 +109,10 @@ void form_tvwall_config::rowsChanged(QString text)
     if (cnt >= nTvwall_devs_max)
     {
         ERR_PRINT("cnt(%d) >= nTvwall_devs_max(%d)\n", cnt, nTvwall_devs_max);
+
+        ShowMessageBoxError(QString(QString::fromUtf8("行数*列数超所限制值(%1)")).arg(nTvwall_devs_max));
+        ui->lineEdit_tvwall_rows->setText(QString::fromUtf8("0"));
+
         return ;
     }
 
@@ -99,11 +122,19 @@ void form_tvwall_config::rowsChanged(QString text)
 void form_tvwall_config::colsChanged(QString text)
 {
     bool ok = true;
+
+    if (text.isEmpty())
+        return;
+
     u32 _cols = text.toInt(&ok);
 
     if (!ok)
     {
         ERR_PRINT("_cols: text.toInt failed, text: %s\n", text.toUtf8().constData());
+
+        ShowMessageBoxInfo(QString(QString::fromUtf8("格式错误，请输入数字")));
+        ui->lineEdit_tvwall_cols->setText(QString::fromUtf8("0"));
+
         return ;
     }
 
@@ -116,6 +147,10 @@ void form_tvwall_config::colsChanged(QString text)
     if (_cols >= nTvwall_devs_per_col)
     {
         ERR_PRINT("_cols(%d) >= nTvwall_devs_per_col(%d)\n", _cols, nTvwall_devs_per_col);
+
+        ShowMessageBoxError(QString(QString::fromUtf8("列数超所限制值(%1)")).arg(nTvwall_devs_per_col));
+        ui->lineEdit_tvwall_cols->setText(QString::fromUtf8("0"));
+
         return ;
     }
 
@@ -123,6 +158,10 @@ void form_tvwall_config::colsChanged(QString text)
     if (cnt >= nTvwall_devs_max)
     {
         ERR_PRINT("cnt(%d) >= nTvwall_devs_max(%d)\n", cnt, nTvwall_devs_max);
+
+        ShowMessageBoxError(QString(QString::fromUtf8("行数*列数超所限制值(%1)")).arg(nTvwall_devs_max));
+        ui->lineEdit_tvwall_cols->setText(QString::fromUtf8("0"));
+
         return ;
     }
 
@@ -358,11 +397,17 @@ void form_tvwall_config::refreshTable()
     QString screen_text = QString::fromUtf8("屏幕");
     QString btn_text = QString::fromUtf8("解除绑定");
     QString ip_text;
-    QPushButton *btn = NULL;
+    QPushButton *btn_unbind = NULL;
     struct in_addr in;
     u32 i;
-    for (i=0; i<vdev.size(); ++i)
+    for (i=0; i<cnt; ++i)
     {
+        if (i >= vdev.size())
+        {
+            ERR_PRINT("i(%d) >= vdev size(%d)\n", i, vdev.size());
+            continue;
+        }
+
         ptable_item = new QTableWidgetItem();
         ptable_item->setText(screen_text + QString("%1").arg(i+1));
         ui->tableWidget_tvwall->setItem(i, 0, ptable_item);
@@ -375,19 +420,21 @@ void form_tvwall_config::refreshTable()
         }
         else
         {
-            ip_text = QString("");
+            ip_text = QString("");//空
         }
         ptable_item->setText(ip_text);
         ui->tableWidget_tvwall->setItem(i, 1, ptable_item);
 
-        btn = new QPushButton;
-        btn->setText(btn_text);
-        connect(btn, SIGNAL(clicked()), this, SLOT(btn_clicked()));
-        ui->tableWidget_tvwall->setCellWidget(i, 2, btn);
+        btn_unbind = new QPushButton;
+        btn_unbind->setText(btn_text);
+
+        connect(btn_unbind, SIGNAL(clicked()), this, SLOT(btn_unbind_clicked()));
+
+        ui->tableWidget_tvwall->setCellWidget(i, 2, btn_unbind);
     }
 }
 
-void form_tvwall_config::btn_clicked()
+void form_tvwall_config::btn_unbind_clicked()
 {
     QPushButton *btn = dynamic_cast<QPushButton *>(QObject::sender());//找到信号发送者
     QModelIndex index = ui->tableWidget_tvwall->indexAt(btn->pos());//定位按钮
@@ -401,12 +448,88 @@ void form_tvwall_config::btn_clicked()
     }
 }
 
+void form_tvwall_config::on_btn_clr_clicked()
+{
+    QTableWidgetItem *pitem = NULL;
+    int _rows = ui->tableWidget_tvwall->rowCount();
+    int i = 0;
+
+    for (i=0; i<_rows; ++i)
+    {
+        pitem = NULL;
+        pitem = ui->tableWidget_tvwall->item(i, 1);
+        if (pitem)
+        {
+            pitem->setText(QString::fromUtf8(("")));
+        }
+    }
+}
+
 void form_tvwall_config::on_btn_cancel_clicked()
 {
     this->close();
 }
 
 void form_tvwall_config::on_btn_ok_clicked()
-{
+{    
+    //数据格式说明：
+    //行数|列数|解码器IP1 解码器IP2 ... 解码器IPn
+
+    QTableWidgetItem *pitem = NULL;
+    u32 dev_ip = 0;
+    int i =0;
+    int cnt = rows * cols;
+
+    if (cnt <= 0)
+    {
+        ERR_PRINT("rows(%d) * cols(%d) = %d\n", rows, cols, cnt);
+        return ;
+    }
+
+    if (cnt != ui->tableWidget_tvwall->rowCount())
+    {
+        ERR_PRINT("cnt(%d) != ui->tableWidget_tvwall->rowCount(): %d\n", cnt, ui->tableWidget_tvwall->rowCount());
+        return ;
+    }
+
+    QByteArray data;
+    QDataStream dataStream(&data, QIODevice::WriteOnly);
+
+    dataStream << rows << cols;
+
+    QString item_text;
+    for (i=0; i<cnt; ++i)
+    {
+        pitem = NULL;
+        pitem = ui->tableWidget_tvwall->item(i, 1);
+        if (pitem)
+        {
+            item_text = pitem->text();
+            if (item_text.isEmpty())
+            {
+                dev_ip = 0;
+            }
+            else
+            {
+                DBG_PRINT("i: %d, %s\n", i, item_text.toUtf8().constData());
+                dev_ip = inet_addr(item_text.toUtf8().constData());
+                if (dev_ip == INADDR_NONE)
+                {
+                    ERR_PRINT("line: %d, ip invalid\n", i);
+                    dev_ip = 0;
+                }
+            }
+        }
+        else
+        {
+            dev_ip = 0;
+        }
+
+        dataStream << dev_ip;
+    }
+
+    emit signal_tvwall_data(data);
+    DBG_PRINT("emit\n");
+    //sleep(1);
     this->close();
 }

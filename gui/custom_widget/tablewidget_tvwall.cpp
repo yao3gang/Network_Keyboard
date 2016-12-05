@@ -41,6 +41,7 @@ void tablewidget_tvwall::dragMoveEvent(QDragMoveEvent *event)
 {
     if (event->mimeData()->hasFormat("network_keyboard"))
     {
+        event->setDropAction(Qt::MoveAction);
         event->accept();
     }
     else
@@ -58,7 +59,7 @@ void tablewidget_tvwall::dropEvent(QDropEvent *event)
     }
 
     QModelIndex index = indexAt(event->pos());
-    DBG_PRINT("drop at row: %d, col: %d\n", index.row(), index.column());
+    //DBG_PRINT("drop at row: %d, col: %d\n", index.row(), index.column());
 
     QTableWidgetItem *ptable_item = item(index.row(), 1); //得到 解码器列 item
     if (!ptable_item)
@@ -68,11 +69,23 @@ void tablewidget_tvwall::dropEvent(QDropEvent *event)
     }
 
     QByteArray data = event->mimeData()->data("network_keyboard");
-    DBG_PRINT("mime data: %d\n", data.size());
-    QString item_str = QString::fromUtf8(data);
-    DBG_PRINT("item_str: %s\n", item_str.toUtf8().constData());
-    DBG_PRINT("item_str: %c\n", *(item_str.toUtf8().constData()));
-    ptable_item->setText(item_str);
+    QDataStream dataStream(&data, QIODevice::ReadOnly);
+    char *pstr = NULL;
+    dataStream >> pstr;
+    if (pstr)
+    {
+        QString item_str = QString::fromUtf8(pstr);
+        DBG_PRINT("item_str: %s\n", item_str.toUtf8().constData());
+        ptable_item->setText(item_str);
 
-    event->accept();
+        event->setDropAction(Qt::MoveAction);
+        event->accept();
+
+        delete[] pstr;
+    }
+    else
+    {
+        event->ignore();
+    }
+
 }
