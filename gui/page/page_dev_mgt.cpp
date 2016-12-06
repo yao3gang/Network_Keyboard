@@ -379,11 +379,7 @@ void page_dev_mgt::refreshDevInfo(SGuiDev dev)
         }
     }
 
-    if (iter != pmap->end())
-    {
-        DBG_PRINT("find dev(%s) at row: %d\n", inet_ntoa(in), index);
-    }
-    else
+    if (iter == pmap->end())
     {
         DBG_PRINT("not find dev(%s)\n", inet_ntoa(in));
 

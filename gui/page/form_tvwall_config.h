@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "types.h"
+#include "gui_dev.h"
 
 namespace Ui {
 class form_tvwall_config;
@@ -31,6 +32,7 @@ private slots:
     void btn_unbind_clicked();
     void rowsChanged(QString text);
     void colsChanged(QString text);
+    void refreshDevInfo(SGuiDev dev);
 
 private:
     void init_form();//控件

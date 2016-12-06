@@ -79,8 +79,21 @@ void page_main::init_form() //init stackwidget
         connect(btn, SIGNAL(clicked()), this, SLOT(button_clicked()));
     }
 
+    page_config *config = new page_config;
+    if (registerPage(PAGE_CONFIG, config))
+    {
+        ERR_PRINT("registerPage PAGE_CONFIG failed\n");
+        return ;
+    }
+
+    page_dev_mgt *dev_mgt = new page_dev_mgt;
+    if (registerPage(PAGE_DEV_MGT, dev_mgt))
+    {
+        ERR_PRINT("registerPage PAGE_DEV_MGT failed\n");
+        return ;
+    }
+
     page_preview *preview = new page_preview;
-    ui->stackedWidget->addWidget(preview);
     if (registerPage(PAGE_PREVIEW, preview))
     {
         ERR_PRINT("registerPage PAGE_PREVIEW failed\n");
@@ -88,7 +101,6 @@ void page_main::init_form() //init stackwidget
     }
 
     page_playback *playback = new page_playback;
-    ui->stackedWidget->addWidget(playback);
     if (registerPage(PAGE_PLAYBACK, playback))
     {
         ERR_PRINT("registerPage PAGE_PLAYBACK failed\n");
@@ -96,7 +108,6 @@ void page_main::init_form() //init stackwidget
     }
 
     page_tvWall *tvWall = new page_tvWall;
-    ui->stackedWidget->addWidget(tvWall);
     if (registerPage(PAGE_TVWALL, tvWall))
     {
         ERR_PRINT("registerPage PAGE_TVWALL failed\n");
@@ -104,28 +115,18 @@ void page_main::init_form() //init stackwidget
     }
 
     page_alm *alm = new page_alm;
-    ui->stackedWidget->addWidget(alm);
     if (registerPage(PAGE_ALM, alm))
     {
         ERR_PRINT("registerPage PAGE_ALM failed\n");
         return ;
     }
 
-    page_dev_mgt *dev_mgt = new page_dev_mgt;
+    ui->stackedWidget->addWidget(preview);
+    ui->stackedWidget->addWidget(playback);
+    ui->stackedWidget->addWidget(tvWall);
+    ui->stackedWidget->addWidget(alm);
     ui->stackedWidget->addWidget(dev_mgt);
-    if (registerPage(PAGE_DEV_MGT, dev_mgt))
-    {
-        ERR_PRINT("registerPage PAGE_DEV_MGT failed\n");
-        return ;
-    }
-
-    page_config *config = new page_config;
     ui->stackedWidget->addWidget(config);
-    if (registerPage(PAGE_CONFIG, config))
-    {
-        ERR_PRINT("registerPage PAGE_CONFIG failed\n");
-        return ;
-    }
 
     qRegisterMetaType<SDateTime>("SDateTime");
     connect(gp_bond, SIGNAL(signalNotifyUpdateTime(SDateTime)), this, SLOT(update_time(SDateTime)), Qt::QueuedConnection);

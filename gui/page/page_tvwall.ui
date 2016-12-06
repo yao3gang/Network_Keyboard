@@ -27,39 +27,12 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout_4">
    <property name="spacing">
-    <number>15</number>
+    <number>6</number>
    </property>
-   <item>
-    <layout class="QHBoxLayout" name="horizontalLayout_4">
-     <item>
-      <spacer name="horizontalSpacer_3">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeType">
-        <enum>QSizePolicy::Fixed</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
-        <size>
-         <width>40</width>
-         <height>20</height>
-        </size>
-       </property>
-      </spacer>
-     </item>
-     <item>
-      <widget class="QLabel" name="lab_tooltip">
-       <property name="text">
-        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:11pt;&quot;&gt;请从左边选定一个屏幕进行设置&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </item>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_2">
      <item>
-      <widget class="QTreeWidget" name="treeWidget_scn">
+      <widget class="treewidget_dev" name="treeWidget_screen">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
          <horstretch>0</horstretch>
@@ -68,13 +41,13 @@
        </property>
        <property name="minimumSize">
         <size>
-         <width>200</width>
+         <width>300</width>
          <height>0</height>
         </size>
        </property>
        <property name="maximumSize">
         <size>
-         <width>200</width>
+         <width>300</width>
          <height>16777215</height>
         </size>
        </property>
@@ -87,6 +60,9 @@
      </item>
      <item>
       <layout class="QVBoxLayout" name="verticalLayout_3">
+       <property name="spacing">
+        <number>6</number>
+       </property>
        <item>
         <layout class="QHBoxLayout" name="horizontalLayout">
          <property name="spacing">
@@ -94,10 +70,28 @@
          </property>
          <item>
           <widget class="QGroupBox" name="gbox_preview">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>80</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>80</height>
+            </size>
+           </property>
            <property name="title">
             <string>预览画面</string>
            </property>
-           <layout class="QVBoxLayout" name="verticalLayout_2">
+           <layout class="QHBoxLayout" name="horizontalLayout_5">
             <property name="spacing">
              <number>6</number>
             </property>
@@ -150,10 +144,28 @@
          </item>
          <item>
           <widget class="QGroupBox" name="gbox_poll">
-           <property name="title">
-            <string>轮巡</string>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
            </property>
-           <layout class="QVBoxLayout" name="verticalLayout">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>80</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>80</height>
+            </size>
+           </property>
+           <property name="title">
+            <string>广播轮巡</string>
+           </property>
+           <layout class="QHBoxLayout" name="horizontalLayout_4">
             <property name="spacing">
              <number>6</number>
             </property>
@@ -188,7 +200,7 @@
                </size>
               </property>
               <property name="text">
-               <string>同步</string>
+               <string>应用</string>
               </property>
              </widget>
             </item>
@@ -222,6 +234,9 @@
           <string/>
          </property>
          <layout class="QHBoxLayout" name="horizontalLayout_3">
+          <property name="margin">
+           <number>0</number>
+          </property>
           <item>
            <widget class="tablewidget_tvwall" name="tableWidget_tvwall">
             <attribute name="horizontalHeaderStretchLastSection">
@@ -230,28 +245,24 @@
            </widget>
           </item>
           <item>
-           <spacer name="horizontalSpacer_2">
-            <property name="orientation">
-             <enum>Qt::Horizontal</enum>
-            </property>
-            <property name="sizeType">
-             <enum>QSizePolicy::Fixed</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>20</width>
-              <height>20</height>
-             </size>
-            </property>
-           </spacer>
-          </item>
-          <item>
-           <widget class="QTreeWidget" name="treeWidget_nvr">
+           <widget class="treewidget_dev" name="treeWidget_nvr">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
               <horstretch>0</horstretch>
               <verstretch>0</verstretch>
              </sizepolicy>
+            </property>
+            <property name="minimumSize">
+             <size>
+              <width>200</width>
+              <height>0</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>200</width>
+              <height>16777215</height>
+             </size>
             </property>
             <column>
              <property name="text">
@@ -271,11 +282,25 @@
  </widget>
  <customwidgets>
   <customwidget>
+   <class>treewidget_dev</class>
+   <extends>QTreeWidget</extends>
+   <header>treewidget_dev.h</header>
+  </customwidget>
+  <customwidget>
    <class>tablewidget_tvwall</class>
    <extends>QTableWidget</extends>
    <header>tablewidget_tvwall.h</header>
   </customwidget>
  </customwidgets>
+ <tabstops>
+  <tabstop>treeWidget_screen</tabstop>
+  <tabstop>tableWidget_tvwall</tabstop>
+  <tabstop>treeWidget_nvr</tabstop>
+  <tabstop>comboBox</tabstop>
+  <tabstop>btn_preview_apply</tabstop>
+  <tabstop>cbox_poll_switch</tabstop>
+  <tabstop>btn_poll_sync</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

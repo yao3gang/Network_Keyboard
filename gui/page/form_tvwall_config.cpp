@@ -279,7 +279,7 @@ void form_tvwall_config::setupTreeWidget()
 
         in.s_addr = dev_ip;
         qstr = QString(inet_ntoa(in));
-        if (qstr.isNull())
+        if (qstr.isEmpty())
         {
             ERR_PRINT("dev ip invalid\n");
             continue;
@@ -348,7 +348,56 @@ void form_tvwall_config::setupTreeWidget()
     ui->tree_swich_dec->setDragEnabled(true);
     ui->tree_swich_dec->setAcceptDrops(true);
 
-    connect(page_dev, SIGNAL(signalDevInfoChange(SGuiDev)), ui->tree_swich_dec, SLOT(refreshDevInfo(SGuiDev)));//更新设备 alive 状态
+    connect(page_dev, SIGNAL(signalDevInfoChange(SGuiDev)), this, SLOT(refreshDevInfo(SGuiDev)));//更新设备 alive 状态
+}
+
+void form_tvwall_config::refreshDevInfo(SGuiDev dev)
+{
+    struct in_addr in;
+    QString qstr_ip;
+    QList<QTreeWidgetItem *> list_item;
+    int cnt = 0;
+
+    in.s_addr = dev.deviceIP;
+    qstr_ip = QString(inet_ntoa(in));
+    if (qstr_ip.isEmpty())
+    {
+        ERR_PRINT("dev ip invalid\n");
+        return ;
+    }
+
+    if (dev.devicetype != EM_SWITCH_DEC)
+    {
+        DBG_PRINT("dev.devicetype(%d) != EM_SWITCH_DEC\n", dev.devicetype);
+        return ;
+    }
+
+    list_item = ui->tree_swich_dec->findItems(qstr_ip, Qt::MatchContains);
+    cnt = list_item.count();
+    if (cnt == 0 || cnt > 1)
+    {
+        ERR_PRINT("findItems failed\n, list count: %d, dev ip: %s\n", cnt, qstr_ip.toUtf8().constData());
+
+#if 1
+        QTreeWidgetItemIterator it(ui->tree_swich_dec);
+        while (*it)
+        {
+            DBG_PRINT("item text: %s\n", (*it)->text(0).toUtf8().constData());
+            ++it;
+        }
+#endif
+
+        return ;
+    }
+
+    if (dev.b_alive)
+    {
+        (*list_item.begin())->setIcon(0, QIcon(":/image/dev_online.png"));
+    }
+    else
+    {
+        (*list_item.begin())->setIcon(0, QIcon(":/image/dev_offline.png"));
+    }
 }
 
 void form_tvwall_config::setupTableWidget()

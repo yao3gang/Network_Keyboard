@@ -1559,7 +1559,7 @@ void CBizDeviceManager::threadRcv(uint param)
 				ret = looprecv(fd_tmp, rcv_buf, sizeof(ifly_cp_header_t));
 				if (ret != SUCCESS)
 				{
-					DBG_PRINT("recv ifly_cp_header_t failed\n");
+					ERR_PRINT("recv ifly_cp_header_t failed\n");
 
 					plock_map_fd_idx->Lock();
 					

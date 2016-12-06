@@ -20,7 +20,7 @@ treewidget_dev::~treewidget_dev()
 {
 
 }
-
+#if 0
 void treewidget_dev::refreshDevInfo(SGuiDev dev)
 {
     struct in_addr in;
@@ -30,17 +30,26 @@ void treewidget_dev::refreshDevInfo(SGuiDev dev)
 
     in.s_addr = dev.deviceIP;
     qstr_ip = QString(inet_ntoa(in));
-    if (qstr_ip.isNull())
+    if (qstr_ip.isEmpty())
     {
         ERR_PRINT("dev ip invalid\n");
         return ;
     }
 
-    list_item = findItems(qstr_ip, Qt::MatchExactly);
+    list_item = findItems(qstr_ip, Qt::MatchContains);
     cnt = list_item.count();
     if (cnt == 0 || cnt > 1)
     {
-        ERR_PRINT("findItems failed\n, list count: %d\n", cnt);
+        ERR_PRINT("findItems failed\n, list count: %d, dev ip: %s\n", cnt, qstr_ip.toUtf8().constData());
+
+#if 1
+        QTreeWidgetItemIterator it(this);
+        while (*it)
+        {
+            DBG_PRINT("item text: %s\n", (*it)->text(0).toUtf8().constData());
+            ++it;
+        }
+#endif
         return ;
     }
 
@@ -53,6 +62,7 @@ void treewidget_dev::refreshDevInfo(SGuiDev dev)
         (*list_item.begin())->setIcon(0, QIcon(":/image/dev_offline.png"));
     }
 }
+#endif
 
 void treewidget_dev::startDrag(Qt::DropActions supportedActions)
 {

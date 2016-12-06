@@ -22,7 +22,7 @@ protected:
     void dropEvent(QDropEvent *event);
     
 private slots:
-    void refreshDevInfo(SGuiDev dev);
+    //void refreshDevInfo(SGuiDev dev);
 
 private:
 

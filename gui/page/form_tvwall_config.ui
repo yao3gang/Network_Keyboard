@@ -17,7 +17,7 @@
    <item>
     <widget class="QLabel" name="label">
      <property name="text">
-      <string>请先布局设置，然后从右框拖拽一个解码器放入左框解码器列相应单元格中，以确定确定和屏幕的绑定关系。</string>
+      <string>请先设置布局，然后从右框拖拽一个解码器放入左框解码器列相应单元格中，以确定确定和屏幕的绑定关系。</string>
      </property>
     </widget>
    </item>
@@ -73,7 +73,7 @@
         <item row="0" column="0" colspan="2">
          <widget class="QLabel" name="label_2">
           <property name="text">
-           <string>布局设置</string>
+           <string>设置布局</string>
           </property>
           <property name="alignment">
            <set>Qt::AlignCenter</set>

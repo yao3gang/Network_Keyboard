@@ -308,7 +308,7 @@ void page_config::on_btn_tvWall_add_clicked()
 {
     if (!vtvwall_list.empty())
     {
-        ShowMessageBoxInfo(QString::fromUtf8("当前已有电视墙配置"));
+        ShowMessageBoxError(QString::fromUtf8("当前已有电视墙配置"));
         return ;
     }
 
