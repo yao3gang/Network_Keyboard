@@ -1,7 +1,7 @@
 #ifndef PAGE_TVWALL_H
 #define PAGE_TVWALL_H
 
-#include <QWidget>
+#include <QtGui>
 
 #include "page_dev_mgt.h"
 
@@ -31,10 +31,13 @@ private:
 
 private slots:
     void refreshDevInfo(SGuiDev dev);
+    void screenItemDoubleClicked(QTreeWidgetItem* item, int col);
+    void btn_unbind_clicked();
 
 private:
     Ui::page_tvWall *ui;
     page_dev_mgt *page_dev;
+    u32 screen_cur_dec;//当前正在配置通道的解码器
 };
 
 #endif // PAGE_TVWALL_H

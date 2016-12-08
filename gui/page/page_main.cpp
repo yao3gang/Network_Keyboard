@@ -79,17 +79,17 @@ void page_main::init_form() //init stackwidget
         connect(btn, SIGNAL(clicked()), this, SLOT(button_clicked()));
     }
 
-    page_config *config = new page_config;
-    if (registerPage(PAGE_CONFIG, config))
-    {
-        ERR_PRINT("registerPage PAGE_CONFIG failed\n");
-        return ;
-    }
-
     page_dev_mgt *dev_mgt = new page_dev_mgt;
     if (registerPage(PAGE_DEV_MGT, dev_mgt))
     {
         ERR_PRINT("registerPage PAGE_DEV_MGT failed\n");
+        return ;
+    }
+
+    page_config *config = new page_config;
+    if (registerPage(PAGE_CONFIG, config))
+    {
+        ERR_PRINT("registerPage PAGE_CONFIG failed\n");
         return ;
     }
 

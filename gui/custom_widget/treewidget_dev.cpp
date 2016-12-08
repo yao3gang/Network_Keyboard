@@ -82,8 +82,6 @@ void treewidget_dev::startDrag(Qt::DropActions supportedActions)
         return ;
     }
 
-
-
     while (item)
     {
         if (mime_str.isEmpty())
@@ -92,7 +90,7 @@ void treewidget_dev::startDrag(Qt::DropActions supportedActions)
         }
         else
         {
-            str_tmp = item->text(0) + QString::fromUtf8("/") + mime_str;
+            str_tmp = item->text(0) + QString::fromUtf8(":") + mime_str;
         }
         mime_str = str_tmp;
 

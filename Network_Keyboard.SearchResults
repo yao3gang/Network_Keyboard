@@ -1,5 +1,1 @@
----- BizConfigGetDvrProperty Matches (4 in 3 files) ----
-biz_config.cpp (mid_logic\src):int BizConfigGetDvrProperty(SConfigDvrProperty &sdev_property)
-biz_config.h (mid_logic\inc):int BizConfigGetDvrProperty(SConfigDvrProperty &sdev_property);
-biz_device.cpp (mid_logic\src):	ret = BizConfigGetDvrProperty(sdev_property);
-biz_device.cpp (mid_logic\src):		ERR_PRINT("BizConfigGetDvrProperty failed\n");
+---- NETDVR_ipcInfo Matches (0 in 0 files) ----

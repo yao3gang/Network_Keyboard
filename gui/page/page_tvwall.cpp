@@ -1,7 +1,6 @@
 #include "page_tvwall.h"
 #include "ui_page_tvwall.h"
-
-#include <QtGui>
+#include "frmmessagebox.h"
 
 #include "biz_config.h"
 #include "page_manager.h"
@@ -9,7 +8,8 @@
 page_tvWall::page_tvWall(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::page_tvWall),
-    page_dev(NULL)
+    page_dev(NULL),
+    screen_cur_dec(0)
 {
     ui->setupUi(this);
 
@@ -33,7 +33,7 @@ void page_tvWall::init_form()
     setupTreeWidgetScreen();
     setupTreeWidgetNvr();
     setupTableWidget();
-    connect(page_dev, SIGNAL(signalDevInfoChange(SGuiDev)), this, SLOT(refreshDevInfo(SGuiDev)));//更新设备 alive 状态
+    connect(page_dev, SIGNAL(signalDevInfoChange(SSGuiDev)), this, SLOT(refreshDevInfo(SSGuiDev)));//更新设备 alive 状态
 }
 
 void page_tvWall::refreshDevInfo(SGuiDev dev)
@@ -55,6 +55,7 @@ void page_tvWall::refreshDevInfo(SGuiDev dev)
 
     if (dev.devicetype == EM_SWITCH_DEC)
     {
+#if 0   //暂时决定不显示 icon
         list_item = ui->treeWidget_screen->findItems(qstr_ip, Qt::MatchContains);
 
         if (list_item.isEmpty())
@@ -75,6 +76,7 @@ void page_tvWall::refreshDevInfo(SGuiDev dev)
                 (*list_iter)->setIcon(0, QIcon(":/image/dev_offline.png"));
             }
         }
+#endif
     }
     else if (dev.devicetype == EM_NVR)
     {
@@ -198,11 +200,14 @@ void page_tvWall::refreshTreeWidgetScreen()
                 continue;
             }
 
+#if 0   //暂时决定不显示 icon
             if (page_dev->getDevInfo(EM_SWITCH_DEC, dev_ip, dev))
             {
                 ERR_PRINT("getDevInfo failed, dev type: %d, ip: %s\n", EM_SWITCH_DEC, inet_ntoa(in));
                 continue;
             }
+#endif
+
         }
         else
         {
@@ -222,6 +227,7 @@ void page_tvWall::refreshTreeWidgetScreen()
         qstr_item = qstr_screen + QString("%1: ").arg(i+1) + qstr_ip;
         dev_item->setText(0, qstr_item);
 
+#if 0   //暂时决定不显示 icon
         if (dev_ip != 0)
         {
             if (dev.b_alive)
@@ -233,11 +239,44 @@ void page_tvWall::refreshTreeWidgetScreen()
                 dev_item->setIcon(0, QIcon(":/image/dev_offline.png"));
             }
         }
-
+#endif
         list_dev.append(dev_item);
     }
 
     ui->treeWidget_screen->addTopLevelItems(list_dev);
+}
+void page_tvWall::screenItemDoubleClicked(QTreeWidgetItem* item, int col)
+{
+    if (col != 0)
+    {
+        ERR_PRINT("col: %d, invalid\n", col);
+        return ;
+    }
+
+    //格式：屏幕1: 192.168.1.114，分隔符": "
+    QString qstr_item = item->text(0);
+    QStringList qstr_list = qstr_item.split(QString::fromUtf8(": "));
+    if (qstr_list.size() != 2)
+    {
+        ERR_PRINT("list size: %d, invalid\n", qstr_list.size());
+        return ;
+    }
+
+    QString qstr_ip = *(qstr_list.constBegin() + 1);
+    if (qstr_ip.isEmpty()) //当前屏幕没有绑定解码器
+    {
+        DBG_PRINT("%s not binding dec\n", qstr_list.constBegin()->toUtf8().constData());
+        return ;
+    }
+
+    u32 dev_ip = inet_addr(qstr_ip.toUtf8().constData());
+    if (INADDR_NONE == dev_ip)
+    {
+        ERR_PRINT("dev ip: %s, invalid\n", qstr_ip.toUtf8().constData());
+        return ;
+    }
+
+    screen_cur_dec = dev_ip;
 }
 
 void page_tvWall::setupTreeWidgetScreen()
@@ -246,6 +285,7 @@ void page_tvWall::setupTreeWidgetScreen()
     ui->treeWidget_screen->setHeaderLabels(QStringList() << QString::fromUtf8("电视墙屏幕列表"));
 
     //refreshTreeWidgetScreen();
+    connect(ui->treeWidget_screen, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)), this, SLOT(screenItemDoubleClicked(QTreeWidgetItem*,int)));
 }
 void page_tvWall::refreshTreeWidgetNvr()
 {
@@ -323,7 +363,7 @@ void page_tvWall::refreshTreeWidgetNvr()
                 return;
             }
 
-            qstr_chn = QString("chn%1").arg(i+1);
+            qstr_chn = QString(QString::fromUtf8("通道%1").arg(i+1));
             chn_item->setText(0, qstr_chn);
             chn_item->setIcon(0, QIcon(":/image/chn.png"));
 
@@ -366,6 +406,68 @@ void page_tvWall::refreshTableWidget()
 {
     ui->tableWidget_tvwall->clearContents();
     ui->tableWidget_tvwall->setRowCount(0);
+
+    if (screen_cur_dec == 0)
+    {
+        return ;
+    }
+
+    struct in_addr in;
+    in.s_addr = screen_cur_dec;
+
+    SGuiDev dev;
+    if (page_dev->getDevInfo(EM_SWITCH_DEC, screen_cur_dec, dev))
+    {
+        ERR_PRINT("getDevInfo failed, dev type: %d, ip: %s\n", EM_SWITCH_DEC, inet_ntoa(in));
+        ShowMessageBoxError(QString::fromUtf8("获取设备信息出错"));
+        return ;
+    }
+
+    ui->tableWidget_tvwall->setRowCount(dev.maxChnNum);
+
+    //获取解码器通道
+
+    QString screen_text = QString::fromUtf8("屏幕通道");
+    QString btn_text = QString::fromUtf8("解除绑定");
+    QPushButton *btn_unbind = NULL;
+    QTableWidgetItem *ptable_item = NULL;
+
+    int i;
+    for (i=0; i<dev.maxChnNum; ++i)
+    {
+        //屏幕(解码器)通道
+        ptable_item = new QTableWidgetItem();
+        ptable_item->setText(screen_text + QString("%1").arg(i+1));
+        ui->tableWidget_tvwall->setItem(i, 0, ptable_item);
+
+        //通道
+
+
+        //解除绑定
+        btn_unbind = new QPushButton;
+        btn_unbind->setText(btn_text);
+
+        connect(btn_unbind, SIGNAL(clicked()), this, SLOT(btn_unbind_clicked()));
+
+        ui->tableWidget_tvwall->setCellWidget(i, 2, btn_unbind);
+
+    }
+}
+
+void page_tvWall::btn_unbind_clicked()
+{
+    QPushButton *btn = dynamic_cast<QPushButton *>(QObject::sender());//找到信号发送者
+    QModelIndex index = ui->tableWidget_tvwall->indexAt(btn->pos());//定位按钮
+
+    DBG_PRINT("btn at row: %d, col: %d\n", index.row(), index.column());
+
+    QTableWidgetItem *item = ui->tableWidget_tvwall->item(index.row(), index.column()-1); //得到 解码器列 item
+    if (item)
+    {
+        item->setText(QString::fromUtf8(""));//清空
+
+        //setipc
+    }
 }
 
 void page_tvWall::setupTableWidget()
@@ -404,6 +506,7 @@ void page_tvWall::setupTableWidget()
 void page_tvWall::showEvent(QShowEvent *event)
 {
     DBG_PRINT("1\n");
+    screen_cur_dec = 0;
     refreshTreeWidgetScreen();
     refreshTreeWidgetNvr();
     refreshTableWidget();
