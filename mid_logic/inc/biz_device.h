@@ -89,6 +89,8 @@ public:
 	//重连部分数据流连接
 	int CheckAndReconnectStream();
 	
+	//获取所有通道的IPC信息
+	int GetChnIPCInfo(ifly_ipc_info_t * pipc_info, s32 size);
 	
 private:
     CBizDevice(CBizDevice &)
@@ -140,12 +142,17 @@ int BizDelDev(EM_DEV_TYPE dev_type, u32 dev_ip);
 int BizGetDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip_list);//网络字节序
 int BizGetDevIdx(EM_DEV_TYPE dev_type, u32 dev_ip);
 int BizGetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pdev);
+int BizGetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_ipc_info_t * pipc_info, s32 size);
+
+
 int BizStartNotifyDevInfo();//使能通知。设备层将信息通知给上层
 
 
 
 int BizReqStreamStart(s32 dev_idx, ifly_TCP_Stream_Req *preq, CMediaStream *pstream);
 int BizReqStreamStop(s32 dev_idx, s32 stream_idx);
+
+
 
 
 

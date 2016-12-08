@@ -928,6 +928,13 @@ typedef struct
 //摄像头搜索
 typedef struct
 {
+	u32 	protocol_type;//0 all,1 onvif, 2 i13 
+	u16		max_return;					//最大返回数	
+}ifly_search_ipc_t;
+
+//摄像头的信息
+typedef struct
+{
 	unsigned char channel_no;
 	unsigned char enable;
 	unsigned char stream_type;
@@ -943,12 +950,18 @@ typedef struct
 	char uuid[64];
 	char address[64];//onvif使用
 	char ipc_type;
-	char reserved[47];
+	char reserved2[2];
+	//NVR的最大通道数
+	char max_nvr_chn;
+	//要申请NVR 的哪一路码流
+	char req_nvr_chn;
+	char reserved[43];
 	unsigned int net_mask;
 	unsigned int net_gateway;
 	unsigned int dns1;
 	unsigned int dns2;
-}ifly_search_ipc;
+}ifly_ipc_info_t;
+
 
 
 //日志搜索

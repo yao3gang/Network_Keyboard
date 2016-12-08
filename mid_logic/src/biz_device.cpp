@@ -44,7 +44,7 @@
 #include <utility>
 
 #define SendBuf (1024)
-#define RcvBuf (4096)
+#define RcvBuf (4096*2)
 #define DIALOGUE_TIMEOUT	(3) //一次命令回话超时
 #define RECONNECT_TIMEOUT	(5) //秒
 #define KEEP_ALIVE_INTERVAL	(15) //秒
@@ -83,6 +83,9 @@ public:
 	int GetDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip_list);//网络字节序
     int GetDevIdx(EM_DEV_TYPE dev_type, u32 dev_ip);
 	int GetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pdev);
+	int GetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_ipc_info_t * pipc_info, s32 size);
+
+	
 	int StartNotifyDevInfo();//使能通知。设备层将信息通知给上层
 	int AddDev(EM_DEV_TYPE dev_type, u32 dev_ip);
 	int DelDev(EM_DEV_TYPE dev_type, u32 dev_ip);	
@@ -135,9 +138,11 @@ private:
 	C_Lock *plock4param;//rwlock	
 	u32 max_link_devs; //最大可连接设备数目(nvr + dec)
 	std::set<u32> set_dev_ip; //保存设备IP的ntohl后的值，查询设备是否存在
-	MAP_IP_IDX map_nvr; //已添加NVR
-	MAP_IP_IDX map_patrol_dec; //已添加轮巡型DEC
-	MAP_IP_IDX map_switch_dec; //已添加切换型DEC
+	//MAP_IP_IDX map_nvr; //已添加NVR
+	//MAP_IP_IDX map_patrol_dec; //已添加轮巡型DEC
+	//MAP_IP_IDX map_switch_dec; //已添加切换型DEC
+	MAP_IP_IDX map_dev[EM_DEV_TYPE_MAX - EM_NVR];
+	std::vector<std::string> str_dev_list;
 	
 	CTimer *m_reconnect_timer; //重连设备
 	CSemaphore reconnect_sem; //threadKeepAlive 与timerFuncReconnect 同步
@@ -208,6 +213,11 @@ int CBizDeviceManager::Init(void)
 	u32 andv = 0;
 	s32 i;
 
+	str_dev_list.clear();
+	str_dev_list.push_back("EM_NVR");
+	str_dev_list.push_back("EM_PATROL_DEC");
+	str_dev_list.push_back("EM_SWITCH_DEC");
+	
 	//最多可连接设备数目上限(nvr + dec)
 	ret = BizConfigGetDvrProperty(sdev_property);
 	if (ret)
@@ -475,6 +485,11 @@ void CBizDeviceManager::FreeSrc()//释放资源
 	s32 i = 0;
 	
 	b_inited = FALSE;
+
+	if (!str_dev_list.empty())
+	{
+		str_dev_list.clear();
+	}
 	
 	if (plock4param)
 	{
@@ -513,11 +528,12 @@ void CBizDeviceManager::FreeSrc()//释放资源
 	//外层
 	max_link_devs = 0;
 	set_dev_ip.clear();
-	
-	map_nvr.clear();
-	map_patrol_dec.clear();
-	map_switch_dec.clear();
-	
+
+	int dev_type = 0;
+	for (dev_type = EM_NVR; dev_type < EM_DEV_TYPE_MAX; ++dev_type)
+    {
+        map_dev[dev_type-EM_NVR].clear();
+	}	
 
 	if (m_reconnect_timer)
 	{
@@ -594,26 +610,16 @@ int CBizDeviceManager::GetDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip
 		ERR_PRINT("Rdlock failed\n");
 		return -FAILURE;
 	}
-	
-	switch (dev_type)
-	{
-		case EM_NVR:
-			pmap = &map_nvr;
-			break;
-			
-		case EM_PATROL_DEC:
-			pmap = &map_patrol_dec;
-			break;
-			
-		case EM_SWITCH_DEC:
-			pmap = &map_switch_dec;
-			break;
 
-		default:
-			ERR_PRINT("dev_type%d exception\n", dev_type);
-			ret = -EPARAM;
-			goto fail;
-	}
+	if (dev_type <= EM_DEV_TYPE_NONE
+            || dev_type >= EM_DEV_TYPE_MAX)
+    {
+        ERR_PRINT("dev_type(%d) not support\n", dev_type);
+		
+		ret = -EPARAM;		
+        goto fail;
+    }
+    pmap = &map_dev[dev_type-EM_NVR];
 
 	for (map_iter = pmap->begin();
 	 	 map_iter != pmap->end();
@@ -632,109 +638,38 @@ fail:
 }
 
 int CBizDeviceManager::GetDevIdx(EM_DEV_TYPE dev_type, u32 dev_ip)
-{
-	u32 ip_le = ntohl(dev_ip);
+{	
 	MAP_IP_IDX *pmap = NULL;
 	MAP_IP_IDX::iterator map_iter;
+	std::string str_dev_type;
 	int ret = -FAILURE;
 	int dev_idx = -1;
-	
-	if (!b_inited)
-	{
-		ERR_PRINT("module not init\n");
-		return -FAILURE;
-	}
-	
-	if (plock4param->Rdlock())
-	{
-		ERR_PRINT("Rdlock failed\n");
-		return -FAILURE;
-	}
-	
-	switch (dev_type)
-	{
-		case EM_NVR:
-			pmap = &map_nvr;
-			break;
-			
-		case EM_PATROL_DEC:
-			pmap = &map_patrol_dec;
-			break;
-			
-		case EM_SWITCH_DEC:
-			pmap = &map_switch_dec;
-			break;
-
-		default:
-			ERR_PRINT("dev_type%d exception\n", dev_type);
-			ret = -EPARAM;
-			goto fail;
-	}
-
-	map_iter = pmap->find(ip_le);
-	if (map_iter == pmap->end())
-	{
-		ret = -EDEV_NOTFOUND;
-		goto fail;
-	}
-
-	dev_idx = map_iter->second;
-
-	plock4param->Unlock();
-	return dev_idx;
-	
-fail:
-	
-	plock4param->Unlock();
-	return ret;
-}
-
-int CBizDeviceManager::GetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pgdev)
-{
-	MAP_IP_IDX *pmap = NULL;
-	MAP_IP_IDX::iterator map_iter;
-	CBizDevice *pcdev = NULL;
-	std::string str_dev_type;
-	s32 dev_idx;
-	int ret = -FAILURE;
 	u32 ip_le = ntohl(dev_ip);
 	struct in_addr in;
 	in.s_addr = dev_ip;
-
+	
 	if (!b_inited)
 	{
 		ERR_PRINT("module not init\n");
 		return -FAILURE;
 	}
+
+	if (dev_type <= EM_DEV_TYPE_NONE
+            || dev_type >= EM_DEV_TYPE_MAX)
+    {
+        ERR_PRINT("dev_type(%d) not support\n", dev_type);
+		
+		return -EPARAM;
+    }
 	
 	if (plock4param->Rdlock())
 	{
 		ERR_PRINT("Rdlock failed\n");
 		return -FAILURE;
-	}
+	}	
 	
-	switch (dev_type)
-	{
-		case EM_NVR:
-			pmap = &map_nvr;
-			str_dev_type = "EM_NVR";
-			break;
-			
-		case EM_PATROL_DEC:
-			pmap = &map_patrol_dec;
-			str_dev_type = "EM_PATROL_DEC";
-			break;
-			
-		case EM_SWITCH_DEC:
-			pmap = &map_switch_dec;
-			str_dev_type = "EM_SWITCH_DEC";
-			break;
-
-		default:
-			ERR_PRINT("dev_type%d exception\n", dev_type);
-			ret = -EPARAM;
-			goto fail;
-	}
+    pmap = &map_dev[dev_type-EM_NVR];
+	str_dev_type = str_dev_list[dev_type-EM_NVR];	
 
 	map_iter = pmap->find(ip_le);
 	if (map_iter == pmap->end())
@@ -754,16 +689,40 @@ int CBizDeviceManager::GetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pgd
 		goto fail;
 	}
 
+	plock4param->Unlock();
+	return dev_idx;
+	
+fail:
+	
+	plock4param->Unlock();
+	return ret;
+}
+
+int CBizDeviceManager::GetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pgdev)
+{
+	CBizDevice *pcdev = NULL;
+	s32 dev_idx = -1;
+	
+	struct in_addr in;
+	in.s_addr = dev_ip;
+
+	dev_idx = GetDevIdx(dev_type, dev_ip);
+	if (dev_idx < 0)
+	{
+		ERR_PRINT("IP(%s) GetDevIdx failed\n", inet_ntoa(in));
+		
+		return -EDEV_NOTFOUND;
+	}
+	
 	pplock_dev[dev_idx]->Lock();
 	
 	pcdev = ppcdev[dev_idx];
 	if (NULL == pcdev)
 	{	
-		ERR_PRINT("IP(%s) pdev == NULL\n", inet_ntoa(in));
+		ERR_PRINT("IP(%s) pcdev == NULL\n", inet_ntoa(in));
 		
 		pplock_dev[dev_idx]->Unlock();
-		ret = -EDEV_NOTFOUND;
-		goto fail;		
+		return -EDEV_NOTFOUND;		
 	}
 
 	pgdev->b_alive = pcdev->b_alive;
@@ -772,16 +731,52 @@ int CBizDeviceManager::GetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pgd
 	pgdev->maxChnNum= pcdev->dev_info.maxChnNum;
 	pgdev->dev_idx= pcdev->dev_idx;	
 
-	pplock_dev[dev_idx]->Unlock();	
-	plock4param->Unlock();
-	return SUCCESS;
-
-fail:
+	pplock_dev[dev_idx]->Unlock();
 	
-	plock4param->Unlock();
-	return ret;
-
+	return SUCCESS;
 }
+
+int CBizDeviceManager::GetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_ipc_info_t * pipc_info, s32 size)
+{	
+	CBizDevice *pcdev = NULL;
+	int dev_idx = -1;
+	int ret = -FAILURE;
+	struct in_addr in;
+	in.s_addr = dev_ip;
+
+	dev_idx = GetDevIdx(dev_type, dev_ip);
+	if (dev_idx < 0)
+	{
+		ERR_PRINT("IP(%s) GetDevIdx failed\n", inet_ntoa(in));
+		
+		return -EDEV_NOTFOUND;
+	}
+	
+	pplock_dev[dev_idx]->Lock();
+
+	pcdev = ppcdev[dev_idx];
+	if (NULL == pcdev)
+	{	
+		ERR_PRINT("IP(%s) pcdev == NULL\n", inet_ntoa(in));
+
+		pplock_dev[dev_idx]->Unlock();
+		return -EDEV_NOTFOUND;		
+	}
+
+	ret = pcdev->GetChnIPCInfo(pipc_info, size);
+	if (ret)
+	{
+		ERR_PRINT("IP(%s) GetChnIPCInfo failed\n", inet_ntoa(in));
+		
+		pplock_dev[dev_idx]->Unlock();
+		return ret;
+	}	
+
+	//success
+	pplock_dev[dev_idx]->Unlock();
+	return SUCCESS;
+}
+
 
 int CBizDeviceManager::StartNotifyDevInfo()//使能通知。设备层将信息通知给上层
 {
@@ -924,30 +919,18 @@ int CBizDeviceManager::DelDev(EM_DEV_TYPE dev_type, u32 dev_ip)
 		ERR_PRINT("set erase IP(%s) failed\n", inet_ntoa(in));
 		ret = -FAILURE;
 		goto fail;
-	}
+	}	
 	
-	switch (dev_type)
-	{
-		case EM_NVR:
-			pmap = &map_nvr;
-			str_dev_type = "EM_NVR";
-			break;
-			
-		case EM_PATROL_DEC:
-			pmap = &map_patrol_dec;
-			str_dev_type = "EM_PATROL_DEC";
-			break;
-			
-		case EM_SWITCH_DEC:
-			pmap = &map_switch_dec;
-			str_dev_type = "EM_SWITCH_DEC";
-			break;
-
-		default:
-			ERR_PRINT("dev_type%d exception\n", dev_type);
-			ret = -EPARAM;
-			goto fail;
-	}
+	if (dev_type <= EM_DEV_TYPE_NONE
+            || dev_type >= EM_DEV_TYPE_MAX)
+    {
+        ERR_PRINT("dev_type(%d) not support\n", dev_type);
+		
+		ret = -EPARAM;		
+        goto fail;
+    }
+    pmap = &map_dev[dev_type-EM_NVR];
+	str_dev_type = str_dev_list[dev_type-EM_NVR];
 
 	map_iter = pmap->find(ip_le);
 	if (map_iter == pmap->end())
@@ -1233,12 +1216,14 @@ int CBizDeviceManager::_AddDev2Map(EM_DEV_TYPE dev_type, u32 dev_ip)
 	if (NULL == pcdev)
 	{
 		ERR_PRINT("%s new CBizDevice failed\n", str_dev_type.c_str());
+		
 		return -FAILURE;
 	}
 
 	if (pcdev->Init())
 	{
 		ERR_PRINT("%s CBizDevice init failed\n", str_dev_type.c_str());
+		
 		ret = -FAILURE;
 		goto fail;
 	}
@@ -1247,28 +1232,15 @@ int CBizDeviceManager::_AddDev2Map(EM_DEV_TYPE dev_type, u32 dev_ip)
 	pcdev->dev_info.deviceIP = dev_ip;
 	pcdev->dev_info.devicePort = CTRL_PROTOCOL_SERVERPORT;
 
-	switch (dev_type)
-	{
-		case EM_NVR:
-			pmap = &map_nvr;
-			str_dev_type = "EM_NVR";
-			break;
-			
-		case EM_PATROL_DEC:
-			pmap = &map_patrol_dec;
-			str_dev_type = "EM_PATROL_DEC";
-			break;
-			
-		case EM_SWITCH_DEC:
-			pmap = &map_switch_dec;
-			str_dev_type = "EM_SWITCH_DEC";
-			break;
-
-		default:
-			ERR_PRINT("dev_type%d exception\n", dev_type);
-			ret = -EPARAM;
-			goto fail;
-	}
+	if (dev_type <= EM_DEV_TYPE_NONE
+            || dev_type >= EM_DEV_TYPE_MAX)
+    {
+        ERR_PRINT("dev_type(%d) not support\n", dev_type);
+		
+		ret = -EPARAM;		
+        goto fail;
+    }
+    pmap = &map_dev[dev_type-EM_NVR];
 	
 	//加入设备池
 	plock_dev_pool->Lock();
@@ -1363,27 +1335,15 @@ void CBizDeviceManager::_SplitDevFromMap(EM_DEV_TYPE dev_type,
 	
 	struct in_addr in;
 	
-	switch (dev_type)
-	{
-		case EM_NVR:
-			pmap = &map_nvr;
-			str_dev_type = "EM_NVR";
-			break;
-			
-		case EM_PATROL_DEC:
-			pmap = &map_patrol_dec;
-			str_dev_type = "EM_PATROL_DEC";
-			break;
-			
-		case EM_SWITCH_DEC:
-			pmap = &map_switch_dec;
-			str_dev_type = "EM_SWITCH_DEC";
-			break;
-
-		default:
-			ERR_PRINT("dev_type%d exception\n", dev_type);
-			return;
-	}
+	if (dev_type <= EM_DEV_TYPE_NONE
+            || dev_type >= EM_DEV_TYPE_MAX)
+    {
+        ERR_PRINT("dev_type(%d) not support\n", dev_type);
+				
+        return;
+    }
+    pmap = &map_dev[dev_type-EM_NVR];
+	str_dev_type = str_dev_list[dev_type-EM_NVR];
 	
 	plock4param->Rdlock();
 	
@@ -2200,10 +2160,12 @@ void CBizDeviceManager::threadKeepAlive(uint param)
 		//按是否在线，分离添加的设备
 		list_devs_online.clear();
 		list_devs_offline.clear();
-		
-		_SplitDevFromMap(EM_NVR, list_devs_online, list_devs_offline);
-		_SplitDevFromMap(EM_PATROL_DEC, list_devs_online, list_devs_offline);
-		_SplitDevFromMap(EM_SWITCH_DEC, list_devs_online, list_devs_offline);
+
+		int dev_type = 0;
+		for (dev_type = EM_NVR; dev_type < EM_DEV_TYPE_MAX; ++dev_type)
+		{
+			_SplitDevFromMap((EM_DEV_TYPE)dev_type, list_devs_online, list_devs_offline);
+		}
 
 		//提交离线设备列表给定时器函数重连
 		b_wait_timer = FALSE;
@@ -2504,10 +2466,16 @@ int CBizDevice::GetDeviceInfo(ifly_DeviceInfo_t *pDeviceInfo)
 	int realacklen = 0;
 	int ret = SUCCESS;
 
-    if (INVALID_SOCKET == sock_cmd || NULL == pDeviceInfo)
-    {
-        DBG_PRINT("param invalid\n");
+	if (NULL == pDeviceInfo)
+	{
+		DBG_PRINT("param invalid\n");
         return -EPARAM;
+	}
+	
+    if (INVALID_SOCKET == sock_cmd)
+    {
+        DBG_PRINT("dev offline\n");
+        return -EDEV_OFFLINE;
     }
 	
 	ret = g_biz_device_manager.NetDialogue(sock_cmd, CTRL_CMD_GETDEVICEINFO, NULL, 0, pDeviceInfo, sizeof(ifly_DeviceInfo_t), &realacklen);
@@ -2535,6 +2503,60 @@ int CBizDevice::GetDeviceInfo(ifly_DeviceInfo_t *pDeviceInfo)
 
 	return ret;
 }
+
+//获取所有通道的IPC信息
+int CBizDevice::GetChnIPCInfo(ifly_ipc_info_t * pipc_info, s32 size)
+{
+	int realacklen = 0;
+	int ret = SUCCESS;
+	char buf[4096*2]={0};
+	ifly_search_desc_t desc;
+	char *ptmp = NULL;
+
+	ifly_search_ipc_t  ipc_search;
+	memset(&ipc_search, 0, sizeof(ifly_search_ipc_t));
+	ipc_search.max_return = htons(dev_info.maxChnNum);
+	
+ 	if (NULL == pipc_info)
+	{
+		DBG_PRINT("param invalid\n");
+        return -EPARAM;
+	}
+
+	if (size <= 0 ||
+		size < (s32)(dev_info.maxChnNum * sizeof(ifly_ipc_info_t)))
+	{
+		DBG_PRINT("size invalid\n");
+        return -EPARAM;
+	}	
+
+	if (INVALID_SOCKET == sock_cmd)
+    {
+        DBG_PRINT("dev offline\n");
+        return -EDEV_OFFLINE;
+    }
+
+	ret = g_biz_device_manager.NetDialogue(sock_cmd, CTRL_CMD_GETADDIPCLIST, &ipc_search, sizeof(ifly_search_ipc_t), buf, sizeof(buf), &realacklen);
+	if (ret)
+	{
+		ERR_PRINT("NetDialogue invalid\n");
+		return -FAILURE;
+	}
+
+	ptmp = buf;
+	memcpy(&desc, ptmp, sizeof(ifly_search_desc_t));
+	desc.startID = ntohs(desc.startID); 
+	desc.endID = ntohs(desc.endID); 
+	desc.sum = ntohs(desc.sum);
+
+	DBG_PRINT("sum: %d, startID: %d, endID: %d\n", desc.sum, desc.startID, desc.endID);
+
+	ptmp = buf+sizeof(ifly_search_desc_t);
+	memcpy(pipc_info, ptmp, dev_info.maxChnNum * sizeof(ifly_ipc_info_t));
+	
+	return SUCCESS;
+}
+
 
 //连接、登录服务器
 int CBizDevice::DevConnect()
@@ -3278,6 +3300,12 @@ int BizGetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pdev)
 {
 	return g_biz_device_manager.GetDevInfo(dev_type, dev_ip, pdev);
 }
+
+int BizGetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_ipc_info_t * pipc_info, s32 size)
+{
+	return g_biz_device_manager.GetDevChnIPCInfo(dev_type, dev_ip, pipc_info, size);
+}
+
 
 int BizStartNotifyDevInfo(void)	//使能通知。设备层将信息通知给上层
 {

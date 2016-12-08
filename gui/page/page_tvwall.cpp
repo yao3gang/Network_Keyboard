@@ -5,6 +5,8 @@
 #include "biz_config.h"
 #include "page_manager.h"
 
+#include "ctrlprotocol.h"
+
 page_tvWall::page_tvWall(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::page_tvWall),
@@ -247,6 +249,8 @@ void page_tvWall::refreshTreeWidgetScreen()
 }
 void page_tvWall::screenItemDoubleClicked(QTreeWidgetItem* item, int col)
 {
+    int ret = SUCCESS;
+
     if (col != 0)
     {
         ERR_PRINT("col: %d, invalid\n", col);
@@ -277,6 +281,44 @@ void page_tvWall::screenItemDoubleClicked(QTreeWidgetItem* item, int col)
     }
 
     screen_cur_dec = dev_ip;
+
+    //获取解码器通道信息
+    SGuiDev dev;
+    struct in_addr in;
+    in.s_addr = screen_cur_dec;
+
+    if (page_dev->getDevInfo(EM_SWITCH_DEC, screen_cur_dec, dev))
+    {
+        ERR_PRINT("getDevInfo failed, dev type: %d, ip: %s\n", EM_SWITCH_DEC, inet_ntoa(in));
+        return ;
+    }
+
+    ifly_ipc_info_t * pipc_info = NULL;
+    pipc_info = new ifly_ipc_info_t[dev.maxChnNum];
+
+    ret = BizGetDevChnIPCInfo(EM_SWITCH_DEC, screen_cur_dec, pipc_info, dev.maxChnNum*sizeof(ifly_ipc_info_t));
+    if (ret)
+    {
+        ERR_PRINT("getDevInfo failed: %d, dev type: %d, ip: %s\n", ret, EM_SWITCH_DEC, inet_ntoa(in));
+
+        delete[] pipc_info;
+        return ;
+    }
+
+    DBG_PRINT("dev(%s) :\n", inet_ntoa(in));
+    u32 i;
+    for (i=0; i<dev.maxChnNum; ++i)
+    {
+        in.s_addr = pipc_info[i].dwIp;
+        DBG_PRINT("chn%d: enable: %d, protocol type: %d, nvr ip: %s, req_nvr_chn: %d\n",
+                  pipc_info[i].channel_no,
+                  pipc_info[i].enable,
+                  pipc_info[i].protocol_type,
+                  inet_ntoa(in),
+                  pipc_info[i].req_nvr_chn);
+    }
+
+    delete[] pipc_info;
 }
 
 void page_tvWall::setupTreeWidgetScreen()
