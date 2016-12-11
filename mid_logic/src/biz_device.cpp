@@ -44,7 +44,7 @@
 #include <utility>
 
 #define SendBuf (1024)
-#define RcvBuf (4096*2)
+#define RcvBuf (4096)
 #define DIALOGUE_TIMEOUT	(3) //一次命令回话超时
 #define RECONNECT_TIMEOUT	(5) //秒
 #define KEEP_ALIVE_INTERVAL	(15) //秒
@@ -84,7 +84,8 @@ public:
     int GetDevIdx(EM_DEV_TYPE dev_type, u32 dev_ip);
 	int GetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pdev);
 	int GetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_ipc_info_t * pipc_info, s32 size);
-
+	//只支持NVR
+	int GetDevChnName(EM_DEV_TYPE dev_type, u32 dev_ip, u8 chn, char *pbuf, u32 size);
 	
 	int StartNotifyDevInfo();//使能通知。设备层将信息通知给上层
 	int AddDev(EM_DEV_TYPE dev_type, u32 dev_ip);
@@ -777,6 +778,47 @@ int CBizDeviceManager::GetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_i
 	return SUCCESS;
 }
 
+//只支持NVR
+int CBizDeviceManager::GetDevChnName(EM_DEV_TYPE dev_type, u32 dev_ip, u8 chn, char *pbuf, u32 size)
+{
+	CBizDevice *pcdev = NULL;
+	int dev_idx = -1;
+	int ret = -FAILURE;
+	struct in_addr in;
+	in.s_addr = dev_ip;
+
+	dev_idx = GetDevIdx(dev_type, dev_ip);
+	if (dev_idx < 0)
+	{
+		ERR_PRINT("IP(%s) GetDevIdx failed\n", inet_ntoa(in));
+		
+		return -EDEV_NOTFOUND;
+	}
+	
+	pplock_dev[dev_idx]->Lock();
+
+	pcdev = ppcdev[dev_idx];
+	if (NULL == pcdev)
+	{	
+		ERR_PRINT("IP(%s) pcdev == NULL\n", inet_ntoa(in));
+
+		pplock_dev[dev_idx]->Unlock();
+		return -EDEV_NOTFOUND;		
+	}
+
+	ret = pcdev->GetChnName(chn, pbuf, size);
+	if (ret)
+	{
+		ERR_PRINT("IP(%s) GetChnName failed\n", inet_ntoa(in));
+		
+		pplock_dev[dev_idx]->Unlock();
+		return ret;
+	}	
+
+	//success
+	pplock_dev[dev_idx]->Unlock();
+	return SUCCESS;
+}
 
 int CBizDeviceManager::StartNotifyDevInfo()//使能通知。设备层将信息通知给上层
 {
@@ -1102,7 +1144,7 @@ int CBizDeviceManager::NetDialogue(int sock, u16 event, const void *content, int
 	cp_head_snd.version = htons(CTRL_VERSION);
 	if(msglen > SendBuf)
 	{
-		DBG_PRINT("cp_head_snd.length(%d) > SendBuf, failed\n", msglen);
+		DBG_PRINT("event: %d, cp_head_snd.length(%d) > SendBuf, failed\n", event, msglen);
 		
 		plock4sock->Unlock();
 		return -EPARAM;
@@ -1120,7 +1162,7 @@ int CBizDeviceManager::NetDialogue(int sock, u16 event, const void *content, int
 	ret = loopsend(sock, (char *)send_buf, msglen);
 	if(ret < 0)
 	{
-		ERR_PRINT("loopsend failed\n");
+		ERR_PRINT("event: %d, loopsend failed\n", event);
 
 		plock4sock->Unlock();
 		return -FAILURE;
@@ -1131,8 +1173,8 @@ int CBizDeviceManager::NetDialogue(int sock, u16 event, const void *content, int
 	ret = sync_sem.TimedPend(DIALOGUE_TIMEOUT);		
 	if (ret)//timeout or failed
 	{
-		ERR_PRINT("sem_timedwait failed, error:[%d,%s], failed!\n", 
-					errno, strerror(errno));
+		ERR_PRINT("event: %d, sem_timedwait failed, error:[%d,%s], failed!\n", 
+					event, errno, strerror(errno));
 		
 		plock4sock->Unlock();
 		return -FAILURE;
@@ -1140,7 +1182,7 @@ int CBizDeviceManager::NetDialogue(int sock, u16 event, const void *content, int
 
 	if (sync_ack_len < (int)sizeof(ifly_cp_header_t))
 	{
-		ERR_PRINT("sync_ack_len < sizeof(ifly_cp_header_t), failed\n");
+		ERR_PRINT("event: %d, sync_ack_len < sizeof(ifly_cp_header_t), failed\n", event);
 		
 		plock4sock->Unlock();
 		return -FAILURE;
@@ -1149,7 +1191,7 @@ int CBizDeviceManager::NetDialogue(int sock, u16 event, const void *content, int
 	memcpy(&cp_head_rcv, sync_buf, sizeof(ifly_cp_header_t));
 	if (cp_head_rcv.event != CTRL_SUCCESS)
 	{
-		ERR_PRINT("cp_head_rcv.event: %d, failed\n", cp_head_rcv.event);
+		ERR_PRINT("rcv event: %d, failed\n", cp_head_rcv.event);
 		
 		plock4sock->Unlock();
 		return -FAILURE;
@@ -1174,10 +1216,10 @@ int CBizDeviceManager::NetDialogue(int sock, u16 event, const void *content, int
 		
 		if(ackbuflen < rcvlen)
 		{
-			ERR_PRINT("ackbuflen(%d) < rcvlen(%d), failed\n", ackbuflen, rcvlen);
+			ERR_PRINT("event: %d, ackbuflen(%d) < rcvlen(%d), failed\n", event, ackbuflen, rcvlen);
 			
 			plock4sock->Unlock();
-			return -FAILURE;
+			return -ESPACE;
 		}
 		
 		memcpy(ackbuf, sync_buf+sizeof(ifly_cp_header_t), rcvlen);
@@ -1542,12 +1584,14 @@ void CBizDeviceManager::threadRcv(uint param)
 					continue;
 				}
 
-				memcpy(&cprcvhead, rcv_buf, sizeof(cprcvhead));
+				memcpy(&cprcvhead, rcv_buf, sizeof(ifly_cp_header_t));
 				cprcvhead.length	= ntohl(cprcvhead.length);
 				cprcvhead.type		= ntohs(cprcvhead.type);
 				cprcvhead.version	= ntohs(cprcvhead.version);
 				cprcvhead.number	= ntohs(cprcvhead.number);
 				cprcvhead.event		= ntohs(cprcvhead.event);
+
+				memcpy(rcv_buf, &cprcvhead, sizeof(ifly_cp_header_t));//转换完成后写会，NetDialogue中会用到ifly_cp_header_t结构
 /*
 				printf("recv msg: \n");
 				printf("\t type: %d\n", cprcvhead.type);
@@ -2509,13 +2553,12 @@ int CBizDevice::GetChnIPCInfo(ifly_ipc_info_t * pipc_info, s32 size)
 {
 	int realacklen = 0;
 	int ret = SUCCESS;
-	char buf[4096*2]={0};
-	ifly_search_desc_t desc;
-	char *ptmp = NULL;
-
-	ifly_search_ipc_t  ipc_search;
-	memset(&ipc_search, 0, sizeof(ifly_search_ipc_t));
-	ipc_search.max_return = htons(dev_info.maxChnNum);
+	char buf[RcvBuf]={0};
+	ifly_search_desc_t req_desc, ret_desc;
+	ifly_ipc_info_t *pipc = NULL;
+	u32 cp_nums = 0;
+	u32 ret_nums = 0; 
+	
 	
  	if (NULL == pipc_info)
 	{
@@ -2535,28 +2578,100 @@ int CBizDevice::GetChnIPCInfo(ifly_ipc_info_t * pipc_info, s32 size)
         DBG_PRINT("dev offline\n");
         return -EDEV_OFFLINE;
     }
+	
+	memset(&req_desc, 0, sizeof(ifly_search_desc_t));
+	memset(&ret_desc, 0, sizeof(ifly_search_desc_t));
 
-	ret = g_biz_device_manager.NetDialogue(sock_cmd, CTRL_CMD_GETADDIPCLIST, &ipc_search, sizeof(ifly_search_ipc_t), buf, sizeof(buf), &realacklen);
-	if (ret)
-	{
-		ERR_PRINT("NetDialogue invalid\n");
-		return -FAILURE;
-	}
+	do{	
+		req_desc.startID = ret_desc.endID+1;//从第一个开始
+		req_desc.startID = htons(req_desc.startID);
+		
+		ret = g_biz_device_manager.NetDialogue(sock_cmd, CTRL_CMD_GETADDIPCLIST, &req_desc, sizeof(ifly_search_desc_t), buf, sizeof(buf), &realacklen);
+		if (ret)
+		{
+			ERR_PRINT("ret: %d\n", ret);
+			
+			return ret;
+		}
 
-	ptmp = buf;
-	memcpy(&desc, ptmp, sizeof(ifly_search_desc_t));
-	desc.startID = ntohs(desc.startID); 
-	desc.endID = ntohs(desc.endID); 
-	desc.sum = ntohs(desc.sum);
+		memcpy(&ret_desc, buf, sizeof(ifly_search_desc_t));
+		ret_desc.startID = ntohs(ret_desc.startID);
+		ret_desc.endID = ntohs(ret_desc.endID);
+		ret_desc.sum = ntohs(ret_desc.sum);
 
-	DBG_PRINT("sum: %d, startID: %d, endID: %d\n", desc.sum, desc.startID, desc.endID);
+		//DBG_PRINT("ret sum: %d, startID: %d, endID: %d\n", 
+		//			ret_desc.sum, ret_desc.startID, ret_desc.endID);
 
-	ptmp = buf+sizeof(ifly_search_desc_t);
-	memcpy(pipc_info, ptmp, dev_info.maxChnNum * sizeof(ifly_ipc_info_t));
+		if (ret_desc.sum != dev_info.maxChnNum)
+		{
+			ERR_PRINT("ret_desc.sum(%d) != dev_info.maxChnNum(%d)\n", 
+				ret_desc.sum, dev_info.maxChnNum);
+			
+			return -EPARAM;
+		}
+		
+		ret_nums = ret_desc.endID - ret_desc.startID + 1;
+		pipc = (ifly_ipc_info_t *)(buf + sizeof(ifly_search_desc_t));			
+		memcpy(pipc_info+cp_nums, pipc, sizeof(ifly_ipc_info_t)*ret_nums);
+		cp_nums += ret_nums;
+		
+	} while(ret_desc.endID < ret_desc.sum);
 	
 	return SUCCESS;
 }
 
+//只支持NVR，得到NVR通道名(osd info)
+int CBizDevice::GetChnName(u8 chn, char *pbuf, u32 size)
+{
+	int realacklen = 0;
+	int ret = SUCCESS;
+
+	if (dev_info.devicetype != EM_NVR)
+	{
+		ERR_PRINT("dev_info.devicetype(%d) != EM_NVR\n", dev_info.devicetype);
+		return -EPARAM;
+	}
+
+	if (chn >= dev_info.maxChnNum)
+	{
+		ERR_PRINT("chn(%d) >= dev_info.maxChnNum(%d)\n", chn, dev_info.maxChnNum);
+		return -EPARAM;
+	}
+	
+	if (NULL == pbuf)
+	{
+		ERR_PRINT("Pbuf == NULL\n");
+		return -EPARAM;
+	}
+
+	if (size == 0)
+	{
+		ERR_PRINT("size == 0\n");
+		return -EPARAM;
+	}
+
+	ifly_ImgParam_t para_info;
+	memset(&para_info, 0, sizeof(ifly_ImgParam_t));
+	
+	ret = g_biz_device_manager.NetDialogue(sock_cmd, CTRL_CMD_GETIMGPARAM, &chn, sizeof(chn), &para_info, sizeof(ifly_ImgParam_t), &realacklen);
+	if (ret)
+	{
+		ERR_PRINT("ret: %d\n", ret);
+		
+		return ret;
+	}
+
+	if (strlen(para_info.channelname)+1 > size)
+	{
+		ERR_PRINT("size(%d) short for chn name strlen(%d)\n", ret, strlen(para_info.channelname));
+		
+		return -ESPACE;
+	}
+
+	strcpy(pbuf, para_info.channelname);
+
+	return SUCCESS;
+}
 
 //连接、登录服务器
 int CBizDevice::DevConnect()
@@ -2623,6 +2738,7 @@ int CBizDevice::DevConnect()
 	}
 	DBG_PRINT("svr IP: %s, DeviceLogin success\n", inet_ntoa(in));
 
+#if 0
 	//设置接收报警信息
 	ret = _DevSetAlarmUpload(1);
 	if (ret < 0)
@@ -2632,7 +2748,8 @@ int CBizDevice::DevConnect()
 		goto fail2;
 	}
 	DBG_PRINT("svr IP: %s, Device SetAlarmUpload success\n", inet_ntoa(in));
-	
+#endif
+
 	b_alive = TRUE;
 	return SUCCESS;
 
@@ -2660,6 +2777,7 @@ int CBizDevice::DevDisconnect()
 	}
 	DBG_PRINT("svr IP: %s, DeviceLogout success\n", inet_ntoa(in));
 
+#if 0
 	//设置接收报警信息
 	ret = _DevSetAlarmUpload(0);
 	if (ret < 0)
@@ -2669,6 +2787,7 @@ int CBizDevice::DevDisconnect()
 		goto fail;
 	}
 	DBG_PRINT("svr IP: %s, Device SetAlarmUpload success\n", inet_ntoa(in));
+#endif
 
 	CleanSock();
 	return SUCCESS;
@@ -3306,6 +3425,11 @@ int BizGetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_ipc_info_t * pipc
 	return g_biz_device_manager.GetDevChnIPCInfo(dev_type, dev_ip, pipc_info, size);
 }
 
+//只支持NVR
+int BizGetDevChnName(EM_DEV_TYPE dev_type, u32 dev_ip, u8 chn, char *pbuf, u32 size)
+{
+	return g_biz_device_manager.GetDevChnName(dev_type, dev_ip, chn, pbuf, size);
+}
 
 int BizStartNotifyDevInfo(void)	//使能通知。设备层将信息通知给上层
 {

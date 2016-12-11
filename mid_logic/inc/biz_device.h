@@ -71,7 +71,7 @@ public:
 	VD_BOOL Init(void);
 	void CleanSock();
 
-	int GetDeviceInfo(ifly_DeviceInfo_t *pDeviceInfo);
+	int GetDeviceInfo(ifly_DeviceInfo_t *pDeviceInfo);	
 	//连接、登录服务器
 	int DevConnect();
 	//断开命令连接
@@ -91,6 +91,8 @@ public:
 	
 	//获取所有通道的IPC信息
 	int GetChnIPCInfo(ifly_ipc_info_t * pipc_info, s32 size);
+	//只支持NVR，得到NVR通道名(osd info)
+	int GetChnName(u8 chn, char *pbuf, u32 size);
 	
 private:
     CBizDevice(CBizDevice &)
@@ -142,7 +144,10 @@ int BizDelDev(EM_DEV_TYPE dev_type, u32 dev_ip);
 int BizGetDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip_list);//网络字节序
 int BizGetDevIdx(EM_DEV_TYPE dev_type, u32 dev_ip);
 int BizGetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pdev);
+//获取所有通道的IPC信息
 int BizGetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_ipc_info_t * pipc_info, s32 size);
+//只支持NVR，得到NVR通道名(osd info)
+int BizGetDevChnName(EM_DEV_TYPE dev_type, u32 dev_ip, u8 chn, char *pbuf, u32 size);
 
 
 int BizStartNotifyDevInfo();//使能通知。设备层将信息通知给上层

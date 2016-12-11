@@ -5,8 +5,6 @@
 #include "biz_config.h"
 #include "page_manager.h"
 
-#include "ctrlprotocol.h"
-
 page_tvWall::page_tvWall(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::page_tvWall),
@@ -257,6 +255,8 @@ void page_tvWall::screenItemDoubleClicked(QTreeWidgetItem* item, int col)
         return ;
     }
 
+    clearTableWidget();
+
     //格式：屏幕1: 192.168.1.114，分隔符": "
     QString qstr_item = item->text(0);
     QStringList qstr_list = qstr_item.split(QString::fromUtf8(": "));
@@ -299,13 +299,15 @@ void page_tvWall::screenItemDoubleClicked(QTreeWidgetItem* item, int col)
     ret = BizGetDevChnIPCInfo(EM_SWITCH_DEC, screen_cur_dec, pipc_info, dev.maxChnNum*sizeof(ifly_ipc_info_t));
     if (ret)
     {
-        ERR_PRINT("getDevInfo failed: %d, dev type: %d, ip: %s\n", ret, EM_SWITCH_DEC, inet_ntoa(in));
+        ERR_PRINT("BizGetDevChnIPCInfo failed: %d, dev type: %d, ip: %s\n", ret, EM_SWITCH_DEC, inet_ntoa(in));
 
         delete[] pipc_info;
         return ;
     }
 
-    DBG_PRINT("dev(%s) :\n", inet_ntoa(in));
+    refreshTableWidget(pipc_info, dev.maxChnNum);
+#if 0
+    //DBG_PRINT("dev(%s) :\n", inet_ntoa(in));
     u32 i;
     for (i=0; i<dev.maxChnNum; ++i)
     {
@@ -317,6 +319,7 @@ void page_tvWall::screenItemDoubleClicked(QTreeWidgetItem* item, int col)
                   inet_ntoa(in),
                   pipc_info[i].req_nvr_chn);
     }
+#endif
 
     delete[] pipc_info;
 }
@@ -444,38 +447,30 @@ void page_tvWall::setupTreeWidgetNvr()
     ui->treeWidget_nvr->setAcceptDrops(true);
 }
 
-void page_tvWall::refreshTableWidget()
+void page_tvWall::refreshTableWidget(ifly_ipc_info_t * pipc_info, s32 ipc_nums)
 {
-    ui->tableWidget_tvwall->clearContents();
-    ui->tableWidget_tvwall->setRowCount(0);
+    clearTableWidget();
 
-    if (screen_cur_dec == 0)
+    if (NULL == pipc_info || ipc_nums <= 0)
     {
+        ERR_PRINT("param invalid\n");
         return ;
     }
 
-    struct in_addr in;
-    in.s_addr = screen_cur_dec;
-
-    SGuiDev dev;
-    if (page_dev->getDevInfo(EM_SWITCH_DEC, screen_cur_dec, dev))
-    {
-        ERR_PRINT("getDevInfo failed, dev type: %d, ip: %s\n", EM_SWITCH_DEC, inet_ntoa(in));
-        ShowMessageBoxError(QString::fromUtf8("获取设备信息出错"));
-        return ;
-    }
-
-    ui->tableWidget_tvwall->setRowCount(dev.maxChnNum);
-
-    //获取解码器通道
+    ui->tableWidget_tvwall->setRowCount(ipc_nums);
 
     QString screen_text = QString::fromUtf8("屏幕通道");
+    QString chn = QString::fromUtf8(""); /*空*/
     QString btn_text = QString::fromUtf8("解除绑定");
     QPushButton *btn_unbind = NULL;
     QTableWidgetItem *ptable_item = NULL;
+    char chn_name[32];
+    int ret = SUCCESS;
+    struct in_addr in;
+    in.s_addr = screen_cur_dec;
+    DBG_PRINT("switch dec ip: %s\n", inet_ntoa(in));
 
-    int i;
-    for (i=0; i<dev.maxChnNum; ++i)
+    for (s32 i=0; i<ipc_nums; ++i)
     {
         //屏幕(解码器)通道
         ptable_item = new QTableWidgetItem();
@@ -483,7 +478,36 @@ void page_tvWall::refreshTableWidget()
         ui->tableWidget_tvwall->setItem(i, 0, ptable_item);
 
         //通道
-
+        chn = QString::fromUtf8(""); /*空*/
+        if (pipc_info[i].enable)
+        {
+            if (0x100 == pipc_info[i].protocol_type) //nvr
+            {
+                in.s_addr = pipc_info[i].dwIp;
+                if (NULL == inet_ntoa(in))
+                {
+                    ERR_PRINT("pipc_info[%d].ip invalid\n", i);
+                }
+                else
+                {
+                    ret = BizGetDevChnName(EM_NVR, pipc_info[i].dwIp, pipc_info[i].req_nvr_chn, chn_name, sizeof(chn_name));
+                    if (ret)
+                    {
+                        ERR_PRINT("BizGetDevChnName failed, ret: %d\n", ret);
+                    }
+                    else
+                    {
+                        //NVR:192.168.1.248:通道1:大门
+                        chn = QString(QString::fromUtf8("NVR:%1").arg(QString::fromUtf8(inet_ntoa(in))));
+                        chn += QString(QString::fromUtf8(":通道%1").arg(pipc_info[i].req_nvr_chn+1));
+                        chn += QString(QString::fromUtf8(":%1").arg(QString::fromUtf8(chn_name)));
+                    }
+                }
+            }
+        }
+        ptable_item = new QTableWidgetItem();
+        ptable_item->setText(chn);
+        ui->tableWidget_tvwall->setItem(i, 1, ptable_item);
 
         //解除绑定
         btn_unbind = new QPushButton;
@@ -494,6 +518,12 @@ void page_tvWall::refreshTableWidget()
         ui->tableWidget_tvwall->setCellWidget(i, 2, btn_unbind);
 
     }
+}
+
+void page_tvWall::clearTableWidget()
+{
+    ui->tableWidget_tvwall->clearContents();
+    ui->tableWidget_tvwall->setRowCount(0);
 }
 
 void page_tvWall::btn_unbind_clicked()
@@ -520,7 +550,7 @@ void page_tvWall::setupTableWidget()
 
     ui->tableWidget_tvwall->setColumnCount(3);
     ui->tableWidget_tvwall->setColumnWidth(0,100);
-    ui->tableWidget_tvwall->setColumnWidth(1,200);
+    ui->tableWidget_tvwall->setColumnWidth(1,350);
     ui->tableWidget_tvwall->verticalHeader()->setVisible(false);//列表头不可见
     ui->tableWidget_tvwall->setFocusPolicy(Qt::NoFocus);//让table失去焦点，防止没有选中行时，添加第一行
     ui->tableWidget_tvwall->setSelectionBehavior(QAbstractItemView::SelectRows);//点击选择整行
@@ -540,7 +570,7 @@ void page_tvWall::setupTableWidget()
     header.append(QString::fromUtf8("操作"));
     ui->tableWidget_tvwall->setHorizontalHeaderLabels(header);
 
-    //refreshTableWidget();
+    clearTableWidget();
 
     ui->tableWidget_tvwall->setAcceptDrops(true);//拖拽效果 接受落下
 }
@@ -551,7 +581,7 @@ void page_tvWall::showEvent(QShowEvent *event)
     screen_cur_dec = 0;
     refreshTreeWidgetScreen();
     refreshTreeWidgetNvr();
-    refreshTableWidget();
+    clearTableWidget();
 }
 
 

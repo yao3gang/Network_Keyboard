@@ -1,1 +1,4 @@
----- NETDVR_ipcInfo Matches (0 in 0 files) ----
+---- BizGetDevChnIPCInfo Matches (3 in 3 files) ----
+biz_device.cpp (mid_logic\src):int BizGetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_ipc_info_t * pipc_info, s32 size)
+biz_device.h (mid_logic\inc):int BizGetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_ipc_info_t * pipc_info, s32 size);
+page_tvwall.cpp (gui\page):    ret = BizGetDevChnIPCInfo(EM_SWITCH_DEC, screen_cur_dec, pipc_info, dev.maxChnNum);

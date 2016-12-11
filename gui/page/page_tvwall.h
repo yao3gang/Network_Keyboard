@@ -4,6 +4,7 @@
 #include <QtGui>
 
 #include "page_dev_mgt.h"
+#include "ctrlprotocol.h"
 
 namespace Ui {
 class page_tvWall;
@@ -27,7 +28,8 @@ private:
     void setupTreeWidgetNvr();
     void refreshTreeWidgetNvr();
     void setupTableWidget();
-    void refreshTableWidget();
+    void clearTableWidget();
+    void refreshTableWidget(ifly_ipc_info_t * pipc_info, s32 ipc_nums);
 
 private slots:
     void refreshDevInfo(SGuiDev dev);
