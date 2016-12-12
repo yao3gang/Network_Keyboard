@@ -83,9 +83,14 @@ public:
 	int GetDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip_list);//网络字节序
     int GetDevIdx(EM_DEV_TYPE dev_type, u32 dev_ip);
 	int GetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pdev);
+	//获取所有通道的IPC信息
 	int GetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_ipc_info_t * pipc_info, s32 size);
-	//只支持NVR
+	//只支持NVR，得到NVR通道名(osd info)
 	int GetDevChnName(EM_DEV_TYPE dev_type, u32 dev_ip, u8 chn, char *pbuf, u32 size);
+	//设置解码器通道对应的NVR 通道
+	int SetDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_chn, u32 nvr_ip, u8 nvr_chn);
+
+
 	
 	int StartNotifyDevInfo();//使能通知。设备层将信息通知给上层
 	int AddDev(EM_DEV_TYPE dev_type, u32 dev_ip);
@@ -737,6 +742,7 @@ int CBizDeviceManager::GetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pgd
 	return SUCCESS;
 }
 
+//获取所有通道的IPC信息
 int CBizDeviceManager::GetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_ipc_info_t * pipc_info, s32 size)
 {	
 	CBizDevice *pcdev = NULL;
@@ -778,7 +784,7 @@ int CBizDeviceManager::GetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_i
 	return SUCCESS;
 }
 
-//只支持NVR
+//只支持NVR，得到NVR通道名(osd info)
 int CBizDeviceManager::GetDevChnName(EM_DEV_TYPE dev_type, u32 dev_ip, u8 chn, char *pbuf, u32 size)
 {
 	CBizDevice *pcdev = NULL;
@@ -810,6 +816,90 @@ int CBizDeviceManager::GetDevChnName(EM_DEV_TYPE dev_type, u32 dev_ip, u8 chn, c
 	if (ret)
 	{
 		ERR_PRINT("IP(%s) GetChnName failed\n", inet_ntoa(in));
+		
+		pplock_dev[dev_idx]->Unlock();
+		return ret;
+	}	
+
+	//success
+	pplock_dev[dev_idx]->Unlock();
+	return SUCCESS;
+}
+
+//设置解码器通道对应的NVR 通道
+int CBizDeviceManager::SetDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_chn, u32 nvr_ip, u8 nvr_chn)
+{
+	CBizDevice *pcdev = NULL;
+	int dev_idx = -1;
+	int ret = -FAILURE;
+	struct in_addr in;
+
+	//check nvr
+	in.s_addr = nvr_ip;
+	dev_idx = GetDevIdx(EM_NVR, nvr_ip);
+	if (dev_idx < 0)
+	{
+		ERR_PRINT("NVR IP(%s) GetDevIdx failed\n", inet_ntoa(in));
+		
+		return -EDEV_NOTFOUND;
+	}
+	
+	pplock_dev[dev_idx]->Lock();
+
+	pcdev = ppcdev[dev_idx];
+	if (NULL == pcdev)
+	{	
+		ERR_PRINT("NVR IP(%s) pcdev == NULL\n", inet_ntoa(in));
+
+		pplock_dev[dev_idx]->Unlock();
+		return -EDEV_NOTFOUND;
+	}
+
+	if (nvr_chn >= pcdev->dev_info.maxChnNum)
+	{
+		ERR_PRINT("NVR IP(%s) nvr_chn(%d) >= pcdev->dev_info.maxChnNum(%d)\n", 
+			inet_ntoa(in), nvr_chn, pcdev->dev_info.maxChnNum);
+
+		pplock_dev[dev_idx]->Unlock();
+		return -EPARAM;
+	}
+
+	pplock_dev[dev_idx]->Unlock();
+	
+	//check dec
+	in.s_addr = dec_ip;
+	dev_idx = GetDevIdx(dev_type, dec_ip);
+	if (dev_idx < 0)
+	{
+		ERR_PRINT("IP(%s) GetDevIdx failed\n", inet_ntoa(in));
+		
+		return -EDEV_NOTFOUND;
+	}
+	
+	pplock_dev[dev_idx]->Lock();
+
+	pcdev = ppcdev[dev_idx];
+	if (NULL == pcdev)
+	{	
+		ERR_PRINT("DEC IP(%s) pcdev == NULL\n", inet_ntoa(in));
+
+		pplock_dev[dev_idx]->Unlock();
+		return -EDEV_NOTFOUND;		
+	}
+
+	if (dec_chn >= pcdev->dev_info.maxChnNum)
+	{
+		ERR_PRINT("DEC IP(%s) dec_chn(%d) >= pcdev->dev_info.maxChnNum(%d)\n", 
+			inet_ntoa(in), dec_chn, pcdev->dev_info.maxChnNum);
+
+		pplock_dev[dev_idx]->Unlock();
+		return -EPARAM;
+	}
+
+	ret = pcdev->SetChnIpc(dec_chn, nvr_ip, nvr_chn);
+	if (ret)
+	{
+		ERR_PRINT("DEC IP(%s) SetChnIpc failed\n", inet_ntoa(in));
 		
 		pplock_dev[dev_idx]->Unlock();
 		return ret;
@@ -1117,11 +1207,7 @@ int CBizDeviceManager::NetDialogue(int sock, u16 event, const void *content, int
 		DBG_PRINT("length: %d invalid\n", length);
 		return -EPARAM;
 	}
-	if(NULL == ackbuf)
-	{
-		DBG_PRINT("ackbuf invalid\n");
-		return -EPARAM;
-	}
+	
 	if(NULL == realacklen)
 	{
 		DBG_PRINT("realacklen invalid\n");
@@ -1197,6 +1283,14 @@ int CBizDeviceManager::NetDialogue(int sock, u16 event, const void *content, int
 		return -FAILURE;
 	}
 
+	if (ackbuf == NULL)//命令可能不需要返回信息
+	{
+		//ERR_PRINT("ackbuf == NULL, failed\n");
+	
+		plock4sock->Unlock();
+		return SUCCESS;
+	}
+
 	rcvlen = sync_ack_len - sizeof(ifly_cp_header_t);
 	
 	if(realacklen != NULL) 
@@ -1205,15 +1299,7 @@ int CBizDeviceManager::NetDialogue(int sock, u16 event, const void *content, int
 	}
 	
 	if(rcvlen > 0)
-	{
-		if (ackbuf == NULL)
-		{
-			ERR_PRINT("ackbuf == NULL, failed\n");
-		
-			plock4sock->Unlock();
-			return -FAILURE;
-		}
-		
+	{		
 		if(ackbuflen < rcvlen)
 		{
 			ERR_PRINT("event: %d, ackbuflen(%d) < rcvlen(%d), failed\n", event, ackbuflen, rcvlen);
@@ -2673,6 +2759,60 @@ int CBizDevice::GetChnName(u8 chn, char *pbuf, u32 size)
 	return SUCCESS;
 }
 
+//设置解码器通道对应的NVR 通道
+int CBizDevice::SetChnIpc(u8 dec_chn, u32 nvr_ip, u8 nvr_chn)
+{
+	int realacklen = 0;
+	int ret = SUCCESS;
+	ifly_ipc_info_t ipc_info;
+
+	struct in_addr in;
+	in.s_addr = nvr_ip;
+	DBG_PRINT("dec_chn: %d, nvr ip: %s, nvr_chn: %d\n",
+		dec_chn, inet_ntoa(in), nvr_chn);
+
+	//只支持解码器
+	if (dev_info.devicetype != EM_SWITCH_DEC
+		&& dev_info.devicetype != EM_PATROL_DEC)
+	{
+		ERR_PRINT("dev_info.devicetype(%d) not support\n", dev_info.devicetype);
+		return -EPARAM;
+	}
+
+	if (dec_chn >= dev_info.maxChnNum)
+	{
+		ERR_PRINT("chn(%d) >= dev_info.maxChnNum(%d)\n", dec_chn, dev_info.maxChnNum);
+		return -EPARAM;
+	}	
+	
+	memset(&ipc_info, 0, sizeof(ifly_ipc_info_t));
+	ipc_info.enable = 1;
+	ipc_info.channel_no = dec_chn;
+	ipc_info.protocol_type = htonl(0x100);//protocol nvr
+	ipc_info.dwIp = htonl(nvr_ip);
+	ipc_info.wPort = htons(8670);
+	strcpy(ipc_info.user, "admin");
+	strcpy(ipc_info.pwd, "");
+	ipc_info.max_nvr_chn = 16;
+	ipc_info.req_nvr_chn = nvr_chn;
+
+	ret = g_biz_device_manager.NetDialogue(sock_cmd, CTRL_CMD_SETIPC, &ipc_info, sizeof(ifly_ipc_info_t), NULL, 0, &realacklen);
+	if (ret)
+	{
+		ERR_PRINT("ret: %d\n", ret);
+		
+		return ret;
+	}
+
+	return SUCCESS;
+}
+
+
+
+
+
+
+
 //连接、登录服务器
 int CBizDevice::DevConnect()
 {
@@ -3420,16 +3560,24 @@ int BizGetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pdev)
 	return g_biz_device_manager.GetDevInfo(dev_type, dev_ip, pdev);
 }
 
+//获取所有通道的IPC信息
 int BizGetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_ipc_info_t * pipc_info, s32 size)
 {
 	return g_biz_device_manager.GetDevChnIPCInfo(dev_type, dev_ip, pipc_info, size);
 }
 
-//只支持NVR
+//只支持NVR，得到NVR通道名(osd info)
 int BizGetDevChnName(EM_DEV_TYPE dev_type, u32 dev_ip, u8 chn, char *pbuf, u32 size)
 {
 	return g_biz_device_manager.GetDevChnName(dev_type, dev_ip, chn, pbuf, size);
 }
+
+//设置解码器通道对应的NVR 通道
+int BizSetDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_chn, u32 nvr_ip, u8 nvr_chn)
+{
+	return g_biz_device_manager.SetDevChnIpc(dev_type, dec_ip, dec_chn, nvr_ip, nvr_chn);
+}
+
 
 int BizStartNotifyDevInfo(void)	//使能通知。设备层将信息通知给上层
 {

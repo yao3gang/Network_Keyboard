@@ -94,6 +94,9 @@ public:
 	//只支持NVR，得到NVR通道名(osd info)
 	int GetChnName(u8 chn, char *pbuf, u32 size);
 	
+	//设置解码器通道对应的NVR 通道
+	int SetChnIpc(u8 dec_chn, u32 nvr_ip, u8 nvr_chn);
+	
 private:
     CBizDevice(CBizDevice &)
 	{
@@ -148,6 +151,8 @@ int BizGetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pdev);
 int BizGetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_ipc_info_t * pipc_info, s32 size);
 //只支持NVR，得到NVR通道名(osd info)
 int BizGetDevChnName(EM_DEV_TYPE dev_type, u32 dev_ip, u8 chn, char *pbuf, u32 size);
+//设置解码器通道对应的NVR 通道
+int BizSetDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_chn, u32 nvr_ip, u8 nvr_chn);
 
 
 int BizStartNotifyDevInfo();//使能通知。设备层将信息通知给上层

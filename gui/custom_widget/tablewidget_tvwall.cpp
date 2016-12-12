@@ -76,16 +76,58 @@ void tablewidget_tvwall::dropEvent(QDropEvent *event)
     {
         QString item_str = QString::fromUtf8(pstr);
         DBG_PRINT("item_str: %s\n", item_str.toUtf8().constData());
-        ptable_item->setText(item_str);
+
+        QStringList str_list = item_str.split(QString::fromUtf8(":"));
+#if 0
+        DBG_PRINT("str_list size: %d\n", str_list.size());
+        int i;
+        for (i=0; i<str_list.size(); ++i)
+        {
+            DBG_PRINT("%d: %s\n", i, str_list.at(i).toUtf8().constData());
+        }
+#endif
+        if (style == style_screen)
+        {
+            if (str_list.size() > 1)
+            {
+                ERR_PRINT("str_list size(%d) > 1, invalid\n", str_list.size());
+                goto fail;
+            }
+        }
+        else if (style == style_chn)
+        {
+            if (str_list.size() < 2)
+            {
+                ERR_PRINT("str_list size(%d) < 2, invalid\n", str_list.size());
+                goto fail;
+            }
+        }
+        else
+        {
+            ERR_PRINT("style: %s, not support\n", style.toUtf8().constData());
+
+            delete[] pstr;
+            event->ignore();
+        }
+
+        if (item_str != ptable_item->text())
+        {
+            ptable_item->setText(item_str);
+            emit bindChanged(ptable_item->row());
+        }
 
         event->setDropAction(Qt::MoveAction);
         event->accept();
 
         delete[] pstr;
+        return ;
+
+fail:
+        delete[] pstr;
+        event->ignore();
     }
     else
     {
         event->ignore();
     }
-
 }

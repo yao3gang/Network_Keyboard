@@ -5,6 +5,8 @@
 #include "biz_config.h"
 #include "page_manager.h"
 
+#include <stdio.h>
+
 page_tvWall::page_tvWall(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::page_tvWall),
@@ -224,7 +226,7 @@ void page_tvWall::refreshTreeWidgetScreen()
         }
 
         //DBG_PRINT("dev type: %d, ip: %s\n", dev_type, inet_ntoa(in));
-        qstr_item = qstr_screen + QString("%1: ").arg(i+1) + qstr_ip;
+        qstr_item = qstr_screen + QString("%1:").arg(i+1) + qstr_ip;
         dev_item->setText(0, qstr_item);
 
 #if 0   //暂时决定不显示 icon
@@ -259,7 +261,7 @@ void page_tvWall::screenItemDoubleClicked(QTreeWidgetItem* item, int col)
 
     //格式：屏幕1: 192.168.1.114，分隔符": "
     QString qstr_item = item->text(0);
-    QStringList qstr_list = qstr_item.split(QString::fromUtf8(": "));
+    QStringList qstr_list = qstr_item.split(QString::fromUtf8(":"));
     if (qstr_list.size() != 2)
     {
         ERR_PRINT("list size: %d, invalid\n", qstr_list.size());
@@ -345,6 +347,8 @@ void page_tvWall::refreshTreeWidgetNvr()
     QString qstr_ip, qstr_chn;
     u32 dev_ip;
     int i;
+    int ret = SUCCESS;
+    char chn_name[32];
 
     ui->treeWidget_nvr->clear();//清空，重新载入数据
 
@@ -409,6 +413,21 @@ void page_tvWall::refreshTreeWidgetNvr()
             }
 
             qstr_chn = QString(QString::fromUtf8("通道%1").arg(i+1));
+
+            ret = BizGetDevChnName(EM_NVR, dev_ip, i, chn_name, sizeof(chn_name));
+            if (ret)
+            {
+                ERR_PRINT("BizGetDevChnName failed, ret: %d\n", ret);
+            }
+            else
+            {
+                //NVR:192.168.1.248:通道1:大门
+                if (chn_name[0]) //不为空
+                {
+                    qstr_chn += QString(QString::fromUtf8(":%1").arg(QString::fromUtf8(chn_name)));
+                }
+            }
+
             chn_item->setText(0, qstr_chn);
             chn_item->setIcon(0, QIcon(":/image/chn.png"));
 
@@ -497,8 +516,8 @@ void page_tvWall::refreshTableWidget(ifly_ipc_info_t * pipc_info, s32 ipc_nums)
                     }
                     else
                     {
-                        //NVR:192.168.1.248:通道1:大门
-                        chn = QString(QString::fromUtf8("NVR:%1").arg(QString::fromUtf8(inet_ntoa(in))));
+                        //192.168.1.248:通道1:大门
+                        chn = QString(QString::fromUtf8("%1").arg(QString::fromUtf8(inet_ntoa(in))));
                         chn += QString(QString::fromUtf8(":通道%1").arg(pipc_info[i].req_nvr_chn+1));
                         chn += QString(QString::fromUtf8(":%1").arg(QString::fromUtf8(chn_name)));
                     }
@@ -539,6 +558,69 @@ void page_tvWall::btn_unbind_clicked()
         item->setText(QString::fromUtf8(""));//清空
 
         //setipc
+        acceptBindChanged(item->row());
+    }
+}
+
+void page_tvWall::acceptBindChanged(int row)
+{
+    int screen_chn = row;
+    QTableWidgetItem *item = ui->tableWidget_tvwall->item(row, 1); //得到 解码器列 item
+
+    if (NULL == item)
+    {
+        ERR_PRINT("NULL == item\n");
+        return ;
+    }
+
+    QString item_str = item->text();
+    if (item_str.isEmpty())
+    {
+        ERR_PRINT("item_str empty\n");
+        return ;
+    }
+
+    DBG_PRINT("screen chn: %d\n", screen_chn);
+    DBG_PRINT("NVR chn: %s\n", item_str.toUtf8().constData());
+
+    QStringList str_list = item_str.split(QString::fromUtf8(":"));
+    if (str_list.size() < 2)
+    {
+        ERR_PRINT("str_list size(%d) < 2, invalid\n", str_list.size());
+        return ;
+    }
+
+    //req nvr
+    QString str_nvr_ip = str_list.at(0);
+    u32 nvr_ip = inet_addr(str_nvr_ip.toUtf8().constData());
+    if (INADDR_NONE == nvr_ip)
+    {
+        ERR_PRINT("nvr ip invalid, str_nvr_ip: %s\n", str_nvr_ip.toUtf8().constData());
+        return ;
+    }
+
+    //req nvr chn
+    QString str_chn = str_list.at(1);
+    if (!str_chn.contains(QString::fromUtf8("通道"), Qt::CaseInsensitive))//不含有"通道"
+    {
+        ERR_PRINT("chn str: %s, contains invalid\n", str_chn.toUtf8().constData());
+        return ;
+    }
+
+    u8 nvr_chn = 0xff;
+    if (1 != sscanf(str_chn.toUtf8().constData(), "通道%d", &nvr_chn))
+    {
+        ERR_PRINT("chn str: %s, sscanf invalid\n", str_chn.toUtf8().constData());
+        return ;
+    }
+    nvr_chn -= 1;
+    DBG_PRINT("nvr_chn: %d\n", nvr_chn);
+
+    int ret = SUCCESS;
+    ret = BizSetDevChnIpc(EM_SWITCH_DEC, screen_cur_dec, screen_chn, nvr_ip, nvr_chn);
+    if (ret)
+    {
+        ERR_PRINT("BizGetDevChnName failed, ret: %d\n", ret);
     }
 }
 
@@ -550,7 +632,7 @@ void page_tvWall::setupTableWidget()
 
     ui->tableWidget_tvwall->setColumnCount(3);
     ui->tableWidget_tvwall->setColumnWidth(0,100);
-    ui->tableWidget_tvwall->setColumnWidth(1,350);
+    ui->tableWidget_tvwall->setColumnWidth(1,320);
     ui->tableWidget_tvwall->verticalHeader()->setVisible(false);//列表头不可见
     ui->tableWidget_tvwall->setFocusPolicy(Qt::NoFocus);//让table失去焦点，防止没有选中行时，添加第一行
     ui->tableWidget_tvwall->setSelectionBehavior(QAbstractItemView::SelectRows);//点击选择整行
@@ -573,6 +655,9 @@ void page_tvWall::setupTableWidget()
     clearTableWidget();
 
     ui->tableWidget_tvwall->setAcceptDrops(true);//拖拽效果 接受落下
+
+    connect(ui->tableWidget_tvwall, SIGNAL(bindChanged(int)),
+            this, SLOT(acceptBindChanged(int)));
 }
 
 void page_tvWall::showEvent(QShowEvent *event)

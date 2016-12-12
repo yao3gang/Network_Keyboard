@@ -35,6 +35,7 @@ private slots:
     void refreshDevInfo(SGuiDev dev);
     void screenItemDoubleClicked(QTreeWidgetItem* item, int col);
     void btn_unbind_clicked();
+    void acceptBindChanged(int row);
 
 private:
     Ui::page_tvWall *ui;
