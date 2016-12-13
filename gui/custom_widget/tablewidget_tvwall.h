@@ -24,7 +24,7 @@ protected:
     void dropEvent(QDropEvent *event);
 
 signals:
-    void bindChanged(int row);
+    void signalDropEvent(int row, int col, QString data);
 
 public slots:
 

@@ -35,12 +35,13 @@ private slots:
     void refreshDevInfo(SGuiDev dev);
     void screenItemDoubleClicked(QTreeWidgetItem* item, int col);
     void btn_unbind_clicked();
-    void acceptBindChanged(int row);
+    void slotDropEvent(int row, int col, QString data);
 
 private:
     Ui::page_tvWall *ui;
     page_dev_mgt *page_dev;
     u32 screen_cur_dec;//当前正在配置通道的解码器
+    QStringList strlist_preview_windows;
 };
 
 #endif // PAGE_TVWALL_H

@@ -33,6 +33,7 @@ private slots:
     void rowsChanged(QString text);
     void colsChanged(QString text);
     void refreshDevInfo(SGuiDev dev);
+    void slotDropEvent(int row, int col, QString data);
 
 private:
     void init_form();//控件

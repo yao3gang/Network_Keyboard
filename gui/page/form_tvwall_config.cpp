@@ -400,6 +400,43 @@ void form_tvwall_config::refreshDevInfo(SGuiDev dev)
     }
 }
 
+void form_tvwall_config::slotDropEvent(int row, int col, QString data)
+{
+    DBG_PRINT("row: %d, col: %d, data: %s\n", row, col, data.toUtf8().constData());
+
+    QTableWidgetItem *item = ui->tableWidget_tvwall->item(row, 1); //得到 解码器列 item
+    if (NULL == item)
+    {
+        ERR_PRINT("NULL == item\n");
+        return ;
+    }
+
+    //解除绑定
+    if (data.isEmpty())
+    {
+        item->setText(QString::fromUtf8("")); //清空
+
+        return ;
+    }
+
+    //check QString data
+    QStringList str_list = data.split(QString::fromUtf8(":"));
+    if (str_list.size() != 1)
+    {
+        ERR_PRINT("str_list size(%d) != 1, invalid\n", str_list.size());
+        return ;
+    }
+
+    u32 dec_ip = inet_addr(data.toUtf8().constData());
+    if (INADDR_NONE == dec_ip)
+    {
+        ERR_PRINT("dec ip invalid, str_nvr_ip: %s\n", data.toUtf8().constData());
+        return ;
+    }
+
+    item->setText(data);
+}
+
 void form_tvwall_config::setupTableWidget()
 {
     QStringList header;
@@ -431,6 +468,9 @@ void form_tvwall_config::setupTableWidget()
     ui->tableWidget_tvwall->setAcceptDrops(true);//拖拽效果 接受落下
 
     refreshTable();
+
+    connect(ui->tableWidget_tvwall, SIGNAL(signalDropEvent(int,int,QString)),
+            this, SLOT(slotDropEvent(int,int,QString)));
 }
 
 void form_tvwall_config::refreshTable()
@@ -488,13 +528,20 @@ void form_tvwall_config::btn_unbind_clicked()
     QPushButton *btn = dynamic_cast<QPushButton *>(QObject::sender());//找到信号发送者
     QModelIndex index = ui->tableWidget_tvwall->indexAt(btn->pos());//定位按钮
 
-    DBG_PRINT("btn at row: %d, col: %d\n", index.row(), index.column());
+    int row = index.row();
+    int col = index.column();
+    DBG_PRINT("btn at row: %d, col: %d\n", row, col);
 
+#if 1
+    slotDropEvent(row, col, QString::fromUtf8(""));
+
+#else
     QTableWidgetItem *item = ui->tableWidget_tvwall->item(index.row(), index.column()-1); //得到 解码器列 item
     if (item)
     {
         item->setText(QString::fromUtf8(""));//清空
     }
+#endif
 }
 
 void form_tvwall_config::on_btn_clr_clicked()

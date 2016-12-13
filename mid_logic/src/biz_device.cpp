@@ -89,7 +89,8 @@ public:
 	int GetDevChnName(EM_DEV_TYPE dev_type, u32 dev_ip, u8 chn, char *pbuf, u32 size);
 	//设置解码器通道对应的NVR 通道
 	int SetDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_chn, u32 nvr_ip, u8 nvr_chn);
-
+	//删除通道IPC
+	int DelDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_chn);
 
 	
 	int StartNotifyDevInfo();//使能通知。设备层将信息通知给上层
@@ -909,6 +910,64 @@ int CBizDeviceManager::SetDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_ch
 	pplock_dev[dev_idx]->Unlock();
 	return SUCCESS;
 }
+
+//删除通道IPC
+int CBizDeviceManager::DelDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_chn)
+{
+	CBizDevice *pcdev = NULL;
+	int dev_idx = -1;
+	int ret = -FAILURE;
+	struct in_addr in;
+	
+	//check dec
+	in.s_addr = dec_ip;
+	dev_idx = GetDevIdx(dev_type, dec_ip);
+	if (dev_idx < 0)
+	{
+		ERR_PRINT("IP(%s) GetDevIdx failed\n", inet_ntoa(in));
+		
+		return -EDEV_NOTFOUND;
+	}
+	
+	pplock_dev[dev_idx]->Lock();
+
+	pcdev = ppcdev[dev_idx];
+	if (NULL == pcdev)
+	{	
+		ERR_PRINT("DEC IP(%s) pcdev == NULL\n", inet_ntoa(in));
+
+		pplock_dev[dev_idx]->Unlock();
+		return -EDEV_NOTFOUND;		
+	}
+
+	if (dec_chn >= pcdev->dev_info.maxChnNum)
+	{
+		ERR_PRINT("DEC IP(%s) dec_chn(%d) >= pcdev->dev_info.maxChnNum(%d)\n", 
+			inet_ntoa(in), dec_chn, pcdev->dev_info.maxChnNum);
+
+		pplock_dev[dev_idx]->Unlock();
+		return -EPARAM;
+	}
+
+	ret = pcdev->DelChnIpc(dec_chn);
+	if (ret)
+	{
+		ERR_PRINT("DEC IP(%s) DelChnIpc failed\n", inet_ntoa(in));
+		
+		pplock_dev[dev_idx]->Unlock();
+		return ret;
+	}	
+
+	//success
+	pplock_dev[dev_idx]->Unlock();
+	return SUCCESS;
+}
+
+
+
+
+
+
 
 int CBizDeviceManager::StartNotifyDevInfo()//使能通知。设备层将信息通知给上层
 {
@@ -2768,8 +2827,9 @@ int CBizDevice::SetChnIpc(u8 dec_chn, u32 nvr_ip, u8 nvr_chn)
 
 	struct in_addr in;
 	in.s_addr = nvr_ip;
-	DBG_PRINT("dec_chn: %d, nvr ip: %s, nvr_chn: %d\n",
-		dec_chn, inet_ntoa(in), nvr_chn);
+	
+	//DBG_PRINT("dec_chn: %d, nvr ip: %s, nvr_chn: %d\n",
+	//	dec_chn, inet_ntoa(in), nvr_chn);
 
 	//只支持解码器
 	if (dev_info.devicetype != EM_SWITCH_DEC
@@ -2806,6 +2866,62 @@ int CBizDevice::SetChnIpc(u8 dec_chn, u32 nvr_ip, u8 nvr_chn)
 
 	return SUCCESS;
 }
+
+//删除通道IPC
+int CBizDevice::DelChnIpc(u8 dec_chn)
+{
+	int realacklen = 0;
+	int ret = SUCCESS;
+	ifly_ipc_info_t ipc_info;
+
+	//只支持解码器
+	if (dev_info.devicetype != EM_SWITCH_DEC
+		&& dev_info.devicetype != EM_PATROL_DEC)
+	{
+		ERR_PRINT("dev_info.devicetype(%d) not support\n", dev_info.devicetype);
+		return -EPARAM;
+	}
+
+	if (dec_chn >= dev_info.maxChnNum)
+	{
+		ERR_PRINT("chn(%d) >= dev_info.maxChnNum(%d)\n", dec_chn, dev_info.maxChnNum);
+		return -EPARAM;
+	}	
+	
+	memset(&ipc_info, 0, sizeof(ifly_ipc_info_t));
+	ipc_info.enable = 0;
+	ipc_info.channel_no = dec_chn;
+	#if 0
+	ipc_info.protocol_type = htonl(0x100);//protocol nvr
+	ipc_info.dwIp = htonl(nvr_ip);
+	ipc_info.wPort = htons(8670);
+	strcpy(ipc_info.user, "admin");
+	strcpy(ipc_info.pwd, "");
+	ipc_info.max_nvr_chn = 16;
+	ipc_info.req_nvr_chn = nvr_chn;
+	#endif
+
+	ret = g_biz_device_manager.NetDialogue(sock_cmd, CTRL_CMD_DELETEIPC, &ipc_info, sizeof(ifly_ipc_info_t), NULL, 0, &realacklen);
+	if (ret)
+	{
+		ERR_PRINT("ret: %d\n", ret);
+		
+		return ret;
+	}
+
+	return SUCCESS;
+}
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -3577,6 +3693,22 @@ int BizSetDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_chn, u32 nvr_ip, u
 {
 	return g_biz_device_manager.SetDevChnIpc(dev_type, dec_ip, dec_chn, nvr_ip, nvr_chn);
 }
+
+//删除通道IPC
+int BizDelDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_chn)
+{
+	return g_biz_device_manager.DelDevChnIpc(dev_type, dec_ip, dec_chn);
+}
+
+
+
+
+
+
+
+
+
+
 
 
 int BizStartNotifyDevInfo(void)	//使能通知。设备层将信息通知给上层

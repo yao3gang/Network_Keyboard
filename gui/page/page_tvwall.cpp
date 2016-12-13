@@ -32,6 +32,13 @@ page_tvWall::~page_tvWall()
 
 void page_tvWall::init_form()
 {
+    strlist_preview_windows.append(QString::fromUtf8("单画面"));
+    strlist_preview_windows.append(QString::fromUtf8("四画面"));
+    strlist_preview_windows.append(QString::fromUtf8("九画面"));
+    strlist_preview_windows.append(QString::fromUtf8("十六画面"));
+    ui->cmb_preview_windows->addItems(strlist_preview_windows);
+
+
     setupTreeWidgetScreen();
     setupTreeWidgetNvr();
     setupTableWidget();
@@ -550,40 +557,48 @@ void page_tvWall::btn_unbind_clicked()
     QPushButton *btn = dynamic_cast<QPushButton *>(QObject::sender());//找到信号发送者
     QModelIndex index = ui->tableWidget_tvwall->indexAt(btn->pos());//定位按钮
 
-    DBG_PRINT("btn at row: %d, col: %d\n", index.row(), index.column());
+    int row = index.row();
+    int col = index.column();
+    DBG_PRINT("btn at row: %d, col: %d\n", row, col);
 
     QTableWidgetItem *item = ui->tableWidget_tvwall->item(index.row(), index.column()-1); //得到 解码器列 item
     if (item)
     {
         item->setText(QString::fromUtf8(""));//清空
 
-        //setipc
-        acceptBindChanged(item->row());
+        slotDropEvent(row, col, QString::fromUtf8(""));
     }
 }
 
-void page_tvWall::acceptBindChanged(int row)
+void page_tvWall::slotDropEvent(int row, int col, QString data)
 {
-    int screen_chn = row;
-    QTableWidgetItem *item = ui->tableWidget_tvwall->item(row, 1); //得到 解码器列 item
+    DBG_PRINT("row: %d, col: %d, data: %s\n", row, col, data.toUtf8().constData());
 
+    int ret = SUCCESS;
+    int screen_chn = row;//屏幕通道 即 解码器通道
+
+    QTableWidgetItem *item = ui->tableWidget_tvwall->item(row, 1); //得到 解码器列 item
     if (NULL == item)
     {
         ERR_PRINT("NULL == item\n");
         return ;
     }
 
-    QString item_str = item->text();
-    if (item_str.isEmpty())
+    //解除绑定
+    if (data.isEmpty())
     {
-        ERR_PRINT("item_str empty\n");
+        item->setText(QString::fromUtf8("")); //清空
+
+        ret = BizDelDevChnIpc(EM_SWITCH_DEC, screen_cur_dec, screen_chn);//删除通道IPC
+        if (ret)
+        {
+            ERR_PRINT("BizDelDevChnIpc failed, ret: %d\n", ret);
+        }
         return ;
     }
 
-    DBG_PRINT("screen chn: %d\n", screen_chn);
-    DBG_PRINT("NVR chn: %s\n", item_str.toUtf8().constData());
-
-    QStringList str_list = item_str.split(QString::fromUtf8(":"));
+    //check QString data
+    QStringList str_list = data.split(QString::fromUtf8(":"));
     if (str_list.size() < 2)
     {
         ERR_PRINT("str_list size(%d) < 2, invalid\n", str_list.size());
@@ -613,10 +628,10 @@ void page_tvWall::acceptBindChanged(int row)
         ERR_PRINT("chn str: %s, sscanf invalid\n", str_chn.toUtf8().constData());
         return ;
     }
-    nvr_chn -= 1;
-    DBG_PRINT("nvr_chn: %d\n", nvr_chn);
 
-    int ret = SUCCESS;
+    item->setText(data);
+
+    nvr_chn -= 1;
     ret = BizSetDevChnIpc(EM_SWITCH_DEC, screen_cur_dec, screen_chn, nvr_ip, nvr_chn);
     if (ret)
     {
@@ -656,8 +671,8 @@ void page_tvWall::setupTableWidget()
 
     ui->tableWidget_tvwall->setAcceptDrops(true);//拖拽效果 接受落下
 
-    connect(ui->tableWidget_tvwall, SIGNAL(bindChanged(int)),
-            this, SLOT(acceptBindChanged(int)));
+    connect(ui->tableWidget_tvwall, SIGNAL(signalDropEvent(int,int,QString)),
+            this, SLOT(slotDropEvent(int,int,QString)));
 }
 
 void page_tvWall::showEvent(QShowEvent *event)
