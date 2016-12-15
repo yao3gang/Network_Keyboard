@@ -69,81 +69,7 @@
           <number>6</number>
          </property>
          <item>
-          <widget class="QGroupBox" name="gbox_preview">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>80</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>80</height>
-            </size>
-           </property>
-           <property name="title">
-            <string>预览</string>
-           </property>
-           <layout class="QHBoxLayout" name="horizontalLayout_5">
-            <property name="spacing">
-             <number>6</number>
-            </property>
-            <property name="topMargin">
-             <number>15</number>
-            </property>
-            <item>
-             <widget class="QComboBox" name="cmb_preview_windows">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="minimumSize">
-               <size>
-                <width>100</width>
-                <height>0</height>
-               </size>
-              </property>
-             </widget>
-            </item>
-            <item>
-             <widget class="QPushButton" name="btn_preview_apply">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
-              <property name="minimumSize">
-               <size>
-                <width>75</width>
-                <height>0</height>
-               </size>
-              </property>
-              <property name="maximumSize">
-               <size>
-                <width>75</width>
-                <height>16777215</height>
-               </size>
-              </property>
-              <property name="text">
-               <string>应用</string>
-              </property>
-             </widget>
-            </item>
-           </layout>
-          </widget>
-         </item>
-         <item>
-          <widget class="QGroupBox" name="gbox_poll">
+          <widget class="QGroupBox" name="gbox_patrol">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
              <horstretch>0</horstretch>
@@ -173,9 +99,45 @@
              <number>15</number>
             </property>
             <item>
+             <widget class="QLabel" name="label">
+              <property name="text">
+               <string>间隔</string>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QComboBox" name="cmb_patrol_interval">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+              <property name="minimumSize">
+               <size>
+                <width>60</width>
+                <height>0</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>60</width>
+                <height>16777215</height>
+               </size>
+              </property>
+             </widget>
+            </item>
+            <item>
+             <widget class="QLabel" name="label_2">
+              <property name="text">
+               <string>秒   通道数</string>
+              </property>
+             </widget>
+            </item>
+            <item>
              <widget class="QComboBox" name="cmb_patrol_windows">
               <property name="sizePolicy">
-               <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                 <horstretch>0</horstretch>
                 <verstretch>0</verstretch>
                </sizepolicy>
@@ -186,10 +148,16 @@
                 <height>0</height>
                </size>
               </property>
+              <property name="maximumSize">
+               <size>
+                <width>100</width>
+                <height>16777215</height>
+               </size>
+              </property>
              </widget>
             </item>
             <item>
-             <widget class="QCheckBox" name="cbox_patrol_enable">
+             <widget class="QCheckBox" name="ckb_patrol_enable">
               <property name="text">
                <string>开启</string>
               </property>
@@ -197,6 +165,9 @@
             </item>
             <item>
              <widget class="QPushButton" name="btn_patrol_apply">
+              <property name="enabled">
+               <bool>true</bool>
+              </property>
               <property name="sizePolicy">
                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                 <horstretch>0</horstretch>
@@ -223,7 +194,7 @@
             <item>
              <widget class="QPushButton" name="btn_patrol_sync">
               <property name="text">
-               <string>设备同步</string>
+               <string>轮巡同步</string>
               </property>
              </widget>
             </item>
@@ -319,9 +290,7 @@
   <tabstop>treeWidget_screen</tabstop>
   <tabstop>tableWidget_tvwall</tabstop>
   <tabstop>treeWidget_nvr</tabstop>
-  <tabstop>cmb_preview_windows</tabstop>
-  <tabstop>btn_preview_apply</tabstop>
-  <tabstop>cbox_patrol_enable</tabstop>
+  <tabstop>ckb_patrol_enable</tabstop>
   <tabstop>btn_patrol_apply</tabstop>
  </tabstops>
  <resources/>

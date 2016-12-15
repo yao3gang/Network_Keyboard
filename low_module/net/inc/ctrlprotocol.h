@@ -962,6 +962,19 @@ typedef struct
 	unsigned int dns2;
 }ifly_ipc_info_t;
 
+//yaogang modify 20141030
+//轮巡参数
+typedef struct
+{
+	unsigned char nIsPatrol; //当前轮巡是否启用(数字:0=否;1=是)
+	unsigned char nInterval; //当前轮巡切换时间(数字:单位秒s)
+	unsigned char nPatrolMode; //当前轮巡时所用的预览模式(数字:参考Mode 1 4 9 16)
+	unsigned char nPatrolChnNum;//轮巡通道数16 32 48 64
+	unsigned char nInterval_num;//轮巡切换时间可供选择的数量
+	unsigned char nPatrolMode_num;//轮巡预览模式可供选择的数量
+	unsigned char value[1];//存放轮巡时间和模式的值。eg: 5 10 20 30 60 1 4 9 16
+} ifly_patrol_para_t;
+
 
 
 //日志搜索

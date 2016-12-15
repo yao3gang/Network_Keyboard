@@ -32,17 +32,57 @@ page_tvWall::~page_tvWall()
 
 void page_tvWall::init_form()
 {
-    strlist_preview_windows.append(QString::fromUtf8("单画面"));
-    strlist_preview_windows.append(QString::fromUtf8("四画面"));
-    strlist_preview_windows.append(QString::fromUtf8("九画面"));
-    strlist_preview_windows.append(QString::fromUtf8("十六画面"));
-    ui->cmb_preview_windows->addItems(strlist_preview_windows);
-
-
+    refreshPatrolControl();
     setupTreeWidgetScreen();
     setupTreeWidgetNvr();
     setupTableWidget();
     connect(page_dev, SIGNAL(signalDevInfoChange(SSGuiDev)), this, SLOT(refreshDevInfo(SSGuiDev)));//更新设备 alive 状态
+}
+
+void page_tvWall::refreshPatrolControl()
+{
+    u32 dev_ip = screen_cur_dec;
+    struct in_addr in;
+    in.s_addr = dev_ip;
+
+    if (dev_ip == 0)
+    {
+        ui->gbox_patrol->setEnabled(false);
+        return ;
+    }
+
+    int ret = SUCCESS;
+    u32 buf_size = 256;
+    char buf[256];
+    ifly_patrol_para_t *para = (ifly_patrol_para_t *)buf;
+
+    ret = BizDevGetPatrolPara(EM_SWITCH_DEC, dev_ip, para, &buf_size);
+    if (ret)
+    {
+        ERR_PRINT("dev(%s) BizDevGetPatrolPara failed, ret: %d\n", inet_ntoa(in), ret);
+
+        ShowMessageBoxError(QString::fromUtf8("获取设备信息失败！"));
+        return ;
+    }
+
+    int i;
+#if 0
+    printf("\t nIsPatrol: %d\n", para->nIsPatrol);
+    printf("\t nInterval: %d\n", para->nInterval);
+    printf("\t nPatrolMode: %d\n", para->nPatrolMode);
+    printf("\t nPatrolChnNum: %d\n", para->nPatrolChnNum);
+    printf("\t nInterval_num: %d", para->nInterval_num);
+    for (i=0; i<para->nInterval_num; ++i)
+        printf(", %d", para->value[i]);
+    printf("\n");
+
+    printf("\t nPatrolMode_num: %d", para->nPatrolMode_num);
+    for (i=0; i<para->nPatrolMode_num; ++i)
+        printf(", %d", para->value[i+para->nInterval_num]);
+    printf("\n");
+#endif
+
+    ui->gbox_patrol->setEnabled(true);
 }
 
 void page_tvWall::refreshDevInfo(SGuiDev dev)
@@ -254,9 +294,11 @@ void page_tvWall::refreshTreeWidgetScreen()
 
     ui->treeWidget_screen->addTopLevelItems(list_dev);
 }
-void page_tvWall::screenItemDoubleClicked(QTreeWidgetItem* item, int col)
+void page_tvWall::screenItemClicked(QTreeWidgetItem* item, int col)
 {
     int ret = SUCCESS;
+    screen_cur_dec = 0;
+    refreshPatrolControl();
 
     if (col != 0)
     {
@@ -290,7 +332,9 @@ void page_tvWall::screenItemDoubleClicked(QTreeWidgetItem* item, int col)
     }
 
     screen_cur_dec = dev_ip;
+    refreshPatrolControl();
 
+    //refreshTableWidget
     //获取解码器通道信息
     SGuiDev dev;
     struct in_addr in;
@@ -339,7 +383,7 @@ void page_tvWall::setupTreeWidgetScreen()
     ui->treeWidget_screen->setHeaderLabels(QStringList() << QString::fromUtf8("电视墙屏幕列表"));
 
     //refreshTreeWidgetScreen();
-    connect(ui->treeWidget_screen, SIGNAL(itemDoubleClicked(QTreeWidgetItem*,int)), this, SLOT(screenItemDoubleClicked(QTreeWidgetItem*,int)));
+    connect(ui->treeWidget_screen, SIGNAL(itemClicked(QTreeWidgetItem*,int)), this, SLOT(screenItemClicked(QTreeWidgetItem*,int)));
 }
 void page_tvWall::refreshTreeWidgetNvr()
 {
@@ -679,6 +723,7 @@ void page_tvWall::showEvent(QShowEvent *event)
 {
     DBG_PRINT("1\n");
     screen_cur_dec = 0;
+    refreshPatrolControl();
     refreshTreeWidgetScreen();
     refreshTreeWidgetNvr();
     clearTableWidget();

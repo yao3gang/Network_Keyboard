@@ -17,7 +17,6 @@
 #include "flash.h"
 #include "cthread.h"
 #include "ctimer.h"
-#include "ctrlprotocol.h"
 #include "net.h"
 #include "bond.h"
 
@@ -91,6 +90,8 @@ public:
 	int SetDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_chn, u32 nvr_ip, u8 nvr_chn);
 	//删除通道IPC
 	int DelDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_chn);
+	//获取设备轮巡参数
+	int DevGetPatrolPara(EM_DEV_TYPE dev_type, u32 dec_ip,ifly_patrol_para_t *para, u32 *pbuf_size);
 
 	
 	int StartNotifyDevInfo();//使能通知。设备层将信息通知给上层
@@ -963,6 +964,48 @@ int CBizDeviceManager::DelDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_ch
 	return SUCCESS;
 }
 
+//获取设备轮巡参数
+int CBizDeviceManager::DevGetPatrolPara(EM_DEV_TYPE dev_type, u32 dec_ip, ifly_patrol_para_t *para, u32 *pbuf_size)
+{
+	CBizDevice *pcdev = NULL;
+	int dev_idx = -1;
+	int ret = -FAILURE;
+	struct in_addr in;
+	
+	//check dec
+	in.s_addr = dec_ip;
+	dev_idx = GetDevIdx(dev_type, dec_ip);
+	if (dev_idx < 0)
+	{
+		ERR_PRINT("IP(%s) GetDevIdx failed\n", inet_ntoa(in));
+		
+		return -EDEV_NOTFOUND;
+	}
+	
+	pplock_dev[dev_idx]->Lock();
+
+	pcdev = ppcdev[dev_idx];
+	if (NULL == pcdev)
+	{	
+		ERR_PRINT("DEC IP(%s) pcdev == NULL\n", inet_ntoa(in));
+
+		pplock_dev[dev_idx]->Unlock();
+		return -EDEV_NOTFOUND;		
+	}
+
+	ret = pcdev->GetPatrolPara(para, pbuf_size);
+	if (ret)
+	{
+		ERR_PRINT("DEC IP(%s) DelChnIpc failed\n", inet_ntoa(in));
+		
+		pplock_dev[dev_idx]->Unlock();
+		return ret;
+	}	
+
+	//success
+	pplock_dev[dev_idx]->Unlock();
+	return SUCCESS;
+}
 
 
 
@@ -2912,6 +2955,60 @@ int CBizDevice::DelChnIpc(u8 dec_chn)
 	return SUCCESS;
 }
 
+//获取设备轮巡参数
+int CBizDevice::GetPatrolPara(ifly_patrol_para_t *para, u32 *pbuf_size)
+{
+	int realacklen = 0;
+	int ret = SUCCESS;
+	char buf[1024]={0};
+
+	//只支持解码器
+	if (dev_info.devicetype != EM_SWITCH_DEC
+		&& dev_info.devicetype != EM_PATROL_DEC)
+	{
+		ERR_PRINT("dev_info.devicetype(%d) not support\n", dev_info.devicetype);
+		return -EPARAM;
+	}
+
+	if (NULL == para || NULL == pbuf_size)
+	{
+		ERR_PRINT("para NULL\n");
+		return -EPARAM;
+	}
+
+	if (sizeof(ifly_patrol_para_t) >= *pbuf_size)
+	{
+		ERR_PRINT("sizeof(ifly_patrol_para_t)(%d) >= buf_size(%d)\n",
+			sizeof(ifly_patrol_para_t), *pbuf_size);
+		return -EPARAM;
+	}
+	
+	memset(para, 0, sizeof(ifly_patrol_para_t));
+	ret = g_biz_device_manager.NetDialogue(sock_cmd, CTRL_CMD_GET_PATROL_PARA, NULL, 0, buf, sizeof(buf), &realacklen);
+	if (ret)
+	{
+		ERR_PRINT("ret: %d\n", ret);
+		
+		return ret;
+	}
+
+	memcpy(para, buf, sizeof(ifly_patrol_para_t)); 
+	
+	int num = sizeof(ifly_patrol_para_t)+para->nInterval_num \
+			+ para->nPatrolMode_num - 1;//nInterval_num+nPatrolMode_num 为value[]数组大小
+
+	//printf("para size: %d, num: %d\n", *psize, num);
+	if (num > *pbuf_size)
+	{
+		*pbuf_size = num;
+		ret =  -ESPACE;
+	}
+	
+	memcpy(para, buf, num);
+
+	return SUCCESS;
+}
+
 
 
 
@@ -3700,6 +3797,11 @@ int BizDelDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_chn)
 	return g_biz_device_manager.DelDevChnIpc(dev_type, dec_ip, dec_chn);
 }
 
+//获取设备轮巡参数
+int BizDevGetPatrolPara(EM_DEV_TYPE dev_type, u32 dec_ip, ifly_patrol_para_t *para, u32 *pbuf_size)
+{
+	return g_biz_device_manager.DevGetPatrolPara(dev_type, dec_ip, para, pbuf_size);
+}
 
 
 

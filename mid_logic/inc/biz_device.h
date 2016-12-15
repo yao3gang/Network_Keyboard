@@ -15,6 +15,7 @@
 #include "biz_config.h"
 #include "biz_remote_stream_define.h"
 #include "gui_dev.h"
+#include "ctrlprotocol.h"
 
 
 //设备信息
@@ -98,7 +99,8 @@ public:
 	int SetChnIpc(u8 dec_chn, u32 nvr_ip, u8 nvr_chn);
 	//删除通道IPC
 	int DelChnIpc(u8 dec_chn);
-
+	//获取设备轮巡参数
+	int GetPatrolPara(ifly_patrol_para_t *para, u32 *pbuf_size);
 
 	
 	
@@ -160,6 +162,8 @@ int BizGetDevChnName(EM_DEV_TYPE dev_type, u32 dev_ip, u8 chn, char *pbuf, u32 s
 int BizSetDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_chn, u32 nvr_ip, u8 nvr_chn);
 //删除通道IPC
 int BizDelDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_chn);
+//获取设备轮巡参数
+int BizDevGetPatrolPara(EM_DEV_TYPE dev_type, u32 dec_ip, ifly_patrol_para_t *para, u32 *pbuf_size);
 
 
 

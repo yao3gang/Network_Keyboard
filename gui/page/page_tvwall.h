@@ -23,6 +23,7 @@ protected:
 
 private:
     void init_form();
+    void refreshPatrolControl();
     void setupTreeWidgetScreen();
     void refreshTreeWidgetScreen();
     void setupTreeWidgetNvr();
@@ -33,7 +34,7 @@ private:
 
 private slots:
     void refreshDevInfo(SGuiDev dev);
-    void screenItemDoubleClicked(QTreeWidgetItem* item, int col);
+    void screenItemClicked(QTreeWidgetItem* item, int col);
     void btn_unbind_clicked();
     void slotDropEvent(int row, int col, QString data);
 
