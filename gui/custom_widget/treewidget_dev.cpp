@@ -20,6 +20,22 @@ treewidget_dev::~treewidget_dev()
 {
 
 }
+
+void treewidget_dev::deleteItemChildren(QTreeWidgetItem *item)
+{
+    if (NULL == item)
+    {
+        return ;
+    }
+
+    QTreeWidgetItem *child = NULL;
+    while (child = item->takeChild(0), child)
+    {
+        delete child;
+        child = NULL;
+    }
+}
+
 #if 0
 void treewidget_dev::refreshDevInfo(SGuiDev dev)
 {

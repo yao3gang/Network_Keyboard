@@ -521,56 +521,17 @@
      <property name="lineWidth">
       <number>1</number>
      </property>
-     <widget class="QToolBox" name="toolBox">
-      <property name="geometry">
-       <rect>
-        <x>60</x>
-        <y>190</y>
-        <width>171</width>
-        <height>131</height>
-       </rect>
-      </property>
-      <property name="currentIndex">
-       <number>0</number>
-      </property>
-      <widget class="QWidget" name="page_5">
-       <property name="geometry">
-        <rect>
-         <x>0</x>
-         <y>0</y>
-         <width>171</width>
-         <height>69</height>
-        </rect>
-       </property>
-       <attribute name="label">
-        <string>Page 1</string>
-       </attribute>
-      </widget>
-      <widget class="QWidget" name="page_6">
-       <property name="geometry">
-        <rect>
-         <x>0</x>
-         <y>0</y>
-         <width>171</width>
-         <height>69</height>
-        </rect>
-       </property>
-       <attribute name="label">
-        <string>Page 2</string>
-       </attribute>
-      </widget>
-     </widget>
      <widget class="QTabWidget" name="tabWidget">
       <property name="geometry">
        <rect>
-        <x>290</x>
-        <y>200</y>
-        <width>141</width>
-        <height>80</height>
+        <x>60</x>
+        <y>280</y>
+        <width>271</width>
+        <height>241</height>
        </rect>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>3</number>
       </property>
       <widget class="QWidget" name="tab">
        <attribute name="title">
@@ -580,6 +541,16 @@
       <widget class="QWidget" name="tab_2">
        <attribute name="title">
         <string>Tab 2</string>
+       </attribute>
+      </widget>
+      <widget class="QWidget" name="tab_3">
+       <attribute name="title">
+        <string>页</string>
+       </attribute>
+      </widget>
+      <widget class="QWidget" name="tab_4">
+       <attribute name="title">
+        <string>页</string>
        </attribute>
       </widget>
      </widget>

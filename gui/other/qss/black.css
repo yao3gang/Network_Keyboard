@@ -19,11 +19,15 @@ color:#FFFFFF;;
 padding-right: 5px;
 }
 
-QWidget#page_config QWidget#widget_left{
+QWidget#page_config > QWidget#widget_left{
 background:qlineargradient(spread:pad,x1:0,y1:0,x2:0,y2:1,stop:0 #4D4D4D,stop:1 #292929);
 }
 
-QWidget#page_preview>QWidget#widget_left{
+QWidget#page_alm > QWidget#widget_left{
+background:qlineargradient(spread:pad,x1:0,y1:0,x2:0,y2:1,stop:0 #4D4D4D,stop:1 #292929);
+}
+
+QWidget#form_playback > QWidget#widget_left3, QWidget#form_playback > QWidget#widget_bottom{
 background-color:rgba(255,255,255,255);
 }
 

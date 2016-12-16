@@ -8,7 +8,7 @@ page_preview::page_preview(QWidget *parent) :
     ui(new Ui::page_preview)
 {
     ui->setupUi(this);
-    this->setAttribute(Qt::WA_TranslucentBackground, true);
+    //this->setAttribute(Qt::WA_TranslucentBackground, true);
     init_form();
 }
 

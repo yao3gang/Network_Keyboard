@@ -32,11 +32,13 @@ page_tvWall::~page_tvWall()
 
 void page_tvWall::init_form()
 {
+    QMutexLocker locker(&mutex);
+    connect(page_dev, SIGNAL(signalDevInfoChange(SGuiDev)), this, SLOT(refreshDevInfo(SGuiDev)));//更新设备 alive 状态
+
     refreshPatrolControl();
     setupTreeWidgetScreen();
     setupTreeWidgetNvr();
     setupTableWidget();
-    connect(page_dev, SIGNAL(signalDevInfoChange(SSGuiDev)), this, SLOT(refreshDevInfo(SSGuiDev)));//更新设备 alive 状态
 }
 
 void page_tvWall::refreshPatrolControl()
@@ -87,10 +89,11 @@ void page_tvWall::refreshPatrolControl()
 
 void page_tvWall::refreshDevInfo(SGuiDev dev)
 {
+    QMutexLocker locker(&mutex);
     struct in_addr in;
     QString qstr_ip;
     QList<QTreeWidgetItem *> list_item;
-    QList<QTreeWidgetItem *>::Iterator list_iter;
+    //QList<QTreeWidgetItem *>::Iterator list_iter;
 
     in.s_addr = dev.deviceIP;
     qstr_ip = QString(inet_ntoa(in));
@@ -99,13 +102,12 @@ void page_tvWall::refreshDevInfo(SGuiDev dev)
         ERR_PRINT("dev ip invalid\n");
         return ;
     }
-
     DBG_PRINT("dev type: %d, ip: %s\n", dev.devicetype, qstr_ip.toUtf8().constData());
 
     if (dev.devicetype == EM_SWITCH_DEC)
     {
 #if 0   //暂时决定不显示 icon
-        list_item = ui->treeWidget_screen->findItems(qstr_ip, Qt::MatchContains);
+        list_item = ui->treeWidget_nvr->findItems(qstr_ip, Qt::MatchContains);
 
         if (list_item.isEmpty())
         {
@@ -131,64 +133,52 @@ void page_tvWall::refreshDevInfo(SGuiDev dev)
     {
         list_item = ui->treeWidget_nvr->findItems(qstr_ip, Qt::MatchContains);
 
-        if (list_item.isEmpty())
+        if (list_item.size() != 1)//查找结果必须 == 1
         {
-            DBG_PRINT("findItems nvr not found\n, dev ip: %s\n", qstr_ip.toUtf8().constData());
+            DBG_PRINT("findItems size(%d) != 1, dev ip: %s\n", list_item.size(), qstr_ip.toUtf8().constData());
 
             return ;
         }
+        QTreeWidgetItem *item = list_item.at(0);
 
-        for (list_iter = list_item.begin(); list_iter != list_item.end(); ++list_iter)
+        ui->treeWidget_nvr->deleteItemChildren(item);//销毁所有通道条目
+
+        if (dev.b_alive)
         {
-            if (dev.b_alive)
+            item->setIcon(0, QIcon(":/image/dev_online.png"));
+
+            //设备在线 添加所有通道条目
+            QList<QTreeWidgetItem *> list_chn;
+            QTreeWidgetItem * chn_item;
+            QString qstr_chn;
+            int i;
+            for (i = 0; i < dev.maxChnNum; ++i)
             {
-                (*list_iter)->setIcon(0, QIcon(":/image/dev_online.png"));
-
-                //remove child
-                if ((*list_iter)->childCount() != 0)
+                chn_item = new QTreeWidgetItem;
+                if (NULL == chn_item)
                 {
-                    QList<QTreeWidgetItem *> list_tmp = (*list_iter)->takeChildren();
-                    QList<QTreeWidgetItem *>::Iterator iter_tmp;
-                    for (iter_tmp = list_tmp.begin(); iter_tmp != list_tmp.end(); ++iter_tmp)
-                    {
-                        delete *iter_tmp;
-                    }
-                    list_tmp.clear();
+                    ERR_PRINT("chn new QTreeWidgetItem failed\n");
+                    return;
                 }
 
-                //add child
-                QList<QTreeWidgetItem *> list_chn;
-                QTreeWidgetItem * chn_item;
-                QString qstr_chn;
-                int i;
-                for (i = 0; i < dev.maxChnNum; ++i)
-                {
-                    chn_item = new QTreeWidgetItem;
-                    if (NULL == chn_item)
-                    {
-                        ERR_PRINT("chn new QTreeWidgetItem failed\n");
-                        return;
-                    }
+                qstr_chn = QString("chn%1").arg(i+1);
+                chn_item->setText(0, qstr_chn);
+                chn_item->setIcon(0, QIcon(":/image/chn.png"));
 
-                    qstr_chn = QString("chn%1").arg(i+1);
-                    chn_item->setText(0, qstr_chn);
-                    chn_item->setIcon(0, QIcon(":/image/chn.png"));
-
-                    list_chn.append(chn_item);
-                }
-                if (list_chn.isEmpty())
-                {
-                    ERR_PRINT("dev: %s, list_chn.isEmpty()\n", qstr_ip.toUtf8().constData());
-                }
-                else
-                {
-                    (*list_iter)->addChildren(list_chn);
-                }
+                list_chn.append(chn_item);
+            }
+            if (list_chn.isEmpty())
+            {
+                ERR_PRINT("dev: %s, list_chn.isEmpty()\n", qstr_ip.toUtf8().constData());
             }
             else
             {
-                (*list_iter)->setIcon(0, QIcon(":/image/dev_offline.png"));
+                item->addChildren(list_chn);
             }
+        }
+        else
+        {
+            item->setIcon(0, QIcon(":/image/dev_offline.png"));
         }
     }
     else
@@ -721,7 +711,7 @@ void page_tvWall::setupTableWidget()
 
 void page_tvWall::showEvent(QShowEvent *event)
 {
-    DBG_PRINT("1\n");
+    //DBG_PRINT("1\n");
     screen_cur_dec = 0;
     refreshPatrolControl();
     refreshTreeWidgetScreen();

@@ -4,6 +4,7 @@
 #include <QWidget>
 #include "types.h"
 #include "biz_system_complex.h"
+#include "form_playback.h"
 
 namespace Ui {
 class page_main;
@@ -26,6 +27,7 @@ private:
     Ui::page_main *ui;
     u8 ndate_format;	//日期格式 0//年-月-日 1//月-日-年 2日-月-年
     u8 ntime_format;	//时间格式 0//24小时制 1//12小时制
+    form_playback *from_pb;
 
 private:
     void init_style();

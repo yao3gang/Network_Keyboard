@@ -20,7 +20,10 @@
 
 page_main::page_main(QWidget *parent) :
     QWidget(parent),
-    ui(new Ui::page_main)
+    ui(new Ui::page_main),
+    ndate_format(0),
+    ntime_format(0),
+    from_pb(NULL)
 {
     ui->setupUi(this);
     this->init_style();
@@ -57,9 +60,6 @@ void page_main::init_style()
 
 void page_main::init_form() //init stackwidget
 {
-    ndate_format = 0;
-    ntime_format = 0;
-
     SConfigTimeParam stime_param;
     int b_ret = BizConfigGetTimeParam(stime_param);
     if (b_ret)
@@ -158,9 +158,14 @@ void page_main::button_clicked()
     }
     else if (ui->btn_playback->objectName() == name)
     {
-        ui->stackedWidget->setCurrentIndex(1);
+        //ui->stackedWidget->setCurrentIndex(1);
+        //ui->btn_playback->setChecked(true);
+        from_pb = new form_playback;
+        from_pb->show();
+        this->close();
 
-        ui->btn_playback->setChecked(true);
+
+
     }
     else if (ui->btn_tvWall->objectName() == name)
     {

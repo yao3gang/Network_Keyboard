@@ -60,5 +60,15 @@
         <file>image/chn.png</file>
         <file>image/dev_offline.png</file>
         <file>image/chn.ico</file>
+        <file>image/pctl_frame.bmp</file>
+        <file>image/pctl_pause.bmp</file>
+        <file>image/pctl_play.bmp</file>
+        <file>image/pctl_stop.bmp</file>
+        <file>image/up.bmp</file>
+        <file>image/down.bmp</file>
+        <file>image/page_end.png</file>
+        <file>image/page_next.png</file>
+        <file>image/page_pre.png</file>
+        <file>image/page_start.png</file>
     </qresource>
 </RCC>

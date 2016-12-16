@@ -9,10 +9,9 @@ class treewidget_dev : public QTreeWidget
 {
     Q_OBJECT
 public:
-
-public:
     explicit treewidget_dev(QWidget *parent = 0);
     ~treewidget_dev();
+    void deleteItemChildren(QTreeWidgetItem *item);
 
 protected:
     void startDrag(Qt::DropActions supportedActions);

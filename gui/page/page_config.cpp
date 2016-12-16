@@ -55,7 +55,7 @@ void page_config::init_form() //init stackwidget
     ui->comboBox_date->addItem(QString::fromUtf8("日-月-年"));
     ui->dateEdit->setCalendarPopup(true);
     ui->dateEdit->setProperty("noinput", true);
-    ui->timeEdit->setProperty("noinput", true);
+    //ui->timeEdit->setProperty("noinput", true);
 
     ui->comboBox_time->addItem(QString::fromUtf8("24小时"));
     ui->comboBox_time->addItem(QString::fromUtf8("12小时"));
