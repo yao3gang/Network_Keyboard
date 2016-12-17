@@ -1033,6 +1033,14 @@ typedef struct
 	char	filename[64];
 }ifly_recfileinfo_t;
 
+//搜索返回结果
+typedef struct
+{
+	ifly_search_desc_t result_desc;
+	ifly_recfileinfo_t *pfile_info;
+} ifly_search_file_result_t;
+
+
 //放像进度通知
 typedef struct
 {

@@ -98,7 +98,11 @@ public:
 	//设置解码器通道对应的NVR 通道
 	int SetChnIpc(u8 dec_chn, u32 nvr_ip, u8 nvr_chn);
 	//删除通道IPC
-	int DelChnIpc(u8 dec_chn);
+	int DelChnIpc(u8 dec_chn);	
+	//NVR 录像搜索
+	int RecFilesSearch(ifly_recsearch_param_t *psearch_para, ifly_search_file_result_t *psearch_result);
+
+	
 	//获取设备轮巡参数
 	int GetPatrolPara(ifly_patrol_para_t *para, u32 *pbuf_size);
 
@@ -164,7 +168,8 @@ int BizSetDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_chn, u32 nvr_ip, u
 int BizDelDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_chn);
 //获取设备轮巡参数
 int BizDevGetPatrolPara(EM_DEV_TYPE dev_type, u32 dec_ip, ifly_patrol_para_t *para, u32 *pbuf_size);
-
+//NVR 录像搜索
+int BizDevRecFilesSearch(u32 nvr_ip, ifly_recsearch_param_t *psearch_para, ifly_search_file_result_t *psearch_result);
 
 
 

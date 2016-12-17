@@ -89,9 +89,19 @@ public:
 	//设置解码器通道对应的NVR 通道
 	int SetDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_chn, u32 nvr_ip, u8 nvr_chn);
 	//删除通道IPC
-	int DelDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_chn);
+	int DelDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_chn);	
+	//NVR 录像搜索
+	int DevRecFilesSearch(u32 nvr_ip, ifly_recsearch_param_t *psearch_para, ifly_search_file_result_t *psearch_result);
+
+
+
+
 	//获取设备轮巡参数
 	int DevGetPatrolPara(EM_DEV_TYPE dev_type, u32 dec_ip,ifly_patrol_para_t *para, u32 *pbuf_size);
+
+
+
+
 
 	
 	int StartNotifyDevInfo();//使能通知。设备层将信息通知给上层
@@ -951,6 +961,49 @@ int CBizDeviceManager::DelDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_ch
 	}
 
 	ret = pcdev->DelChnIpc(dec_chn);
+	if (ret)
+	{
+		ERR_PRINT("DEC IP(%s) DelChnIpc failed\n", inet_ntoa(in));
+		
+		pplock_dev[dev_idx]->Unlock();
+		return ret;
+	}	
+
+	//success
+	pplock_dev[dev_idx]->Unlock();
+	return SUCCESS;
+}
+
+//NVR 录像搜索
+int CBizDeviceManager::DevRecFilesSearch(u32 nvr_ip, ifly_recsearch_param_t *psearch_para, ifly_search_file_result_t *psearch_result)
+{
+	CBizDevice *pcdev = NULL;
+	int dev_idx = -1;
+	int ret = -FAILURE;
+	struct in_addr in;
+	
+	//check dec
+	in.s_addr = nvr_ip;
+	dev_idx = GetDevIdx(EM_NVR, nvr_ip);
+	if (dev_idx < 0)
+	{
+		ERR_PRINT("IP(%s) GetDevIdx failed\n", inet_ntoa(in));
+		
+		return -EDEV_NOTFOUND;
+	}
+	
+	pplock_dev[dev_idx]->Lock();
+
+	pcdev = ppcdev[dev_idx];
+	if (NULL == pcdev)
+	{	
+		ERR_PRINT("DEC IP(%s) pcdev == NULL\n", inet_ntoa(in));
+
+		pplock_dev[dev_idx]->Unlock();
+		return -EDEV_NOTFOUND;		
+	}
+
+	ret = pcdev->RecFilesSearch(psearch_para, psearch_result);
 	if (ret)
 	{
 		ERR_PRINT("DEC IP(%s) DelChnIpc failed\n", inet_ntoa(in));
@@ -2955,6 +3008,81 @@ int CBizDevice::DelChnIpc(u8 dec_chn)
 	return SUCCESS;
 }
 
+//NVR 录像搜索
+int CBizDevice::RecFilesSearch(ifly_recsearch_param_t *psearch_para, ifly_search_file_result_t *psearch_result)
+{
+	int realacklen = 0;
+	int ret = SUCCESS;
+	char buf[4096]={0};
+
+	//只支持NVR
+	if (dev_info.devicetype != EM_NVR)
+	{
+		ERR_PRINT("dev_info.devicetype(%d) != EM_NVR\n", dev_info.devicetype);
+		return -EPARAM;
+	}
+
+	if (NULL == psearch_para || NULL == psearch_result)
+	{
+		ERR_PRINT("para NULL\n");
+		return -EPARAM;
+	}
+	
+    
+#if 0
+enum NETDVR_REC_INDEX_MASK
+{
+    NETDVR_REC_INDEX_TIMER = 0x1,
+    NETDVR_REC_INDEX_MD = 0x2,
+    NETDVR_REC_INDEX_ALARM = 0x4,
+    NETDVR_REC_INDEX_HAND = 0x8,
+    NETDVR_REC_INDEX_ALL = 0x10,
+};
+#endif
+	psearch_para->channel_mask = htons(psearch_para->channel_mask);
+    psearch_para->type_mask = htons(psearch_para->type_mask);
+    psearch_para->start_time = htonl(psearch_para->start_time);
+    psearch_para->end_time = htonl(psearch_para->end_time);
+    psearch_para->startID = htons(1);  //must >= 1
+    psearch_para->max_return = htons(psearch_para->max_return); //must <= 24
+    
+	ret = g_biz_device_manager.NetDialogue(sock_cmd, CTRL_CMD_RECFILESEARCH, 
+				psearch_para, sizeof(ifly_recsearch_param_t), 
+				buf, sizeof(buf), &realacklen);
+	if (ret)
+	{
+		ERR_PRINT("ret: %d\n", ret);
+		
+		return ret;
+	}
+
+	ifly_search_desc_t desc;
+	memcpy(&desc, buf, sizeof(ifly_search_desc_t));	
+	desc.sum = ntohs(desc.sum);
+	desc.startID = ntohs(desc.startID);
+	desc.endID = ntohs(desc.endID);
+
+	DBG_PRINT("sum: %d, startID: %d, endID: %d\n", 
+		desc.sum, desc.startID, desc.endID);
+	memcpy(&psearch_result->result_desc, &desc, sizeof(ifly_search_desc_t));
+
+	u32 file_nums = MIN(psearch_para->max_return, desc.sum);
+	memcpy(psearch_result->pfile_info,
+		buf + sizeof(ifly_search_desc_t),
+		file_nums * sizeof(ifly_recfileinfo_t));
+
+	u32 i = 0;
+	for (i=0; i<file_nums; ++i)
+	{
+		psearch_result->pfile_info[i].start_time	= ntohl(psearch_result->pfile_info[i].start_time);
+		psearch_result->pfile_info[i].end_time		= ntohl(psearch_result->pfile_info[i].end_time);
+		psearch_result->pfile_info[i].size			= ntohl(psearch_result->pfile_info[i].size);
+		psearch_result->pfile_info[i].offset		= ntohl(psearch_result->pfile_info[i].offset);
+	}
+
+	return SUCCESS;
+}
+
 //获取设备轮巡参数
 int CBizDevice::GetPatrolPara(ifly_patrol_para_t *para, u32 *pbuf_size)
 {
@@ -2994,7 +3122,7 @@ int CBizDevice::GetPatrolPara(ifly_patrol_para_t *para, u32 *pbuf_size)
 
 	memcpy(para, buf, sizeof(ifly_patrol_para_t)); 
 	
-	int num = sizeof(ifly_patrol_para_t)+para->nInterval_num \
+	u32 num = sizeof(ifly_patrol_para_t)+para->nInterval_num \
 			+ para->nPatrolMode_num - 1;//nInterval_num+nPatrolMode_num 为value[]数组大小
 
 	//printf("para size: %d, num: %d\n", *psize, num);
@@ -3796,6 +3924,19 @@ int BizDelDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_chn)
 {
 	return g_biz_device_manager.DelDevChnIpc(dev_type, dec_ip, dec_chn);
 }
+
+//NVR 录像搜索
+int BizDevRecFilesSearch(u32 nvr_ip, ifly_recsearch_param_t *psearch_para, ifly_search_file_result_t *psearch_result)
+{
+	return g_biz_device_manager.DevRecFilesSearch(nvr_ip, psearch_para, psearch_result);
+}
+
+
+
+
+
+
+
 
 //获取设备轮巡参数
 int BizDevGetPatrolPara(EM_DEV_TYPE dev_type, u32 dec_ip, ifly_patrol_para_t *para, u32 *pbuf_size)

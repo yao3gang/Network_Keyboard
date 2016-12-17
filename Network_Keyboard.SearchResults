@@ -1,1 +1,7 @@
----- ifly_patrol_para_t Matches (0 in 0 files) ----
+---- BizGetTime Matches (6 in 4 files) ----
+biz_system_complex.cpp (mid_logic\src):int BizGetTime(SDateTime *pdt)
+biz_system_complex.cpp (mid_logic\src):			if (BizGetTime(&dt) == 0)
+biz_system_complex.h (mid_logic\inc):int BizGetTime(SDateTime *pdt);
+form_playback.cpp (gui\page):    int ret = BizGetTime(&dt);
+form_playback.cpp (gui\page):        ERR_PRINT("BizGetTime failed, ret: %d\n", ret);
+page_config.cpp (gui\page):            ret = BizGetTime(&dt);

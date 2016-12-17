@@ -662,15 +662,15 @@ void page_tvWall::slotDropEvent(int row, int col, QString data)
         ERR_PRINT("chn str: %s, sscanf invalid\n", str_chn.toUtf8().constData());
         return ;
     }
-
-    item->setText(data);
-
     nvr_chn -= 1;
+
     ret = BizSetDevChnIpc(EM_SWITCH_DEC, screen_cur_dec, screen_chn, nvr_ip, nvr_chn);
     if (ret)
     {
         ERR_PRINT("BizGetDevChnName failed, ret: %d\n", ret);
     }
+
+    item->setText(data);
 }
 
 void page_tvWall::setupTableWidget()

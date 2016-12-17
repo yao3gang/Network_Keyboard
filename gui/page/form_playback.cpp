@@ -1,6 +1,9 @@
+#include <time.h>
+
 #include <QtGui>
 #include "form_playback.h"
 #include "ui_form_playback.h"
+#include "frmmessagebox.h"
 
 #include "page_manager.h"
 #include "page_main.h"
@@ -8,13 +11,34 @@
 
 #include "biz_system_complex.h"
 
+#define MAX_FILE_NUMS (24)
+
 form_playback::form_playback(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::form_playback)
 {
+    memset(&search_para, 0, sizeof(ifly_recsearch_param_t));
+
+    search_result.pfile_info = new ifly_recfileinfo_t[MAX_FILE_NUMS];
+    if (NULL == search_result.pfile_info)
+    {
+        ERR_PRINT("NULL == pfile_info");
+    }
+
     ui->setupUi(this);
     init_style();
     init_form();//控件
+}
+
+form_playback::~form_playback()
+{
+    delete ui;
+    if (search_result.pfile_info)
+    {
+        delete[] search_result.pfile_info;
+
+        search_result.pfile_info = NULL;
+    }
 }
 
 //初始化无边框窗体
@@ -208,7 +232,14 @@ void form_playback::setupWidgetBottom()
     //btn frame
     ui->btn_next_frame->setToolTip(QString::fromUtf8("单帧前进"));
 
+    ui->slider_play->setToolTip(QString::fromUtf8("播放速率"));
+
     //搜索文件 控制
+    ui->btn_page_start->setToolTip(QString::fromUtf8("首页"));
+    ui->btn_page_pre->setToolTip(QString::fromUtf8("上一页"));
+    ui->btn_page_next->setToolTip(QString::fromUtf8("下一页"));
+    ui->btn_page_end->setToolTip(QString::fromUtf8("尾页"));
+
     //btn extra
     ui->btn_extra->setIcon(QIcon(QString::fromUtf8(":/image/up.bmp")));
     ui->btn_extra->setToolTip(QString::fromUtf8("显示文件列表"));
@@ -216,14 +247,14 @@ void form_playback::setupWidgetBottom()
     ui->btn_extra->setCheckable(true);
     ui->btn_extra->setAutoDefault(false);
 
-    ui->tableWidget->hide();
+    ui->widget_result->hide();
 
     connect(ui->btn_extra, SIGNAL(toggled(bool)), this, SLOT(showTableWidget(bool)));
 }
 
 void form_playback::showTableWidget(bool b)
 {
-    ui->tableWidget->setVisible(b);
+    ui->widget_result->setVisible(b);
 
     QIcon icon;
     QString icon_name;
@@ -241,11 +272,6 @@ void form_playback::showTableWidget(bool b)
     icon.addFile(icon_name, QSize(), QIcon::Normal, QIcon::Off);
     ui->btn_extra->setIcon(icon);
     ui->btn_extra->setToolTip(tooltip);
-}
-
-form_playback::~form_playback()
-{
-    delete ui;
 }
 
 void form_playback::refreshDevInfo(SGuiDev dev)
@@ -334,4 +360,123 @@ void form_playback::mousePressEvent(QMouseEvent *event)
     }
 }
 
+void form_playback::on_btn_srh_clicked()
+{
+    memset(&search_para, 0, sizeof(ifly_recsearch_param_t));
+
+    //get nvr ip & chn
+    QTreeWidgetItem *item = ui->treeWidget_nvr->currentItem();
+    if (NULL == item)
+    {
+        ERR_PRINT("current item == NULL\n");
+
+        ShowMessageBoxInfo(QString::fromUtf8("请选定NVR的一个通道！"));
+        return ;
+    }
+
+    if (NULL == item->parent())
+    {
+        ERR_PRINT("current item parent == NULL\n");
+
+        ShowMessageBoxInfo(QString::fromUtf8("请选定NVR的一个通道！"));
+        return ;
+    }
+
+    QString str_nvr_ip = item->parent()->text(0);
+    u32 nvr_ip = inet_addr(str_nvr_ip.toUtf8().constData());
+    if (INADDR_NONE == nvr_ip)
+    {
+        ERR_PRINT("nvr ip invalid, str_nvr_ip: %s\n", str_nvr_ip.toUtf8().constData());
+
+        ShowMessageBoxError(QString::fromUtf8("选定的NVR IP地址无效！"));
+        return ;
+    }
+
+    //req nvr chn
+    QString str_chn = item->text(0);
+    if (!str_chn.contains(QString::fromUtf8("通道"), Qt::CaseInsensitive))//不含有"通道"
+    {
+        ERR_PRINT("chn str: %s, contains invalid\n", str_chn.toUtf8().constData());
+
+        ShowMessageBoxError(QString::fromUtf8("选定的NVR通道有误！"));
+        return ;
+    }
+
+    u8 nvr_chn = 0xff;
+    if (1 != sscanf(str_chn.toUtf8().constData(), "通道%d", &nvr_chn))
+    {
+        ERR_PRINT("chn str: %s, sscanf invalid\n", str_chn.toUtf8().constData());
+
+        ShowMessageBoxError(QString::fromUtf8("选定的NVR通道有误！"));
+        return ;
+    }
+    nvr_chn -= 1;
+
+    //date & time
+    u32 start_time = 0;
+    u32 end_time = 0;
+    struct tm tmtemp;
+    QDate qd = ui->dateEdit->date();
+
+    tmtemp.tm_year = qd.year() -1900;
+    tmtemp.tm_mon = qd.month() -1;
+    tmtemp.tm_mday = qd.day();
+
+    QTime qt = ui->timeEdit_start->time();
+    tmtemp.tm_hour = qt.hour();
+    tmtemp.tm_min = qt.minute();
+    tmtemp.tm_sec = qt.second();
+    start_time = mktime(&tmtemp);
+    start_time -= 8*3600; //时区偏移
+
+    qt = ui->timeEdit_end->time();
+    tmtemp.tm_hour = qt.hour();
+    tmtemp.tm_min = qt.minute();
+    tmtemp.tm_sec = qt.second();
+    end_time = mktime(&tmtemp);
+    end_time -= 8*3600; //时区偏移
+
+#if 0
+//录像文件类型
+enum NETDVR_REC_INDEX_MASK
+{
+    NETDVR_REC_INDEX_TIMER = 0x1,
+    NETDVR_REC_INDEX_MD = 0x2,
+    NETDVR_REC_INDEX_ALARM = 0x4,
+    NETDVR_REC_INDEX_HAND = 0x8,
+    NETDVR_REC_INDEX_ALL = 0x10,
+};
+#endif
+    search_para.channel_mask |= 1<<nvr_chn;
+    search_para.type_mask   = 0x10;
+    search_para.start_time  = start_time;
+    search_para.end_time    = end_time;
+    search_para.startID     = 1;  //must >= 1
+    search_para.max_return  = MAX_FILE_NUMS; //must <= 24
+
+    int ret = BizDevRecFilesSearch(nvr_ip, &search_para, &search_result);
+    if (ret)
+    {
+        ERR_PRINT("BizGetDevChnName failed, ret: %d\n", ret);
+    }
+
+    if (search_result.result_desc.startID < search_result.result_desc.endID)
+    {
+        start_time = search_result.pfile_info[0].start_time;
+        end_time = search_result.pfile_info[0].end_time;
+
+        start_time += 8*3600;
+        end_time += 8*3600;
+
+        struct tm tm_time;
+        gmtime_r((time_t *)&start_time, &tm_time);
+
+        printf("tm_year: %d\n", tm_time.tm_year + 1900);
+        printf("tm_mon: %d\n", tm_time.tm_mon + 1);
+        printf("tm_mday: %d\n", tm_time.tm_mday);
+        printf("tm_hour: %d\n", tm_time.tm_hour);
+        printf("tm_min: %d\n", tm_time.tm_min);
+        printf("tm_sec: %d\n", tm_time.tm_sec);
+    }
+}
 
