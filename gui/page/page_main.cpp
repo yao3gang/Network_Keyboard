@@ -164,8 +164,6 @@ void page_main::button_clicked()
         from_pb->show();
         this->close();
 
-
-
     }
     else if (ui->btn_tvWall->objectName() == name)
     {

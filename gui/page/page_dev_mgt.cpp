@@ -381,7 +381,7 @@ void page_dev_mgt::refreshDevInfo(SGuiDev dev)
 
     if (iter == pmap->end())
     {
-        DBG_PRINT("not find dev(%s)\n", inet_ntoa(in));
+        ERR_PRINT("not find dev(%s)\n", inet_ntoa(in));
 
         mutex.unlock();
         return;
@@ -423,7 +423,7 @@ void page_dev_mgt::refreshDevInfo(SGuiDev dev)
     {
         pdev->b_alive = dev.b_alive;
 
-        if ((isVisible()) && (ui->cmb_added_type->currentIndex() == pdev->devicetype-1))//当前正在显示该类型的设备，需要改变界面控件
+        if (isVisible() && (ui->cmb_added_type->currentIndex() == pdev->devicetype-EM_NVR))//当前正在显示该类型的设备，需要改变界面控件
         {
             modifyRowTableDev(index, pdev);
         }

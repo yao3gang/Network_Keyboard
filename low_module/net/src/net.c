@@ -569,6 +569,8 @@ int looprecv(SOCKET s, char * buf, unsigned int rcvsize)
 		ret = recv(s, buf+recvlen, remian, 0);
 		if(ret <= 0)
 		{
+			ERR_PRINT("socket fd: %d, ret: %d, errno(%d, %s)\n", 
+				s, ret, errno, strerror(errno));
 			return -FAILURE;
 		}
 		
@@ -589,8 +591,8 @@ int loopsend(SOCKET s, char * buf, unsigned int sndsize)
 		ret=send(s, buf+sendlen, remian, 0);
 		if(ret <= 0)
 		{
-			//DBG_PRINT("fd: %d, sndsize: %d, ret: %d, errno(%d, %s)\n", 
-				//s, sndsize, ret, errno, strerror(errno));
+			ERR_PRINT("socket fd: %d, ret: %d, errno(%d, %s)\n", 
+				s, ret, errno, strerror(errno));
 			return -FAILURE;
 		}
 		

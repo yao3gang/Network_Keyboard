@@ -1038,7 +1038,7 @@ typedef struct
 {
 	ifly_search_desc_t result_desc;
 	ifly_recfileinfo_t *pfile_info;
-} ifly_search_file_result_t;
+}ifly_search_file_result_t;
 
 
 //放像进度通知

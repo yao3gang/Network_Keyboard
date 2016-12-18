@@ -53,6 +53,7 @@ private:
     u32 nTvwall_devs_per_col;
     std::vector<u32> vdev;
     QRegExpValidator *pvalidator;
+    QMutex mutex;
 
 signals:
     void signal_tvwall_data(QByteArray data);

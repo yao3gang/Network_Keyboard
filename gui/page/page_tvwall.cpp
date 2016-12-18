@@ -92,7 +92,7 @@ void page_tvWall::refreshDevInfo(SGuiDev dev)
     QMutexLocker locker(&mutex);
     struct in_addr in;
     QString qstr_ip;
-    QList<QTreeWidgetItem *> list_item;
+    QList<QTreeWidgetItem *> list_dev_find;
     //QList<QTreeWidgetItem *>::Iterator list_iter;
 
     in.s_addr = dev.deviceIP;
@@ -131,37 +131,55 @@ void page_tvWall::refreshDevInfo(SGuiDev dev)
     }
     else if (dev.devicetype == EM_NVR)
     {
-        list_item = ui->treeWidget_nvr->findItems(qstr_ip, Qt::MatchContains);
-
-        if (list_item.size() != 1)//查找结果必须 == 1
+        list_dev_find = ui->treeWidget_nvr->findItems(qstr_ip, Qt::MatchContains);
+        int cnt = list_dev_find.size();
+        if (1 != cnt)//查找结果必须 == 1
         {
-            DBG_PRINT("findItems size(%d) != 1, dev ip: %s\n", list_item.size(), qstr_ip.toUtf8().constData());
+            ERR_PRINT("findItems failed\n, list count: %d, dev ip: %s\n", cnt, qstr_ip.toUtf8().constData());
 
             return ;
         }
-        QTreeWidgetItem *item = list_item.at(0);
 
-        ui->treeWidget_nvr->deleteItemChildren(item);//销毁所有通道条目
+        QTreeWidgetItem *dev_item = list_dev_find.at(0);
+        ui->treeWidget_nvr->deleteItemChildren(dev_item);//销毁所有通道条目
 
         if (dev.b_alive)
         {
-            item->setIcon(0, QIcon(":/image/dev_online.png"));
+            dev_item->setIcon(0, QIcon(":/image/dev_online.png"));
 
-            //设备在线 添加所有通道条目
-            QList<QTreeWidgetItem *> list_chn;
-            QTreeWidgetItem * chn_item;
+            //add chn item
+            int ret = 0;
+            char chn_name[32];
             QString qstr_chn;
-            int i;
-            for (i = 0; i < dev.maxChnNum; ++i)
+            QTreeWidgetItem *chn_item = NULL;
+            QList<QTreeWidgetItem *> list_chn;
+
+            for (int i = 0; i < dev.maxChnNum; ++i)
             {
+                chn_item = NULL;
                 chn_item = new QTreeWidgetItem;
                 if (NULL == chn_item)
                 {
                     ERR_PRINT("chn new QTreeWidgetItem failed\n");
-                    return;
+                    break ;
                 }
 
-                qstr_chn = QString("chn%1").arg(i+1);
+                qstr_chn = QString(QString::fromUtf8("通道%1").arg(i+1));
+
+                ret = BizGetDevChnName(EM_NVR, dev.deviceIP, i, chn_name, sizeof(chn_name));
+                if (ret)
+                {
+                    ERR_PRINT("BizGetDevChnName failed, ret: %d\n", ret);
+                }
+                else
+                {
+                    //NVR:192.168.1.248:通道1:大门
+                    if (chn_name[0]) //不为空
+                    {
+                        qstr_chn += QString(QString::fromUtf8(":%1").arg(QString::fromUtf8(chn_name)));
+                    }
+                }
+
                 chn_item->setText(0, qstr_chn);
                 chn_item->setIcon(0, QIcon(":/image/chn.png"));
 
@@ -169,16 +187,16 @@ void page_tvWall::refreshDevInfo(SGuiDev dev)
             }
             if (list_chn.isEmpty())
             {
-                ERR_PRINT("dev: %s, list_chn.isEmpty()\n", qstr_ip.toUtf8().constData());
+                DBG_PRINT("dev: %s, list_chn.isEmpty()\n", qstr_ip.toUtf8().constData());
             }
             else
             {
-                item->addChildren(list_chn);
+                dev_item->addChildren(list_chn);
             }
         }
         else
         {
-            item->setIcon(0, QIcon(":/image/dev_offline.png"));
+            dev_item->setIcon(0, QIcon(":/image/dev_offline.png"));
         }
     }
     else

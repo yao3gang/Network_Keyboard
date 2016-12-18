@@ -44,7 +44,7 @@
 
 #define SendBuf (1024)
 #define RcvBuf (4096)
-#define DIALOGUE_TIMEOUT	(3) //一次命令回话超时
+#define DIALOGUE_TIMEOUT	(5) //一次命令回话超时
 #define RECONNECT_TIMEOUT	(5) //秒
 #define KEEP_ALIVE_INTERVAL	(15) //秒
 
@@ -135,8 +135,8 @@ private:
 	int _DelMapRcv(s32 sock_fd);
 	//device
 	int _CleanDevSock(s32 dev_idx);
-	u16 _IncAndGetSyncNum();
-	u16 _GetSyncNum();
+	//u16 _IncAndGetSyncNum();
+	//u16 _GetSyncNum();
 	
 private:
 	VD_BOOL b_inited;
@@ -175,7 +175,7 @@ private:
 	C_Lock *plock_map_fd_idx;
 	MAP_FD_IDX map_fd_idx;//m_threadlet_rcv 管理接收的设备socket 和index
 
-	C_Lock *plock4sync_num;
+	//C_Lock *plock4sync_num;
 	u16 sync_num;//网络回话序列号
 	C_Lock *plock4sock;//Mutex 同时只允许跟一个服务器通信
 	CSemaphore sync_sem; //socket 发送方同步等待接收服务器回应
@@ -204,7 +204,7 @@ CBizDeviceManager::CBizDeviceManager()
 , reconnect_sem(0)
 , plock_list_del(NULL)
 , plock_map_fd_idx(NULL)
-, plock4sync_num(NULL)
+//, plock4sync_num(NULL)
 , sync_num(0)
 , plock4sock(NULL)
 , sync_sem(0)
@@ -438,7 +438,7 @@ int CBizDeviceManager::Init(void)
 		ERR_PRINT("create plock_map_fd_idx failed\n");
 		goto fail;
 	}
-	
+#if 0	
 	plock4sync_num = new CMutex;
 	if (NULL == plock4sync_num)
 	{
@@ -451,7 +451,7 @@ int CBizDeviceManager::Init(void)
 		ERR_PRINT("create plock4sync_num failed\n");
 		goto fail;
 	}
-	
+#endif	
 	plock4sock = new CMutex;
 	if (NULL == plock4sock)
 	{
@@ -574,13 +574,13 @@ void CBizDeviceManager::FreeSrc()//释放资源
 		delete plock_map_fd_idx;
 		plock_map_fd_idx = NULL;
 	}
-	
+#if 0	
 	if (plock4sync_num)
 	{
 		delete plock4sync_num;
 		plock4sync_num = NULL;
 	}
-	
+#endif	
 	if (plock4sock)
 	{
 		delete plock4sock;
@@ -777,7 +777,7 @@ int CBizDeviceManager::GetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_i
 	if (NULL == pcdev)
 	{	
 		ERR_PRINT("IP(%s) pcdev == NULL\n", inet_ntoa(in));
-
+		
 		pplock_dev[dev_idx]->Unlock();
 		return -EDEV_NOTFOUND;		
 	}
@@ -787,7 +787,15 @@ int CBizDeviceManager::GetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_i
 	{
 		ERR_PRINT("IP(%s) GetChnIPCInfo failed\n", inet_ntoa(in));
 		
+		int fd_tmp = pcdev->sock_cmd;
+		
+		//关闭cmd socket
+		pcdev->CleanSock();
 		pplock_dev[dev_idx]->Unlock();
+		
+		//移除接收map_fd_idx
+		_DelMapRcv(fd_tmp);
+		
 		return ret;
 	}	
 
@@ -829,7 +837,15 @@ int CBizDeviceManager::GetDevChnName(EM_DEV_TYPE dev_type, u32 dev_ip, u8 chn, c
 	{
 		ERR_PRINT("IP(%s) GetChnName failed\n", inet_ntoa(in));
 		
+		int fd_tmp = pcdev->sock_cmd;
+		
+		//关闭cmd socket
+		pcdev->CleanSock();
 		pplock_dev[dev_idx]->Unlock();
+		
+		//移除接收map_fd_idx
+		_DelMapRcv(fd_tmp);
+		
 		return ret;
 	}	
 
@@ -913,7 +929,15 @@ int CBizDeviceManager::SetDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_ch
 	{
 		ERR_PRINT("DEC IP(%s) SetChnIpc failed\n", inet_ntoa(in));
 		
+		int fd_tmp = pcdev->sock_cmd;
+		
+		//关闭cmd socket
+		pcdev->CleanSock();
 		pplock_dev[dev_idx]->Unlock();
+		
+		//移除接收map_fd_idx
+		_DelMapRcv(fd_tmp);
+		
 		return ret;
 	}	
 
@@ -965,7 +989,15 @@ int CBizDeviceManager::DelDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_ch
 	{
 		ERR_PRINT("DEC IP(%s) DelChnIpc failed\n", inet_ntoa(in));
 		
+		int fd_tmp = pcdev->sock_cmd;
+		
+		//关闭cmd socket
+		pcdev->CleanSock();
 		pplock_dev[dev_idx]->Unlock();
+		
+		//移除接收map_fd_idx
+		_DelMapRcv(fd_tmp);
+		
 		return ret;
 	}	
 
@@ -1008,7 +1040,15 @@ int CBizDeviceManager::DevRecFilesSearch(u32 nvr_ip, ifly_recsearch_param_t *pse
 	{
 		ERR_PRINT("DEC IP(%s) DelChnIpc failed\n", inet_ntoa(in));
 		
+		int fd_tmp = pcdev->sock_cmd;
+		
+		//关闭cmd socket
+		pcdev->CleanSock();
 		pplock_dev[dev_idx]->Unlock();
+		
+		//移除接收map_fd_idx
+		_DelMapRcv(fd_tmp);
+		
 		return ret;
 	}	
 
@@ -1051,7 +1091,15 @@ int CBizDeviceManager::DevGetPatrolPara(EM_DEV_TYPE dev_type, u32 dec_ip, ifly_p
 	{
 		ERR_PRINT("DEC IP(%s) DelChnIpc failed\n", inet_ntoa(in));
 		
+		int fd_tmp = pcdev->sock_cmd;
+		
+		//关闭cmd socket
+		pcdev->CleanSock();
 		pplock_dev[dev_idx]->Unlock();
+		
+		//移除接收map_fd_idx
+		_DelMapRcv(fd_tmp);
+		
 		return ret;
 	}	
 
@@ -1368,24 +1416,26 @@ int CBizDeviceManager::NetDialogue(int sock, u16 event, const void *content, int
 		DBG_PRINT("realacklen invalid\n");
 		return -EPARAM;
 	}
+	
 	//全局回话锁
 	plock4sock->Lock();
 
 	//发送
 	msglen = sizeof(cp_head_snd)+length;
+	
 	memset(&cp_head_snd, 0, sizeof(cp_head_snd));
 	cp_head_snd.length = htonl(msglen);
 	cp_head_snd.type = htons(CTRL_COMMAND);
 	cp_head_snd.event = htons(event);
 	
-	number = _IncAndGetSyncNum();
+	number = ++sync_num;//_IncAndGetSyncNum();
 	//printf("%s snd number1: %d\n", , number);
 	
 	cp_head_snd.number = htons(number);
 	cp_head_snd.version = htons(CTRL_VERSION);
 	if(msglen > SendBuf)
 	{
-		DBG_PRINT("event: %d, cp_head_snd.length(%d) > SendBuf, failed\n", event, msglen);
+		ERR_PRINT("event: %d, cp_head_snd.length(%d) > SendBuf, failed\n", event, msglen);
 		
 		plock4sock->Unlock();
 		return -EPARAM;
@@ -1411,7 +1461,7 @@ int CBizDeviceManager::NetDialogue(int sock, u16 event, const void *content, int
 	//printf("%s snd number2: %d\n", , number);
 	
 	//等待接收返回
-	ret = sync_sem.TimedPend(DIALOGUE_TIMEOUT);		
+	ret = sync_sem.TimedPend(DIALOGUE_TIMEOUT);
 	if (ret)//timeout or failed
 	{
 		ERR_PRINT("event: %d, sem_timedwait failed, error:[%d,%s], failed!\n", 
@@ -1455,7 +1505,7 @@ int CBizDeviceManager::NetDialogue(int sock, u16 event, const void *content, int
 	
 	if(rcvlen > 0)
 	{		
-		if(ackbuflen < rcvlen)
+		if(rcvlen > ackbuflen)
 		{
 			ERR_PRINT("event: %d, ackbuflen(%d) < rcvlen(%d), failed\n", event, ackbuflen, rcvlen);
 			
@@ -1680,6 +1730,12 @@ int CBizDeviceManager::_UnlinkAllDevs()
 //add and del  map_fd_idx 需要接收网络信息的表
 int CBizDeviceManager::_AddMapRcv(s32 sock_fd, s32 dev_idx)
 {
+	if (INVALID_SOCKET == sock_fd)
+	{
+		ERR_PRINT("INVALID_SOCKET == sock_fd\n");
+		return SUCCESS;
+	}
+	
 	plock_map_fd_idx->Lock();
 	if (!map_fd_idx.insert(std::make_pair(sock_fd, dev_idx)).second)
 	{
@@ -1696,6 +1752,11 @@ int CBizDeviceManager::_AddMapRcv(s32 sock_fd, s32 dev_idx)
 int CBizDeviceManager::_DelMapRcv(s32 sock_fd)
 {
 	MAP_FD_IDX::iterator map_iter;
+
+	if (INVALID_SOCKET == sock_fd)
+	{
+		return SUCCESS;
+	}
 	
 	plock_map_fd_idx->Lock();
 	
@@ -1815,10 +1876,11 @@ void CBizDeviceManager::threadRcv(uint param)
 						
 						plock_map_fd_idx->Unlock();
 						
-						_CleanDevSock(dev_idx);
+						//_CleanDevSock(dev_idx);
 					}
 					else
 					{
+						ERR_PRINT("fd_tmp not find 1\n");
 						plock_map_fd_idx->Unlock();
 					}					
 					
@@ -1832,7 +1894,7 @@ void CBizDeviceManager::threadRcv(uint param)
 				cprcvhead.number	= ntohs(cprcvhead.number);
 				cprcvhead.event		= ntohs(cprcvhead.event);
 
-				memcpy(rcv_buf, &cprcvhead, sizeof(ifly_cp_header_t));//转换完成后写会，NetDialogue中会用到ifly_cp_header_t结构
+				memcpy(rcv_buf, &cprcvhead, sizeof(ifly_cp_header_t));//转换完成后写回，NetDialogue中会用到ifly_cp_header_t结构
 /*
 				printf("recv msg: \n");
 				printf("\t type: %d\n", cprcvhead.type);
@@ -1886,10 +1948,11 @@ void CBizDeviceManager::threadRcv(uint param)
 								
 								plock_map_fd_idx->Unlock();
 								
-								_CleanDevSock(dev_idx);
+								//_CleanDevSock(dev_idx);
 							}
 							else
 							{
+								ERR_PRINT("fd_tmp not find 2\n");
 								plock_map_fd_idx->Unlock();
 							}							
 						}
@@ -1915,10 +1978,11 @@ void CBizDeviceManager::threadRcv(uint param)
 								
 							plock_map_fd_idx->Unlock();
 							
-							_CleanDevSock(dev_idx);
+							//_CleanDevSock(dev_idx);
 						}
 						else
 						{
+							ERR_PRINT("fd_tmp not find 3\n");
 							plock_map_fd_idx->Unlock();
 						}
 						
@@ -1928,7 +1992,7 @@ void CBizDeviceManager::threadRcv(uint param)
 
 				if (cprcvhead.type == CTRL_ACK)//收到服务器回应消息
 				{
-					if(cprcvhead.number == _GetSyncNum())
+					if(cprcvhead.number == sync_num)//_GetSyncNum())
 					{
 						memcpy(sync_buf, rcv_buf, cprcvhead.length);
 						sync_ack_len = cprcvhead.length;
@@ -2579,7 +2643,7 @@ int CBizDeviceManager::_CleanDevSock(s32 dev_idx)
 	
 	return SUCCESS;
 }
-
+#if 0
 u16 CBizDeviceManager::_IncAndGetSyncNum()
 {
 	u16 no = 0;
@@ -2601,7 +2665,7 @@ u16 CBizDeviceManager::_GetSyncNum()
 
 	return no;
 }
-
+#endif
 /********************************************************************
 							Device
 ********************************************************************/

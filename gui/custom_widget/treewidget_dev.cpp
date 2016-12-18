@@ -28,12 +28,23 @@ void treewidget_dev::deleteItemChildren(QTreeWidgetItem *item)
         return ;
     }
 
+    DBG_PRINT("children count: %d\n", item->childCount());
+#if 1
     QTreeWidgetItem *child = NULL;
-    while (child = item->takeChild(0), child)
+    while (item->childCount())
     {
-        delete child;
-        child = NULL;
+        child = item->takeChild(0);
+        if (child)
+        {
+            delete child;
+            child = NULL;
+        }
+        else
+        {
+            ERR_PRINT("child == NULL\n");
+        }
     }
+#endif
 }
 
 #if 0

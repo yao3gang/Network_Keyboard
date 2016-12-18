@@ -19,6 +19,7 @@ form_playback::form_playback(QWidget *parent) :
 {
     memset(&search_para, 0, sizeof(ifly_recsearch_param_t));
 
+    memset(&search_result.result_desc, 0, sizeof(ifly_search_desc_t));
     search_result.pfile_info = new ifly_recfileinfo_t[MAX_FILE_NUMS];
     if (NULL == search_result.pfile_info)
     {
@@ -53,6 +54,7 @@ void form_playback::init_form() //控件
 {
     setupWidgetLeft();
     setupWidgetBottom();
+    setupTableWidgetResult();
 }
 
 void form_playback::setupWidgetLeft()
@@ -101,6 +103,13 @@ void form_playback::setupTreeWidgetNvr()
     {
         ERR_PRINT("getDevTypeStrList failed\n");
         return;
+    }
+
+    if (strlist_devtype.size() < EM_DEV_TYPE_MAX-EM_NVR)
+    {
+        ERR_PRINT("strlist_devtype size(%d) < EM_DEV_TYPE_MAX(%d)-EM_NVR(%d)\n",
+                  strlist_devtype.size(), EM_DEV_TYPE_MAX, EM_NVR);
+        return ;
     }
 
     ui->treeWidget_nvr->setColumnCount(1);//1列
@@ -163,6 +172,48 @@ void form_playback::setupTreeWidgetNvr()
         if (dev.b_alive)
         {
             dev_item->setIcon(0, QIcon(":/image/dev_online.png"));
+
+            //add chn item
+            list_chn.clear();
+            for (i = 0; i < dev.maxChnNum; ++i)
+            {
+                chn_item = NULL;
+                chn_item = new QTreeWidgetItem;
+                if (NULL == chn_item)
+                {
+                    ERR_PRINT("chn new QTreeWidgetItem failed\n");
+                    break ;
+                }
+
+                qstr_chn = QString(QString::fromUtf8("通道%1").arg(i+1));
+
+                ret = BizGetDevChnName(EM_NVR, dev_ip, i, chn_name, sizeof(chn_name));
+                if (ret)
+                {
+                    ERR_PRINT("BizGetDevChnName failed, ret: %d\n", ret);
+                }
+                else
+                {
+                    //NVR:192.168.1.248:通道1:大门
+                    if (chn_name[0]) //不为空
+                    {
+                        qstr_chn += QString(QString::fromUtf8(":%1").arg(QString::fromUtf8(chn_name)));
+                    }
+                }
+
+                chn_item->setText(0, qstr_chn);
+                chn_item->setIcon(0, QIcon(":/image/chn.png"));
+
+                list_chn.append(chn_item);
+            }
+            if (list_chn.isEmpty())
+            {
+                DBG_PRINT("dev: %s, list_chn.isEmpty()\n", qstr_ip.toUtf8().constData());
+            }
+            else
+            {
+                dev_item->addChildren(list_chn);
+            }
         }
         else
         {
@@ -170,50 +221,6 @@ void form_playback::setupTreeWidgetNvr()
         }
 
         list_dev.append(dev_item);
-
-    #if 1
-        list_chn.clear();
-
-        for (i = 0; i < dev.maxChnNum; ++i)
-        {
-            chn_item = new QTreeWidgetItem;
-            if (NULL == chn_item)
-            {
-                ERR_PRINT("chn new QTreeWidgetItem failed\n");
-                return;
-            }
-
-            qstr_chn = QString(QString::fromUtf8("通道%1").arg(i+1));
-
-            ret = BizGetDevChnName(EM_NVR, dev_ip, i, chn_name, sizeof(chn_name));
-            if (ret)
-            {
-                ERR_PRINT("BizGetDevChnName failed, ret: %d\n", ret);
-            }
-            else
-            {
-                //NVR:192.168.1.248:通道1:大门
-                if (chn_name[0]) //不为空
-                {
-                    qstr_chn += QString(QString::fromUtf8(":%1").arg(QString::fromUtf8(chn_name)));
-                }
-            }
-
-            chn_item->setText(0, qstr_chn);
-            chn_item->setIcon(0, QIcon(":/image/chn.png"));
-
-            list_chn.append(chn_item);
-        }
-        if (list_chn.isEmpty())
-        {
-            DBG_PRINT("dev: %s, list_chn.isEmpty()\n", qstr_ip.toUtf8().constData());
-        }
-        else
-        {
-            dev_item->addChildren(list_chn);
-        }
-
-    #endif
     }
 
     ui->treeWidget_nvr->addTopLevelItems(list_dev);
@@ -252,6 +259,37 @@ void form_playback::setupWidgetBottom()
     connect(ui->btn_extra, SIGNAL(toggled(bool)), this, SLOT(showTableWidget(bool)));
 }
 
+void form_playback::setupTableWidgetResult()
+{
+    ui->tableWidget_left->verticalHeader()->setVisible(false);//列表头不可见
+    ui->tableWidget_left->horizontalHeader()->setVisible(false);//行表头不可见
+    ui->tableWidget_left->setFocusPolicy(Qt::NoFocus);//让table失去焦点，防止没有选中行时，添加第一行
+    ui->tableWidget_left->setSelectionBehavior(QAbstractItemView::SelectRows);//点击选择整行
+    ui->tableWidget_left->setAlternatingRowColors(true);//奇偶行不同颜色显示
+    ui->tableWidget_left->setEditTriggers(QAbstractItemView::NoEditTriggers);//单元格不可编辑
+    ui->tableWidget_left->horizontalHeader()->setStretchLastSection(true);//最后一列单元格占满 tablewidget
+    ui->tableWidget_left->setRowCount(0);
+    ui->tableWidget_left->clearContents();
+    ui->tableWidget_left->setColumnCount(4);
+    ui->tableWidget_left->setColumnWidth(0,50);
+    ui->tableWidget_left->setColumnWidth(1,100);
+    ui->tableWidget_left->setColumnWidth(2,100);
+
+    ui->tableWidget_right->verticalHeader()->setVisible(false);//列表头不可见
+    ui->tableWidget_right->horizontalHeader()->setVisible(false);//行表头不可见
+    ui->tableWidget_right->setFocusPolicy(Qt::NoFocus);//让table失去焦点，防止没有选中行时，添加第一行
+    ui->tableWidget_right->setSelectionBehavior(QAbstractItemView::SelectRows);//点击选择整行
+    ui->tableWidget_right->setAlternatingRowColors(true);//奇偶行不同颜色显示
+    ui->tableWidget_right->setEditTriggers(QAbstractItemView::NoEditTriggers);//单元格不可编辑
+    ui->tableWidget_right->horizontalHeader()->setStretchLastSection(true);//最后一列单元格占满 tablewidget
+    ui->tableWidget_right->setRowCount(0);
+    ui->tableWidget_right->clearContents();
+    ui->tableWidget_right->setColumnCount(4);
+    ui->tableWidget_right->setColumnWidth(0,50);
+    ui->tableWidget_right->setColumnWidth(1,100);
+    ui->tableWidget_right->setColumnWidth(2,100);
+}
+
 void form_playback::showTableWidget(bool b)
 {
     ui->widget_result->setVisible(b);
@@ -279,7 +317,7 @@ void form_playback::refreshDevInfo(SGuiDev dev)
     QMutexLocker locker(&mutex);
     struct in_addr in;
     QString qstr_ip;
-    QList<QTreeWidgetItem *> list_item;
+    QList<QTreeWidgetItem *> list_dev_find;
 
     in.s_addr = dev.deviceIP;
     qstr_ip = QString(inet_ntoa(in));
@@ -290,73 +328,123 @@ void form_playback::refreshDevInfo(SGuiDev dev)
     }
     DBG_PRINT("dev type: %d, ip: %s\n", dev.devicetype, qstr_ip.toUtf8().constData());
 
-    if (dev.devicetype == EM_NVR)
+    if (dev.devicetype != EM_NVR)
     {
-        list_item = ui->treeWidget_nvr->findItems(qstr_ip, Qt::MatchContains);
+        DBG_PRINT("dev.devicetype(%d) != EM_NVR", dev.devicetype);
+        return ;
+    }
 
-        if (list_item.size() != 1)//查找结果必须 == 1
+    list_dev_find = ui->treeWidget_nvr->findItems(qstr_ip, Qt::MatchContains);
+    int cnt = list_dev_find.size();
+    if (1 != cnt)//查找结果必须 == 1
+    {
+        ERR_PRINT("findItems failed\n, list count: %d, dev ip: %s\n", cnt, qstr_ip.toUtf8().constData());
+
+        return ;
+    }
+
+    QTreeWidgetItem *dev_item = list_dev_find.at(0);
+    ui->treeWidget_nvr->deleteItemChildren(dev_item);//销毁所有通道条目
+
+    if (dev.b_alive)
+    {
+        dev_item->setIcon(0, QIcon(":/image/dev_online.png"));
+
+        //add chn item
+        int ret = 0;
+        char chn_name[32];
+        QString qstr_chn;
+        QTreeWidgetItem *chn_item = NULL;
+        QList<QTreeWidgetItem *> list_chn;
+
+        for (int i = 0; i < dev.maxChnNum; ++i)
         {
-            DBG_PRINT("findItems size(%d) != 1, dev ip: %s\n", list_item.size(), qstr_ip.toUtf8().constData());
-
-            return ;
-        }
-        QTreeWidgetItem *item = list_item.at(0);
-
-        ui->treeWidget_nvr->deleteItemChildren(item);//销毁所有通道条目
-
-        if (dev.b_alive)
-        {
-            item->setIcon(0, QIcon(":/image/dev_online.png"));
-
-            //设备在线 添加所有通道条目
-            QList<QTreeWidgetItem *> list_chn;
-            QTreeWidgetItem * chn_item;
-            QString qstr_chn;
-            int i;
-            for (i = 0; i < dev.maxChnNum; ++i)
+            chn_item = NULL;
+            chn_item = new QTreeWidgetItem;
+            if (NULL == chn_item)
             {
-                chn_item = new QTreeWidgetItem;
-                if (NULL == chn_item)
-                {
-                    ERR_PRINT("chn new QTreeWidgetItem failed\n");
-                    return;
-                }
-
-                qstr_chn = QString("chn%1").arg(i+1);
-                chn_item->setText(0, qstr_chn);
-                chn_item->setIcon(0, QIcon(":/image/chn.png"));
-
-                list_chn.append(chn_item);
+                ERR_PRINT("chn new QTreeWidgetItem failed\n");
+                break ;
             }
-            if (list_chn.isEmpty())
+
+            qstr_chn = QString(QString::fromUtf8("通道%1").arg(i+1));
+
+            ret = BizGetDevChnName(EM_NVR, dev.deviceIP, i, chn_name, sizeof(chn_name));
+            if (ret)
             {
-                ERR_PRINT("dev: %s, list_chn.isEmpty()\n", qstr_ip.toUtf8().constData());
+                ERR_PRINT("BizGetDevChnName failed, ret: %d\n", ret);
             }
             else
             {
-                item->addChildren(list_chn);
+                //NVR:192.168.1.248:通道1:大门
+                if (chn_name[0]) //不为空
+                {
+                    qstr_chn += QString(QString::fromUtf8(":%1").arg(QString::fromUtf8(chn_name)));
+                }
             }
+
+            chn_item->setText(0, qstr_chn);
+            chn_item->setIcon(0, QIcon(":/image/chn.png"));
+
+            list_chn.append(chn_item);
+        }
+        if (list_chn.isEmpty())
+        {
+            DBG_PRINT("dev: %s, list_chn.isEmpty()\n", qstr_ip.toUtf8().constData());
         }
         else
         {
-            item->setIcon(0, QIcon(":/image/dev_offline.png"));
+            dev_item->addChildren(list_chn);
         }
+    }
+    else
+    {
+        dev_item->setIcon(0, QIcon(":/image/dev_offline.png"));
     }
 }
 
-void form_playback::mousePressEvent(QMouseEvent *event)
+void form_playback::refreshWidgetResult()
 {
-    if (event->button() == Qt::RightButton)
-    {
-        this->close();
+    ui->tableWidget_left->setRowCount(0);
+    ui->tableWidget_left->clearContents();
 
-        page_main* pmain = (page_main*)getPage(PAGE_MAIN);
-        if (NULL == pmain)
-        {
-            ERR_PRINT("getPage(PAGE_MAIN) failed\n");
-            return;
-        }
-        pmain->show();
+    u32 start_time = 0;
+    u32 end_time = 0;
+    start_time = search_result.pfile_info[0].start_time;
+    end_time = search_result.pfile_info[0].end_time;
+
+    start_time += 8*3600;
+    end_time += 8*3600;
+
+    ui->tableWidget_left->setRowCount(5);
+    int i;
+    struct tm tm_time;
+    QTableWidgetItem *item = NULL;
+    QString str;
+    for (i = 0; i<5; ++i)
+    {
+        str = QString(QString::fromUtf8("%1").arg(i+1));
+        item = new QTableWidgetItem();
+        item->setText(str);
+        ui->tableWidget_left->setItem(i, 0, item);
+
+
+        gmtime_r((time_t *)&start_time, &tm_time);
+        str = QString(QString::fromUtf8("%1:%2:%3").arg(tm_time.tm_hour).arg(tm_time.tm_min).arg(tm_time.tm_sec));
+        item = new QTableWidgetItem();
+        item->setText(str);
+        ui->tableWidget_left->setItem(i, 1, item);
+
+        gmtime_r((time_t *)&end_time, &tm_time);
+        str = QString(QString::fromUtf8("%1:%2:%3").arg(tm_time.tm_hour).arg(tm_time.tm_min).arg(tm_time.tm_sec));
+        item = new QTableWidgetItem();
+        item->setText(str);
+        ui->tableWidget_left->setItem(i, 2, item);
+
+        str = QString(QString::fromUtf8("%1").arg(search_result.pfile_info[0].size));
+        item = new QTableWidgetItem();
+        item->setText(str);
+        ui->tableWidget_left->setItem(i, 3, item);
     }
 }
 
@@ -458,8 +546,11 @@ enum NETDVR_REC_INDEX_MASK
     if (ret)
     {
         ERR_PRINT("BizGetDevChnName failed, ret: %d\n", ret);
+        return ;
     }
 
+    refreshWidgetResult();
+#if 0
     if (search_result.result_desc.startID < search_result.result_desc.endID)
     {
         start_time = search_result.pfile_info[0].start_time;
@@ -478,5 +569,25 @@ enum NETDVR_REC_INDEX_MASK
         printf("tm_min: %d\n", tm_time.tm_min);
         printf("tm_sec: %d\n", tm_time.tm_sec);
     }
+#endif
 }
+
+void form_playback::mousePressEvent(QMouseEvent *event)
+{
+    if (event->button() == Qt::RightButton)
+    {
+        this->close();
+
+        page_main* pmain = (page_main*)getPage(PAGE_MAIN);
+        if (NULL == pmain)
+        {
+            ERR_PRINT("getPage(PAGE_MAIN) failed\n");
+            return;
+        }
+        pmain->show();
+    }
+}
+
+
+
 

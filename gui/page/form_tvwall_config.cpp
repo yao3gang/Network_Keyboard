@@ -238,6 +238,7 @@ void form_tvwall_config::init_form()//控件
 
 void form_tvwall_config::setupTreeWidget()
 {
+    QMutexLocker locker(&mutex);
     std::list<u32> dev_ip_list;
     std::list<u32>::iterator list_iter;
     SGuiDev dev;
@@ -255,11 +256,19 @@ void form_tvwall_config::setupTreeWidget()
         ERR_PRINT("getPage(PAGE_DEV_MGT) failed\n");
         return;
     }
+    connect(page_dev, SIGNAL(signalDevInfoChange(SGuiDev)), this, SLOT(refreshDevInfo(SGuiDev)));//更新设备 alive 状态
 
     if (page_dev->getDevTypeStrList(strlist_devtype))
     {
         ERR_PRINT("getDevTypeStrList failed\n");
-        return;
+        return ;
+    }
+
+    if (strlist_devtype.size() < EM_DEV_TYPE_MAX-EM_NVR)
+    {
+        ERR_PRINT("strlist_devtype size(%d) < EM_DEV_TYPE_MAX(%d)-EM_NVR(%d)\n",
+                  strlist_devtype.size(), EM_DEV_TYPE_MAX, EM_NVR);
+        return ;
     }
 
     ui->tree_swich_dec->setColumnCount(1);//1列
@@ -312,47 +321,20 @@ void form_tvwall_config::setupTreeWidget()
         }
 
         list_dev.append(dev_item);
-    #if 0
-        if (level_nums == TWO_LEVELS)
-        {
-            list_chn.clear();
-            for (i = 0; i < dev.maxChnNum; ++i)
-            {
-                chn_item = new QTreeWidgetItem;
-                if (NULL == chn_item)
-                {
-                    ERR_PRINT("chn new QTreeWidgetItem failed\n");
-                    return;
-                }
-
-                qstr = QString("chn%1").arg(i+1);
-                chn_item->setText(0, qstr);
-                chn_item->setIcon(0, QIcon(":/image/chn.png"));
-
-                list_chn.append(chn_item);
-            }
-            if (list_chn.isEmpty())
-            {
-                DBG_PRINT("list_chn.isEmpty() \n");
-            }
-            else
-            {
-                dev_item->addChildren(list_chn);
-            }
-        }
-    #endif
     }
 
-    ui->tree_swich_dec->addTopLevelItems(list_dev);
+    if (!list_dev.isEmpty())
+    {
+        ui->tree_swich_dec->addTopLevelItems(list_dev);
+    }
 
     ui->tree_swich_dec->setDragEnabled(true);
     ui->tree_swich_dec->setAcceptDrops(true);
-
-    connect(page_dev, SIGNAL(signalDevInfoChange(SGuiDev)), this, SLOT(refreshDevInfo(SGuiDev)));//更新设备 alive 状态
 }
 
 void form_tvwall_config::refreshDevInfo(SGuiDev dev)
 {
+    QMutexLocker locker(&mutex);
     struct in_addr in;
     QString qstr_ip;
     QList<QTreeWidgetItem *> list_item;
@@ -365,6 +347,7 @@ void form_tvwall_config::refreshDevInfo(SGuiDev dev)
         ERR_PRINT("dev ip invalid\n");
         return ;
     }
+    DBG_PRINT("dev type: %d, ip: %s\n", dev.devicetype, qstr_ip.toUtf8().constData());
 
     if (dev.devicetype != EM_SWITCH_DEC)
     {
@@ -373,12 +356,12 @@ void form_tvwall_config::refreshDevInfo(SGuiDev dev)
     }
 
     list_item = ui->tree_swich_dec->findItems(qstr_ip, Qt::MatchContains);
-    cnt = list_item.count();
-    if (cnt == 0 || cnt > 1)
+    cnt = list_item.size();
+    if (cnt != 1)
     {
         ERR_PRINT("findItems failed\n, list count: %d, dev ip: %s\n", cnt, qstr_ip.toUtf8().constData());
 
-#if 1
+#if 0
         QTreeWidgetItemIterator it(ui->tree_swich_dec);
         while (*it)
         {
@@ -392,11 +375,11 @@ void form_tvwall_config::refreshDevInfo(SGuiDev dev)
 
     if (dev.b_alive)
     {
-        (*list_item.begin())->setIcon(0, QIcon(":/image/dev_online.png"));
+        list_item.at(0)->setIcon(0, QIcon(":/image/dev_online.png"));
     }
     else
     {
-        (*list_item.begin())->setIcon(0, QIcon(":/image/dev_offline.png"));
+        list_item.at(0)->setIcon(0, QIcon(":/image/dev_offline.png"));
     }
 }
 

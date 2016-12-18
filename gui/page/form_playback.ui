@@ -565,6 +565,9 @@
            </sizepolicy>
           </property>
           <layout class="QHBoxLayout" name="horizontalLayout_6">
+           <property name="spacing">
+            <number>3</number>
+           </property>
            <property name="margin">
             <number>8</number>
            </property>

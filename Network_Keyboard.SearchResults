@@ -1,7 +1,5 @@
----- BizGetTime Matches (6 in 4 files) ----
-biz_system_complex.cpp (mid_logic\src):int BizGetTime(SDateTime *pdt)
-biz_system_complex.cpp (mid_logic\src):			if (BizGetTime(&dt) == 0)
-biz_system_complex.h (mid_logic\inc):int BizGetTime(SDateTime *pdt);
-form_playback.cpp (gui\page):    int ret = BizGetTime(&dt);
-form_playback.cpp (gui\page):        ERR_PRINT("BizGetTime failed, ret: %d\n", ret);
-page_config.cpp (gui\page):            ret = BizGetTime(&dt);
+---- BizGetDevInfo Matches (4 in 3 files) ----
+biz_device.cpp (mid_logic\src):int BizGetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pdev)
+biz_device.h (mid_logic\inc):int BizGetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pdev);
+page_dev_mgt.cpp (gui\page):            if (BizGetDevInfo((EM_DEV_TYPE)dev_type, pdev->deviceIP, pdev))
+page_dev_mgt.cpp (gui\page):                ERR_PRINT("BizGetDevInfo failed, ip: %s\n", inet_ntoa(in));

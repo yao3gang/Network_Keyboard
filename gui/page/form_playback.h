@@ -27,7 +27,8 @@ private:
     void setupTreeWidgetNvr();
     void setupWidgetLeft();
     void setupWidgetBottom();
-
+    void setupTableWidgetResult();
+    void refreshWidgetResult();
 
 private:
     Ui::form_playback *ui;
