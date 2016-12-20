@@ -7,6 +7,8 @@ CPPFLAGS += -march=armv7-a -mcpu=cortex-a9
 CFLAGS += -DHI3535 -DHI3520D
 CXXFlAGS += -DHI3535 -DHI3520D
 CPPFLAGS += -DHI3535 -DHI3520D
+#CFLAGS += -O2 -Wall -fno-strict-aliasing
+CFLAGS += -g -Wall -fno-strict-aliasing
 
 TL_APP_SDK_DIR:=/home/hdb1/Hi3535_SDK_V1.0.4.0
 TL_APP_MPP_PATH:=$(TL_APP_SDK_DIR)/mpp

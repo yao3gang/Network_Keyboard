@@ -1,5 +1,6 @@
----- BizGetDevInfo Matches (4 in 3 files) ----
-biz_device.cpp (mid_logic\src):int BizGetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pdev)
-biz_device.h (mid_logic\inc):int BizGetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pdev);
-page_dev_mgt.cpp (gui\page):            if (BizGetDevInfo((EM_DEV_TYPE)dev_type, pdev->deviceIP, pdev))
-page_dev_mgt.cpp (gui\page):                ERR_PRINT("BizGetDevInfo failed, ip: %s\n", inet_ntoa(in));
+---- MIN Matches (5 in 4 files) ----
+biz_device.cpp (mid_logic\src):	u16 file_nums = MIN(psearch_para->max_return, desc.endID-desc.startID+1);
+ctimer.cpp (common\src):	int len = MIN(strlen(pszName), 63);
+ctrlprotocol.c (low_module\net\src):		if (memcmp(buf, gc_protocolGUID, MIN(recvlen,16)))
+types.h (common\inc):#ifndef MIN
+types.h (common\inc):#define MIN(a,b)				(((a) < (b)) ? (a) : (b))

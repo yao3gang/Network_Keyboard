@@ -161,9 +161,11 @@ void page_main::button_clicked()
         //ui->stackedWidget->setCurrentIndex(1);
         //ui->btn_playback->setChecked(true);
         from_pb = new form_playback;
-        from_pb->show();
-        this->close();
-
+        if (from_pb)
+        {
+            from_pb->show();
+            this->hide();
+        }
     }
     else if (ui->btn_tvWall->objectName() == name)
     {
@@ -199,6 +201,7 @@ void page_main::setTimeFormat(u8 date_format, u8 time_format)
 
 void page_main::update_time(SDateTime dt)
 {
+    //DBG_PRINT("\n");
     QDate qd(dt.nYear, dt.nMonth, dt.nDay);
     switch (ndate_format)
     {

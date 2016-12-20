@@ -78,7 +78,6 @@ void form_tvwall_config::rowsChanged(QString text)
         return;
 
     u32 _rows = text.toInt(&ok);
-
     if (!ok)
     {
         ERR_PRINT("rows: text.toInt failed, text: %s\n", text.toUtf8().constData());

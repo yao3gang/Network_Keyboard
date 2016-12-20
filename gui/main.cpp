@@ -85,6 +85,10 @@ int main(int argc, char *argv[])
     }
     qDebug("BizInit success\n");
 
+    //while (1)
+    //{
+    //    sleep(1);
+    //}
     //sleep(5);
 
     //应用层初始化

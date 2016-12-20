@@ -91,7 +91,7 @@ public:
 	int CheckAndReconnectStream();
 	
 	//»ñÈ¡ËùÓĞÍ¨µÀµÄIPCĞÅÏ¢
-	int GetChnIPCInfo(ifly_ipc_info_t * pipc_info, s32 size);
+	int GetChnIPCInfo(ifly_ipc_info_t * pipc_info, u32 size);
 	//Ö»Ö§³ÖNVR£¬µÃµ½NVRÍ¨µÀÃû(osd info)
 	int GetChnName(u8 chn, char *pbuf, u32 size);
 	
@@ -159,7 +159,7 @@ int BizGetDevIPList(EM_DEV_TYPE dev_type, std::list<u32> &dev_ip_list);//ÍøÂç×Ö½
 int BizGetDevIdx(EM_DEV_TYPE dev_type, u32 dev_ip);
 int BizGetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pdev);
 //»ñÈ¡ËùÓĞÍ¨µÀµÄIPCĞÅÏ¢
-int BizGetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_ipc_info_t * pipc_info, s32 size);
+int BizGetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_ipc_info_t * pipc_info, u32 size);
 //Ö»Ö§³ÖNVR£¬µÃµ½NVRÍ¨µÀÃû(osd info)
 int BizGetDevChnName(EM_DEV_TYPE dev_type, u32 dev_ip, u8 chn, char *pbuf, u32 size);
 //ÉèÖÃ½âÂëÆ÷Í¨µÀ¶ÔÓ¦µÄNVR Í¨µÀ

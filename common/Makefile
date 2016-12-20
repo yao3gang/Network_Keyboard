@@ -10,7 +10,7 @@ INC_DIR := ./inc
 SRC_DIR := ./src
 OBJ_DIR := ./obj
 
-CFLAGS += -O2 -Wall -fno-strict-aliasing
+#CFLAGS += -O2 -Wall -fno-strict-aliasing
 
 CFLAGS += $(foreach inc,$(INC_DIR),-I$(inc))
 

@@ -42,7 +42,7 @@
 #include <algorithm>
 #include <utility>
 
-#define SendBuf (1024)
+#define SendBuf (4096)
 #define RcvBuf (4096)
 #define DIALOGUE_TIMEOUT	(5) //一次命令回话超时
 #define RECONNECT_TIMEOUT	(5) //秒
@@ -83,7 +83,7 @@ public:
     int GetDevIdx(EM_DEV_TYPE dev_type, u32 dev_ip);
 	int GetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pdev);
 	//获取所有通道的IPC信息
-	int GetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_ipc_info_t * pipc_info, s32 size);
+	int GetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_ipc_info_t * pipc_info, u32 size);
 	//只支持NVR，得到NVR通道名(osd info)
 	int GetDevChnName(EM_DEV_TYPE dev_type, u32 dev_ip, u8 chn, char *pbuf, u32 size);
 	//设置解码器通道对应的NVR 通道
@@ -755,7 +755,7 @@ int CBizDeviceManager::GetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pgd
 }
 
 //获取所有通道的IPC信息
-int CBizDeviceManager::GetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_ipc_info_t * pipc_info, s32 size)
+int CBizDeviceManager::GetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_ipc_info_t * pipc_info, u32 size)
 {	
 	CBizDevice *pcdev = NULL;
 	int dev_idx = -1;
@@ -1814,7 +1814,8 @@ void CBizDeviceManager::threadRcv(uint param)
 		fd_max = INVALID_SOCKET;
 		timeout.tv_sec = 1;
 		timeout.tv_usec = 0;
-		
+
+		//DBG_PRINT("while 1\n");
 		plock_map_fd_idx->Lock();
 		
 		for (map_iter = map_fd_idx.begin();
@@ -1832,8 +1833,9 @@ void CBizDeviceManager::threadRcv(uint param)
 		}
 				
 		plock_map_fd_idx->Unlock();
-
-		if (INVALID_SOCKET == fd_max)
+		
+		//DBG_PRINT("fd_max: %d\n", fd_max);
+		if (list_fd.empty())
 		{
 			sleep(1);
 			continue;
@@ -1856,7 +1858,7 @@ void CBizDeviceManager::threadRcv(uint param)
 			++list_iter)
 		{
 			fd_tmp = *list_iter;			
-
+			//DBG_PRINT("for 1\n");
 			if ((INVALID_SOCKET != fd_tmp)
 				&& FD_ISSET(fd_tmp, &rset))
 			{
@@ -1875,7 +1877,8 @@ void CBizDeviceManager::threadRcv(uint param)
 						map_fd_idx.erase(map_iter);
 						
 						plock_map_fd_idx->Unlock();
-						
+
+						//DBG_PRINT("for 2\n");
 						//_CleanDevSock(dev_idx);
 					}
 					else
@@ -1886,7 +1889,7 @@ void CBizDeviceManager::threadRcv(uint param)
 					
 					continue;
 				}
-
+				//DBG_PRINT("for 3\n");
 				memcpy(&cprcvhead, rcv_buf, sizeof(ifly_cp_header_t));
 				cprcvhead.length	= ntohl(cprcvhead.length);
 				cprcvhead.type		= ntohs(cprcvhead.type);
@@ -2854,7 +2857,7 @@ int CBizDevice::GetDeviceInfo(ifly_DeviceInfo_t *pDeviceInfo)
 }
 
 //获取所有通道的IPC信息
-int CBizDevice::GetChnIPCInfo(ifly_ipc_info_t * pipc_info, s32 size)
+int CBizDevice::GetChnIPCInfo(ifly_ipc_info_t * pipc_info, u32 size)
 {
 	int realacklen = 0;
 	int ret = SUCCESS;
@@ -2871,10 +2874,10 @@ int CBizDevice::GetChnIPCInfo(ifly_ipc_info_t * pipc_info, s32 size)
         return -EPARAM;
 	}
 
-	if (size <= 0 ||
-		size < (s32)(dev_info.maxChnNum * sizeof(ifly_ipc_info_t)))
+	if (size < dev_info.maxChnNum * sizeof(ifly_ipc_info_t))
 	{
-		DBG_PRINT("size invalid\n");
+		DBG_PRINT("size(%d) invalid, dev_info.maxChnNum(%d) * sizeof(ifly_ipc_info_t)(%d) = %d\n",
+			size, dev_info.maxChnNum, sizeof(ifly_ipc_info_t), dev_info.maxChnNum * sizeof(ifly_ipc_info_t));
         return -EPARAM;
 	}	
 
@@ -2904,8 +2907,8 @@ int CBizDevice::GetChnIPCInfo(ifly_ipc_info_t * pipc_info, s32 size)
 		ret_desc.endID = ntohs(ret_desc.endID);
 		ret_desc.sum = ntohs(ret_desc.sum);
 
-		//DBG_PRINT("ret sum: %d, startID: %d, endID: %d\n", 
-		//			ret_desc.sum, ret_desc.startID, ret_desc.endID);
+		DBG_PRINT("ret sum: %d, startID: %d, endID: %d\n", 
+					ret_desc.sum, ret_desc.startID, ret_desc.endID);
 
 		if (ret_desc.sum != dev_info.maxChnNum)
 		{
@@ -3077,6 +3080,7 @@ int CBizDevice::RecFilesSearch(ifly_recsearch_param_t *psearch_para, ifly_search
 {
 	int realacklen = 0;
 	int ret = SUCCESS;
+	ifly_recsearch_param_t search_para;//为了保护psearch_para 数据不受htons htonl 影响
 	char buf[4096]={0};
 
 	//只支持NVR
@@ -3103,15 +3107,17 @@ enum NETDVR_REC_INDEX_MASK
     NETDVR_REC_INDEX_ALL = 0x10,
 };
 #endif
-	psearch_para->channel_mask = htons(psearch_para->channel_mask);
-    psearch_para->type_mask = htons(psearch_para->type_mask);
-    psearch_para->start_time = htonl(psearch_para->start_time);
-    psearch_para->end_time = htonl(psearch_para->end_time);
-    psearch_para->startID = htons(1);  //must >= 1
-    psearch_para->max_return = htons(psearch_para->max_return); //must <= 24
+	memcpy(&search_para, psearch_para, sizeof(ifly_recsearch_param_t));
+
+	search_para.channel_mask = htons(search_para.channel_mask);
+    search_para.type_mask = htons(search_para.type_mask);
+    search_para.start_time = htonl(search_para.start_time);
+    search_para.end_time = htonl(search_para.end_time);
+    search_para.startID = htons(search_para.startID);  //must >= 1
+    search_para.max_return = htons(search_para.max_return); //must <= 24
     
 	ret = g_biz_device_manager.NetDialogue(sock_cmd, CTRL_CMD_RECFILESEARCH, 
-				psearch_para, sizeof(ifly_recsearch_param_t), 
+				&search_para, sizeof(ifly_recsearch_param_t), 
 				buf, sizeof(buf), &realacklen);
 	if (ret)
 	{
@@ -3128,9 +3134,19 @@ enum NETDVR_REC_INDEX_MASK
 
 	DBG_PRINT("sum: %d, startID: %d, endID: %d\n", 
 		desc.sum, desc.startID, desc.endID);
+	
 	memcpy(&psearch_result->result_desc, &desc, sizeof(ifly_search_desc_t));
 
-	u32 file_nums = MIN(psearch_para->max_return, desc.sum);
+	if (desc.startID == 0)//没有搜索到文件，无返回文件信息
+	{
+		DBG_PRINT("desc.startID == 0, not found files\n");
+		return SUCCESS;
+	}
+
+	u16 file_nums = MIN(psearch_para->max_return, desc.endID-desc.startID+1);
+	
+	DBG_PRINT("result file nums: %d\n", file_nums);
+		
 	memcpy(psearch_result->pfile_info,
 		buf + sizeof(ifly_search_desc_t),
 		file_nums * sizeof(ifly_recfileinfo_t));
@@ -3966,7 +3982,7 @@ int BizGetDevInfo(EM_DEV_TYPE dev_type, u32 dev_ip, SGuiDev *pdev)
 }
 
 //获取所有通道的IPC信息
-int BizGetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_ipc_info_t * pipc_info, s32 size)
+int BizGetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_ipc_info_t * pipc_info, u32 size)
 {
 	return g_biz_device_manager.GetDevChnIPCInfo(dev_type, dev_ip, pipc_info, size);
 }

@@ -12,7 +12,7 @@ OBJ_DIR := ./obj
 
 CFLAGS += $(foreach inc,$(INC_DIR),-I$(inc))
 
-CFLAGS += -O2 -Wall -fno-strict-aliasing
+#CFLAGS += -O2 -Wall -fno-strict-aliasing
 
 ifdef MYDEFINE
 	CFLAGS += -D$(MYDEFINE)

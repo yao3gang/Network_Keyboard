@@ -11,11 +11,14 @@
 
 #include "biz_system_complex.h"
 
-#define MAX_FILE_NUMS (24)
+#define MAX_FILE_NUMS (10)
+#define MB (1024*1024)
 
 form_playback::form_playback(QWidget *parent) :
     QWidget(parent),
-    ui(new Ui::form_playback)
+    ui(new Ui::form_playback),
+    search_nvr_ip(INADDR_NONE),
+    search_nvr_chn(INADDR_NONE)//只是使用该无效值，没有其他意思
 {
     memset(&search_para, 0, sizeof(ifly_recsearch_param_t));
 
@@ -54,7 +57,6 @@ void form_playback::init_form() //控件
 {
     setupWidgetLeft();
     setupWidgetBottom();
-    setupTableWidgetResult();
 }
 
 void form_playback::setupWidgetLeft()
@@ -247,6 +249,10 @@ void form_playback::setupWidgetBottom()
     ui->btn_page_next->setToolTip(QString::fromUtf8("下一页"));
     ui->btn_page_end->setToolTip(QString::fromUtf8("尾页"));
 
+    ui->lab_page->setToolTip(QString::fromUtf8("当前页/总页数"));
+    ui->lab_page->setText(QString::fromUtf8("0/0"));
+    ui->lab_page->adjustSize();
+
     //btn extra
     ui->btn_extra->setIcon(QIcon(QString::fromUtf8(":/image/up.bmp")));
     ui->btn_extra->setToolTip(QString::fromUtf8("显示文件列表"));
@@ -254,6 +260,7 @@ void form_playback::setupWidgetBottom()
     ui->btn_extra->setCheckable(true);
     ui->btn_extra->setAutoDefault(false);
 
+    setupTableWidgetResult();
     ui->widget_result->hide();
 
     connect(ui->btn_extra, SIGNAL(toggled(bool)), this, SLOT(showTableWidget(bool)));
@@ -261,33 +268,65 @@ void form_playback::setupWidgetBottom()
 
 void form_playback::setupTableWidgetResult()
 {
+    QStringList header;
+    header.append(QString::fromUtf8("序号"));
+    header.append(QString::fromUtf8("起始时间"));
+    header.append(QString::fromUtf8("结束时间"));
+    header.append(QString::fromUtf8("文件大小"));
+
     ui->tableWidget_left->verticalHeader()->setVisible(false);//列表头不可见
-    ui->tableWidget_left->horizontalHeader()->setVisible(false);//行表头不可见
+    //ui->tableWidget_left->horizontalHeader()->setVisible(false);//行表头不可见
     ui->tableWidget_left->setFocusPolicy(Qt::NoFocus);//让table失去焦点，防止没有选中行时，添加第一行
     ui->tableWidget_left->setSelectionBehavior(QAbstractItemView::SelectRows);//点击选择整行
+    ui->tableWidget_left->setSelectionMode(QAbstractItemView::SingleSelection);
+    //ui->tableWidget_left->clearSelection()清除选择区域
     ui->tableWidget_left->setAlternatingRowColors(true);//奇偶行不同颜色显示
     ui->tableWidget_left->setEditTriggers(QAbstractItemView::NoEditTriggers);//单元格不可编辑
     ui->tableWidget_left->horizontalHeader()->setStretchLastSection(true);//最后一列单元格占满 tablewidget
-    ui->tableWidget_left->setRowCount(0);
+    ui->tableWidget_left->setRowCount(5);
     ui->tableWidget_left->clearContents();
     ui->tableWidget_left->setColumnCount(4);
     ui->tableWidget_left->setColumnWidth(0,50);
     ui->tableWidget_left->setColumnWidth(1,100);
     ui->tableWidget_left->setColumnWidth(2,100);
+    //设置表头
+    QTableWidgetItem *__qtablewidgetitem0 = new QTableWidgetItem();
+    ui->tableWidget_left->setHorizontalHeaderItem(0, __qtablewidgetitem0);
+    QTableWidgetItem *__qtablewidgetitem1 = new QTableWidgetItem();
+    ui->tableWidget_left->setHorizontalHeaderItem(1, __qtablewidgetitem1);
+    QTableWidgetItem *__qtablewidgetitem2 = new QTableWidgetItem();
+    ui->tableWidget_left->setHorizontalHeaderItem(2, __qtablewidgetitem2);
+    QTableWidgetItem *__qtablewidgetitem3 = new QTableWidgetItem();
+    ui->tableWidget_left->setHorizontalHeaderItem(3, __qtablewidgetitem3);
+    ui->tableWidget_left->setHorizontalHeaderLabels(header);
+
+
+
 
     ui->tableWidget_right->verticalHeader()->setVisible(false);//列表头不可见
-    ui->tableWidget_right->horizontalHeader()->setVisible(false);//行表头不可见
+    //ui->tableWidget_right->horizontalHeader()->setVisible(false);//行表头不可见
     ui->tableWidget_right->setFocusPolicy(Qt::NoFocus);//让table失去焦点，防止没有选中行时，添加第一行
     ui->tableWidget_right->setSelectionBehavior(QAbstractItemView::SelectRows);//点击选择整行
+    ui->tableWidget_right->setSelectionMode(QAbstractItemView::SingleSelection);
     ui->tableWidget_right->setAlternatingRowColors(true);//奇偶行不同颜色显示
     ui->tableWidget_right->setEditTriggers(QAbstractItemView::NoEditTriggers);//单元格不可编辑
     ui->tableWidget_right->horizontalHeader()->setStretchLastSection(true);//最后一列单元格占满 tablewidget
-    ui->tableWidget_right->setRowCount(0);
+    ui->tableWidget_right->setRowCount(5);
     ui->tableWidget_right->clearContents();
     ui->tableWidget_right->setColumnCount(4);
     ui->tableWidget_right->setColumnWidth(0,50);
     ui->tableWidget_right->setColumnWidth(1,100);
     ui->tableWidget_right->setColumnWidth(2,100);
+    //设置表头
+    __qtablewidgetitem0 = new QTableWidgetItem();
+    ui->tableWidget_right->setHorizontalHeaderItem(0, __qtablewidgetitem0);
+    __qtablewidgetitem1 = new QTableWidgetItem();
+    ui->tableWidget_right->setHorizontalHeaderItem(1, __qtablewidgetitem1);
+    __qtablewidgetitem2 = new QTableWidgetItem();
+    ui->tableWidget_right->setHorizontalHeaderItem(2, __qtablewidgetitem2);
+    __qtablewidgetitem3 = new QTableWidgetItem();
+    ui->tableWidget_right->setHorizontalHeaderItem(3, __qtablewidgetitem3);
+    ui->tableWidget_right->setHorizontalHeaderLabels(header);
 }
 
 void form_playback::showTableWidget(bool b)
@@ -405,61 +444,143 @@ void form_playback::refreshDevInfo(SGuiDev dev)
 
 void form_playback::refreshWidgetResult()
 {
-    ui->tableWidget_left->setRowCount(0);
+    if (0 == search_result.result_desc.startID)
+    {
+        ShowMessageBoxInfo(QString::fromUtf8("没有搜索到满足条件的文件"));
+
+        return ;
+    }
+
+    u32 page_total = (search_result.result_desc.sum + MAX_FILE_NUMS -1) / MAX_FILE_NUMS;
+    u32 page_cur = search_result.result_desc.startID / MAX_FILE_NUMS + 1;
+    DBG_PRINT("page_total: %d, page_cur: %d\n", page_total, page_cur);
+
+    ui->lab_page->setText(QString::fromUtf8("%1/%2").arg(page_cur).arg(page_total));
+
+    refreshWidgetResultLeft();
+    refreshWidgetResultright();
+}
+
+void form_playback::refreshWidgetResultLeft()
+{
     ui->tableWidget_left->clearContents();
 
     u32 start_time = 0;
     u32 end_time = 0;
-    start_time = search_result.pfile_info[0].start_time;
-    end_time = search_result.pfile_info[0].end_time;
-
-    start_time += 8*3600;
-    end_time += 8*3600;
-
-    ui->tableWidget_left->setRowCount(5);
-    int i;
     struct tm tm_time;
     QTableWidgetItem *item = NULL;
     QString str;
-    for (i = 0; i<5; ++i)
+    QTime qtime;
+    u32 result_file_nums = search_result.result_desc.endID - search_result.result_desc.startID + 1;
+    int show_rows = MIN(MAX_FILE_NUMS/2, result_file_nums);
+    DBG_PRINT("show_rows: %d\n", show_rows);
+
+    for (int i=0; i<show_rows; ++i)
     {
-        str = QString(QString::fromUtf8("%1").arg(i+1));
+        start_time = search_result.pfile_info[i].start_time;
+        end_time = search_result.pfile_info[i].end_time;
+        start_time += 8*3600;//时区偏移
+        end_time += 8*3600;
+
+        //序号
+        str = QString(QString::fromUtf8("%1").arg(i+search_result.result_desc.startID));
         item = new QTableWidgetItem();
         item->setText(str);
         ui->tableWidget_left->setItem(i, 0, item);
 
-
+        //起始时间
         gmtime_r((time_t *)&start_time, &tm_time);
-        str = QString(QString::fromUtf8("%1:%2:%3").arg(tm_time.tm_hour).arg(tm_time.tm_min).arg(tm_time.tm_sec));
+        qtime = QTime(tm_time.tm_hour, tm_time.tm_min, tm_time.tm_sec);
         item = new QTableWidgetItem();
-        item->setText(str);
+        item->setText(qtime.toString(QString::fromUtf8("HH:mm:ss")));
         ui->tableWidget_left->setItem(i, 1, item);
 
+        //结束时间
         gmtime_r((time_t *)&end_time, &tm_time);
-        str = QString(QString::fromUtf8("%1:%2:%3").arg(tm_time.tm_hour).arg(tm_time.tm_min).arg(tm_time.tm_sec));
+        qtime = QTime(tm_time.tm_hour, tm_time.tm_min, tm_time.tm_sec);
         item = new QTableWidgetItem();
-        item->setText(str);
+        item->setText(qtime.toString(QString::fromUtf8("HH:mm:ss")));
         ui->tableWidget_left->setItem(i, 2, item);
 
-        str = QString(QString::fromUtf8("%1").arg(search_result.pfile_info[0].size));
+        //文件大小
+        str = QString(QString::fromUtf8("%1MB").arg(search_result.pfile_info[i].size / MB));
         item = new QTableWidgetItem();
         item->setText(str);
         ui->tableWidget_left->setItem(i, 3, item);
     }
 }
 
-void form_playback::on_btn_srh_clicked()
+void form_playback::refreshWidgetResultright()
 {
-    memset(&search_para, 0, sizeof(ifly_recsearch_param_t));
+    ui->tableWidget_right->clearContents();
 
-    //get nvr ip & chn
+    u32 start_time = 0;
+    u32 end_time = 0;
+    struct tm tm_time;
+    QTableWidgetItem *item = NULL;
+    QString str;
+    QTime qtime;
+    u32 result_file_nums = search_result.result_desc.endID - search_result.result_desc.startID + 1;
+
+    if (result_file_nums <= MAX_FILE_NUMS/2)//tableWidget_left中已经足够显示
+    {
+        return ;
+    }
+
+    int show_rows = MIN(MAX_FILE_NUMS/2, result_file_nums - MAX_FILE_NUMS/2);
+
+    DBG_PRINT("show_rows: %d\n", show_rows);
+
+    for (int i=0; i<show_rows; ++i)
+    {
+        start_time = search_result.pfile_info[i+MAX_FILE_NUMS/2].start_time;
+        end_time = search_result.pfile_info[i+MAX_FILE_NUMS/2].end_time;
+        start_time += 8*3600;//时区偏移
+        end_time += 8*3600;
+
+        //序号
+        str = QString(QString::fromUtf8("%1").arg(i+MAX_FILE_NUMS/2+search_result.result_desc.startID));
+        item = new QTableWidgetItem();
+        item->setText(str);
+        ui->tableWidget_right->setItem(i, 0, item);
+
+        //起始时间
+        gmtime_r((time_t *)&start_time, &tm_time);
+        qtime = QTime(tm_time.tm_hour, tm_time.tm_min, tm_time.tm_sec);
+        item = new QTableWidgetItem();
+        item->setText(qtime.toString(QString::fromUtf8("HH:mm:ss")));
+        ui->tableWidget_right->setItem(i, 1, item);
+
+        //结束时间
+        gmtime_r((time_t *)&end_time, &tm_time);
+        qtime = QTime(tm_time.tm_hour, tm_time.tm_min, tm_time.tm_sec);
+        item = new QTableWidgetItem();
+        item->setText(qtime.toString(QString::fromUtf8("HH:mm:ss")));
+        ui->tableWidget_right->setItem(i, 2, item);
+
+        //文件大小
+        str = QString(QString::fromUtf8("%1MB").arg(search_result.pfile_info[i+MAX_FILE_NUMS/2].size / MB));
+        item = new QTableWidgetItem();
+        item->setText(str);
+        ui->tableWidget_right->setItem(i, 3, item);
+    }
+}
+
+//得到当前选中的NVR IP和通道号
+int form_playback::getCurrentNvrChn(u32 *pnvr_ip, u32 *pnvr_chn)
+{
+    QString str_nvr_ip;
+    QString str_chn;
+    u32 nvr_ip = INADDR_NONE;
+    u32 nvr_chn = INADDR_NONE;
+
     QTreeWidgetItem *item = ui->treeWidget_nvr->currentItem();
     if (NULL == item)
     {
         ERR_PRINT("current item == NULL\n");
 
         ShowMessageBoxInfo(QString::fromUtf8("请选定NVR的一个通道！"));
-        return ;
+        return -FAILURE;
     }
 
     if (NULL == item->parent())
@@ -467,50 +588,68 @@ void form_playback::on_btn_srh_clicked()
         ERR_PRINT("current item parent == NULL\n");
 
         ShowMessageBoxInfo(QString::fromUtf8("请选定NVR的一个通道！"));
-        return ;
+        return -FAILURE;
     }
 
-    QString str_nvr_ip = item->parent()->text(0);
-    u32 nvr_ip = inet_addr(str_nvr_ip.toUtf8().constData());
+    str_nvr_ip = item->parent()->text(0);
+    nvr_ip = inet_addr(str_nvr_ip.toUtf8().constData());
     if (INADDR_NONE == nvr_ip)
     {
         ERR_PRINT("nvr ip invalid, str_nvr_ip: %s\n", str_nvr_ip.toUtf8().constData());
 
         ShowMessageBoxError(QString::fromUtf8("选定的NVR IP地址无效！"));
-        return ;
+        return -FAILURE;
     }
 
     //req nvr chn
-    QString str_chn = item->text(0);
+    str_chn = item->text(0);
     if (!str_chn.contains(QString::fromUtf8("通道"), Qt::CaseInsensitive))//不含有"通道"
     {
         ERR_PRINT("chn str: %s, contains invalid\n", str_chn.toUtf8().constData());
 
         ShowMessageBoxError(QString::fromUtf8("选定的NVR通道有误！"));
-        return ;
+        return -FAILURE;
     }
 
-    u8 nvr_chn = 0xff;
-    if (1 != sscanf(str_chn.toUtf8().constData(), "通道%d", &nvr_chn))
-    {
-        ERR_PRINT("chn str: %s, sscanf invalid\n", str_chn.toUtf8().constData());
+    nvr_chn = item->parent()->indexOfChild(item);
+    DBG_PRINT("nvr_chn: %d\n", nvr_chn);
 
-        ShowMessageBoxError(QString::fromUtf8("选定的NVR通道有误！"));
-        return ;
-    }
-    nvr_chn -= 1;
+    *pnvr_ip = nvr_ip;
+    *pnvr_chn = nvr_chn;
 
-    //date & time
+    return SUCCESS;
+}
+
+void form_playback::on_btn_srh_clicked()
+{
+    u32 nvr_ip = INADDR_NONE;
+    u32 nvr_chn = INADDR_NONE;
     u32 start_time = 0;
     u32 end_time = 0;
     struct tm tmtemp;
-    QDate qd = ui->dateEdit->date();
+    QDate qd;
+    QTime qt;
+    int ret = SUCCESS;
+
+    memset(&search_para, 0, sizeof(ifly_recsearch_param_t));
+
+    //得到当前选中的NVR IP和通道号
+    ret = getCurrentNvrChn(&nvr_ip, &nvr_chn);
+    if (ret)
+    {
+        return ;
+    }
+    search_nvr_ip = nvr_ip;
+    search_nvr_chn = nvr_chn;
+
+    //date & time
+    qd = ui->dateEdit->date();
 
     tmtemp.tm_year = qd.year() -1900;
     tmtemp.tm_mon = qd.month() -1;
     tmtemp.tm_mday = qd.day();
 
-    QTime qt = ui->timeEdit_start->time();
+    qt = ui->timeEdit_start->time();
     tmtemp.tm_hour = qt.hour();
     tmtemp.tm_min = qt.minute();
     tmtemp.tm_sec = qt.second();
@@ -542,14 +681,13 @@ enum NETDVR_REC_INDEX_MASK
     search_para.startID     = 1;  //must >= 1
     search_para.max_return  = MAX_FILE_NUMS; //must <= 24
 
-    int ret = BizDevRecFilesSearch(nvr_ip, &search_para, &search_result);
+    ret = BizDevRecFilesSearch(nvr_ip, &search_para, &search_result);
     if (ret)
     {
         ERR_PRINT("BizGetDevChnName failed, ret: %d\n", ret);
         return ;
     }
 
-    refreshWidgetResult();
 #if 0
     if (search_result.result_desc.startID < search_result.result_desc.endID)
     {
@@ -570,6 +708,168 @@ enum NETDVR_REC_INDEX_MASK
         printf("tm_sec: %d\n", tm_time.tm_sec);
     }
 #endif
+
+    refreshWidgetResult();
+}
+
+void form_playback::on_btn_page_start_clicked()
+{
+    u32 nvr_ip = INADDR_NONE;
+    u32 nvr_chn = INADDR_NONE;
+    int ret = SUCCESS;
+
+    ret = getCurrentNvrChn(&nvr_ip, &nvr_chn);
+    if (ret)
+    {
+        return ;
+    }
+
+    if (nvr_ip != search_nvr_ip
+            || nvr_chn != search_nvr_chn)
+    {
+        DBG_PRINT("nvr or chn changed, research it\n");
+        ShowMessageBoxInfo(QString::fromUtf8("NVR通道发生改变，请选定后重新搜索！"));
+        return ;
+    }
+
+    if (search_result.result_desc.startID == 1)//当前就在起始页
+    {
+        DBG_PRINT("current page start\n");
+        return ;
+    }
+
+    search_para.startID = 1;
+    ret = BizDevRecFilesSearch(nvr_ip, &search_para, &search_result);
+    if (ret)
+    {
+        ERR_PRINT("BizGetDevChnName failed, ret: %d\n", ret);
+        return ;
+    }
+
+    refreshWidgetResult();
+}
+
+void form_playback::on_btn_page_pre_clicked()
+{
+    u32 nvr_ip = INADDR_NONE;
+    u32 nvr_chn = INADDR_NONE;
+    int ret = SUCCESS;
+
+    ret = getCurrentNvrChn(&nvr_ip, &nvr_chn);
+    if (ret)
+    {
+        return ;
+    }
+
+    if (nvr_ip != search_nvr_ip
+            || nvr_chn != search_nvr_chn)
+    {
+        DBG_PRINT("nvr or chn changed, research it\n");
+        ShowMessageBoxInfo(QString::fromUtf8("NVR通道发生改变，请选定后重新搜索！"));
+        return ;
+    }
+
+    if (search_result.result_desc.startID == 1)//当前就在起始页
+    {
+        DBG_PRINT("current page start\n");
+        return ;
+    }
+
+    u32 page_total = (search_result.result_desc.sum + MAX_FILE_NUMS -1) / MAX_FILE_NUMS;
+    u32 page_cur = search_result.result_desc.startID / MAX_FILE_NUMS + 1;
+    DBG_PRINT("page_total: %d, page_cur: %d\n", page_total, page_cur);
+
+    search_para.startID -= MAX_FILE_NUMS;
+    ret = BizDevRecFilesSearch(nvr_ip, &search_para, &search_result);
+    if (ret)
+    {
+        ERR_PRINT("BizGetDevChnName failed, ret: %d\n", ret);
+        return ;
+    }
+
+    refreshWidgetResult();
+}
+
+void form_playback::on_btn_page_next_clicked()
+{
+    u32 nvr_ip = INADDR_NONE;
+    u32 nvr_chn = INADDR_NONE;
+    int ret = SUCCESS;
+
+    ret = getCurrentNvrChn(&nvr_ip, &nvr_chn);
+    if (ret)
+    {
+        return ;
+    }
+
+    if (nvr_ip != search_nvr_ip
+            || nvr_chn != search_nvr_chn)
+    {
+        DBG_PRINT("nvr or chn changed, research it\n");
+        ShowMessageBoxInfo(QString::fromUtf8("NVR通道发生改变，请选定后重新搜索！"));
+        return ;
+    }
+
+    if (search_result.result_desc.endID == search_result.result_desc.sum)//当前就在末尾页
+    {
+        DBG_PRINT("current page end\n");
+        return ;
+    }
+
+    u32 page_total = (search_result.result_desc.sum + MAX_FILE_NUMS -1) / MAX_FILE_NUMS;
+    u32 page_cur = search_result.result_desc.startID / MAX_FILE_NUMS + 1;
+    DBG_PRINT("page_total: %d, page_cur: %d\n", page_total, page_cur);
+
+    search_para.startID += MAX_FILE_NUMS;
+    ret = BizDevRecFilesSearch(nvr_ip, &search_para, &search_result);
+    if (ret)
+    {
+        ERR_PRINT("BizGetDevChnName failed, ret: %d\n", ret);
+        return ;
+    }
+
+    refreshWidgetResult();
+}
+
+void form_playback::on_btn_page_end_clicked()
+{
+    u32 nvr_ip = INADDR_NONE;
+    u32 nvr_chn = INADDR_NONE;
+    int ret = SUCCESS;
+
+    ret = getCurrentNvrChn(&nvr_ip, &nvr_chn);
+    if (ret)
+    {
+        return ;
+    }
+
+    if (nvr_ip != search_nvr_ip
+            || nvr_chn != search_nvr_chn)
+    {
+        DBG_PRINT("nvr or chn changed, research it\n");
+        ShowMessageBoxInfo(QString::fromUtf8("NVR通道发生改变，请选定后重新搜索！"));
+        return ;
+    }
+
+    if (search_result.result_desc.endID == search_result.result_desc.sum)//当前就在末尾页
+    {
+        DBG_PRINT("current page end\n");
+        return ;
+    }
+
+    u32 page_total = (search_result.result_desc.sum + MAX_FILE_NUMS -1) / MAX_FILE_NUMS;
+    u32 page_cur = search_result.result_desc.startID / MAX_FILE_NUMS + 1;
+    DBG_PRINT("page_total: %d, page_cur: %d\n", page_total, page_cur);
+
+    search_para.startID = (page_total-1)*MAX_FILE_NUMS + 1;
+    ret = BizDevRecFilesSearch(nvr_ip, &search_para, &search_result);
+    if (ret)
+    {
+        ERR_PRINT("BizGetDevChnName failed, ret: %d\n", ret);
+        return ;
+    }
+
+    refreshWidgetResult();
 }
 
 void form_playback::mousePressEvent(QMouseEvent *event)

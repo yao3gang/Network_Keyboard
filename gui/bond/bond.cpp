@@ -17,6 +17,7 @@ void Cbond::bondNotifyUpdateTime(SDateTime *pdt)
 	
     if (b_recv)
     {
+        //DBG_PRINT("\n");
         emit signalNotifyUpdateTime(dt);
     }
 }
@@ -29,6 +30,7 @@ void Cbond::bondNotifyDevInfo(SGuiDev *pdev)
 	
 	if (b_recv)
     {
+        //DBG_PRINT("\n");
         emit signalNotifyDevInfo(dev);
     }
 }
@@ -45,7 +47,8 @@ int notifyGuiUpdateTime(SDateTime *pdt)
 
 int notifyDevInfo(SGuiDev *pdev)//设备层将信息通知给上层
 {
-	gp_bond->bondNotifyDevInfo(pdev);
+    //DBG_PRINT("\n");
+    gp_bond->bondNotifyDevInfo(pdev);
     return 0;
 }
 

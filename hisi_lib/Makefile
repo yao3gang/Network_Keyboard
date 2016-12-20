@@ -13,7 +13,8 @@ CROSS=$(CCARCH)
 CC=$(CROSS)gcc
 AR=$(CROSS)ar
 
-CFLAGS += -O2 -Wall -fno-strict-aliasing $(INC_PATH) -D$(HISIARCH)
+CFLAGS += $(INC_PATH) -D$(HISIARCH)
+#CFLAGS += -O2 -Wall -fno-strict-aliasing
 #CFLAGS += -Wall $(INC_PATH) -D$(HISIARCH)
 
 all:$(TARGET)
