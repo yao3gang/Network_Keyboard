@@ -872,6 +872,13 @@ void form_playback::on_btn_page_end_clicked()
     refreshWidgetResult();
 }
 
+void form_playback::on_btn_to_dec_clicked()
+{
+    ShowMessageBoxInfo(QString::fromutf8("该功能尚未实现！"));
+
+    return ;
+}
+
 void form_playback::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::RightButton)
