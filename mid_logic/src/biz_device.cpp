@@ -107,8 +107,8 @@ public:
 	int StartNotifyDevInfo();//使能通知。设备层将信息通知给上层
 	int AddDev(EM_DEV_TYPE dev_type, u32 dev_ip);
 	int DelDev(EM_DEV_TYPE dev_type, u32 dev_ip);	
-	int ReqStreamStart(s32 dev_idx, ifly_TCP_Stream_Req *preq, CMediaStream *pstream);
-	int ReqStreamStop(s32 dev_idx, s32 stream_idx);
+	int ReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_TCP_Stream_Req *preq, CMediaStream *pstream);
+	int ReqStreamStop(EM_DEV_TYPE dev_type, u32 dev_ip, s32 stream_idx);
 	//底层数据交互
 	int NetDialogue(int sock, u16 event, const void *content, int length, void* ackbuf, int ackbuflen, int *realacklen);
 	int Init();
@@ -1324,66 +1324,84 @@ fail:
 }
 
 //成功返回stearm_rcv[MaxMediaLinks] 下标stream_idx
-int CBizDeviceManager::ReqStreamStart(s32 dev_idx, ifly_TCP_Stream_Req *preq, CMediaStream *pstream)
+int CBizDeviceManager::ReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_TCP_Stream_Req *preq, CMediaStream *pstream)
 {
 	CBizDevice *pcdev = NULL;
-	int stream_idx = -1;
-	
-	if ((dev_idx < 0) || (dev_idx >= pool_size))
+	int dev_idx = INVALID_VALUE;
+	int ret = SUCCESS;
+	struct in_addr in;
+	in.s_addr = dev_ip;
+
+	dev_idx = GetDevIdx(dev_type, dev_ip);
+	if (dev_idx < 0)
 	{
-		DBG_PRINT("dev_idx(%d) out of range, pool_size: %d\n", dev_idx, pool_size);
+		ERR_PRINT("IP(%s) GetDevIdx failed\n", inet_ntoa(in));
 		
-		return -EPARAM;
-	}		
+		return -EDEV_NOTFOUND;
+	}
 	
 	pplock_dev[dev_idx]->Lock();
 
 	pcdev = ppcdev[dev_idx];
 	if (NULL == pcdev)
 	{	
-		ERR_PRINT("pdev == NULL\n");
+		ERR_PRINT("IP(%s) pcdev == NULL\n", inet_ntoa(in));
 
 		pplock_dev[dev_idx]->Unlock();
-		return -EDEV_NOTFOUND;
-	}
+		return -EDEV_NOTFOUND;		
+	}	
 
-	stream_idx = pcdev->StreamStart(preq, pstream);
-	if (stream_idx < 0)
+	ret = pcdev->StreamStart(preq, pstream);
+	if (ret < 0)
 	{
+		ERR_PRINT("IP(%s) StreamStart failed: %d\n", inet_ntoa(in), ret);
+		
 		pplock_dev[dev_idx]->Unlock();
-		return stream_idx;
+		return ret;
 	}
 
 	//success
 	pplock_dev[dev_idx]->Unlock();
-	return stream_idx;
+	return ret;
 }
 
-int CBizDeviceManager::ReqStreamStop(s32 dev_idx, s32 stream_idx)
+int CBizDeviceManager::ReqStreamStop(EM_DEV_TYPE dev_type, u32 dev_ip, s32 stream_idx)
 {
 	CBizDevice *pcdev = NULL;
-	
-	if ((dev_idx < 0) || (dev_idx >= pool_size))
+	int dev_idx = INVALID_VALUE;
+	int ret = SUCCESS;
+	struct in_addr in;
+	in.s_addr = dev_ip;
+
+	dev_idx = GetDevIdx(dev_type, dev_ip);
+	if (dev_idx < 0)
 	{
-		DBG_PRINT("dev_idx(%d) out of range, pool_size: %d\n", dev_idx, pool_size);
+		ERR_PRINT("IP(%s) GetDevIdx failed\n", inet_ntoa(in));
 		
-		return -EPARAM;
-	}		
+		return -EDEV_NOTFOUND;
+	}
 	
 	pplock_dev[dev_idx]->Lock();
 
 	pcdev = ppcdev[dev_idx];
 	if (NULL == pcdev)
 	{	
-		ERR_PRINT("pdev == NULL\n");
+		ERR_PRINT("IP(%s) pcdev == NULL\n", inet_ntoa(in));
 
 		pplock_dev[dev_idx]->Unlock();
-		return -EDEV_NOTFOUND;
+		return -EDEV_NOTFOUND;		
 	}
 
-	pcdev->StreamStop(stream_idx);
-	pplock_dev[dev_idx]->Unlock();
+	ret = pcdev->StreamStop(stream_idx);
+	if (ret < 0)
+	{
+		ERR_PRINT("IP(%s) StreamStop failed: %d\n", inet_ntoa(in), ret);
+		
+		pplock_dev[dev_idx]->Unlock();
+		return ret;
+	}
 	
+	pplock_dev[dev_idx]->Unlock();
 	return SUCCESS;
 }
 
@@ -2712,7 +2730,7 @@ int CBizDevice::Init()
 		goto fail;
 	}	
 
-	plock4stream = new CMutex;
+	plock4stream = new CMutex(MUTEX_RECURSIVE);
 	if (NULL == plock4stream)
 	{
 		ERR_PRINT("new plock4stream failed\n");
@@ -3381,7 +3399,7 @@ int CBizDevice::StreamStart(ifly_TCP_Stream_Req *preq, CMediaStream *pstream)
 
 	for (i = 0; i < MaxMediaLinks; ++i)
 	{
-		if (!stearm_rcv[i].bstart)
+		if (!stream_rcv[i].b_connect)
 		{
 			break;
 		}
@@ -3451,16 +3469,15 @@ int CBizDevice::StreamStart(ifly_TCP_Stream_Req *preq, CMediaStream *pstream)
 		//启动服务器接收线程	
 		m_threadlet_stream_rcv.run("BizDevice-streamrcv", this, (ASYNPROC)&CBizDevice::threadStreamRcv, 0, 0);
 		bthread_stream_running = TRUE;
-		bthread_stream_exit = FALSE;
 	}
 	
-	stearm_rcv[i].sockfd = fd_tmp;
-	stearm_rcv[i].linkid = stream_ack.ackid;
-	stearm_rcv[i].req = *preq;
-	stearm_rcv[i].pstream = pstream;
-	stearm_rcv[i].bstart = 1;
+	stream_rcv[i].sockfd = fd_tmp;
+	stream_rcv[i].linkid = stream_ack.ackid;
+	stream_rcv[i].req = *preq;
+	stream_rcv[i].pstream = pstream;
+	stream_rcv[i].b_connect = TRUE;
 
-	++stream_cnt;
+	stream_cnt++;
 	idle_cnt = 0;
 	
 	plock4stream->Unlock();
@@ -3486,6 +3503,7 @@ int CBizDevice::StreamStop(int stream_idx)
 	u32 id = 0;
 	int realacklen = 0;
 	char buf[128];
+	CMediaStream* pstream = NULL;
 	
 	if (stream_idx < 0 || stream_idx > MaxMediaLinks)
 	{
@@ -3495,8 +3513,9 @@ int CBizDevice::StreamStop(int stream_idx)
 	}
 	
 	plock4stream->Lock();
-
-	if (!stearm_rcv[stream_idx].bstart)
+	pstream = stream_rcv[stream_idx].pstream;
+	
+	if (!stream_rcv[stream_idx].b_connect)
 	{
 		DBG_PRINT("svr IP: %s, stream_idx(%d) not start\n", 
 			inet_ntoa(in), stream_idx);
@@ -3505,10 +3524,16 @@ int CBizDevice::StreamStop(int stream_idx)
 		return SUCCESS;
 	}
 	
-	id = htonl(stearm_rcv[stream_idx].linkid);
+	id = htonl(stream_rcv[stream_idx].linkid);
 	_CleanStream(stream_idx);
+	stream_cnt--;
 	
 	plock4stream->Unlock();
+
+	if (pstream != NULL)
+	{
+		pstream->dealStateFunc(EM_STREAM_STOP);//主动关闭
+	}
 
 	if (b_alive && (INVALID_SOCKET != sock_cmd))
 	{
@@ -3518,6 +3543,10 @@ int CBizDevice::StreamStop(int stream_idx)
 			ERR_PRINT("NetDialogue CTRL_CMD_STOPVIDEOMONITOR failed\n");
 		}
 	}
+	else
+	{
+		DBG_PRINT("something wrong!!!, b_alive: %d, sock_cmd: %d\n", b_alive, sock_cmd);
+	}
 
 	return SUCCESS;
 }
@@ -3525,18 +3554,17 @@ int CBizDevice::StreamStop(int stream_idx)
 void CBizDevice::_CleanStream(int stream_idx)
 {
 	//plock4stream->Lock();
-	if (INVALID_SOCKET != stearm_rcv[stream_idx].sockfd)
+	if (INVALID_SOCKET != stream_rcv[stream_idx].sockfd)
 	{
-		close(stearm_rcv[stream_idx].sockfd);
-		stearm_rcv[stream_idx].sockfd = INVALID_SOCKET;
+		close(stream_rcv[stream_idx].sockfd);
+		stream_rcv[stream_idx].sockfd = INVALID_SOCKET;
 	}
-	
-	stearm_rcv[stream_idx].linkid = -1;
-	memset(&stearm_rcv[stream_idx].req, 0, sizeof(ifly_TCP_Stream_Req));
-	stearm_rcv[stream_idx].pstream = NULL;
-	stearm_rcv[stream_idx].bstart = 0;
 
-	--stream_cnt;
+	stream_rcv[stream_idx].b_connect = FALSE;
+	stream_rcv[stream_idx].linkid = INVALID_VALUE;
+	stream_rcv[stream_idx].pstream = NULL;
+	memset(&stream_rcv[stream_idx].req, 0, sizeof(ifly_TCP_Stream_Req));	
+	
 	//plock4stream->Unlock();
 }
 
@@ -3544,10 +3572,30 @@ void CBizDevice::_CleanStream(int stream_idx)
 int CBizDevice::ShutdownStreamAll()
 {
 	int i = 0;
+	struct in_addr in;
+	in.s_addr = dev_info.deviceIP;
+	
+	plock4stream->Lock();
 	
 	for (i = 0; i < MaxMediaLinks; ++i)
 	{
 		StreamStop(i);
+	}
+
+	if (bthread_stream_running)
+	{
+		bthread_stream_exit = TRUE;//请求关闭
+
+		sem_exit.TryPend();
+		plock4stream->Unlock();
+
+		DBG_PRINT("dev ip: %s, sem_exit.Pend 1\n", inet_ntoa(in));
+		sem_exit.Pend();
+		DBG_PRINT("dev ip: %s, sem_exit.Pend 2\n", inet_ntoa(in));
+	}
+	else
+	{
+		plock4stream->Unlock();
 	}
 	
 	return SUCCESS;
@@ -3559,10 +3607,9 @@ int CBizDevice::CheckAndReconnectStream()
 	return SUCCESS;
 }
 
+//支持外部请求退出和空闲一段时间后自行退出
 void CBizDevice::threadStreamRcv(uint param)
-{
-	struct in_addr in;
-	in.s_addr = dev_info.deviceIP;
+{	
 	int i = 0;	
 	fd_set rset;
 	struct timeval timeout;
@@ -3574,6 +3621,9 @@ void CBizDevice::threadStreamRcv(uint param)
 	char *pframe_data = NULL;
 	u8 req_command = 0;
 	CMediaStream* pstream = NULL;
+	struct in_addr in;
+	
+	in.s_addr = dev_info.deviceIP;
 
 	pframe_data = new char[MAX_FRAME_SIZE];
 	if (NULL == pframe_data)
@@ -3588,21 +3638,23 @@ void CBizDevice::threadStreamRcv(uint param)
 	{
 		FD_ZERO(&rset);
 		fd_max = INVALID_SOCKET;
-		timeout.tv_sec = 2;
+		timeout.tv_sec = 1;
 		timeout.tv_usec = 0;
 		
 		plock4stream->Lock();//plock4stream->Unlock();
-	#if 0
-		if (bthread_stream_exit)
+
+		if (bthread_stream_exit)//外部请求退出
 		{
 			bthread_stream_running = FALSE;
+			
+			plock4stream->Unlock();			
 			break;
 		}
-	#endif
+	
 		for (i = 0; i < MaxMediaLinks; ++i)
 		{
-			fd_tmp = stearm_rcv[i].sockfd;
-			if (stearm_rcv[i].bstart && (INVALID_SOCKET != fd_tmp))
+			fd_tmp = stream_rcv[i].sockfd;
+			if (stream_rcv[i].b_connect && (INVALID_SOCKET != fd_tmp))
 			{
 				FD_SET(fd_tmp, &rset);
 				fd_max = MAX(fd_tmp, fd_max);
@@ -3610,23 +3662,23 @@ void CBizDevice::threadStreamRcv(uint param)
 		}
 
 		if (INVALID_SOCKET == fd_max)
-		{
-			if (++idle_cnt > MaxIdleNum)
+		{	
+			if (++idle_cnt < MaxIdleNum)
 			{
-				//空闲超时退出
+				plock4stream->Unlock();
+				
+				sleep(1);
+				continue;
+			}
+			else	//空闲一段时间自行退出
+			{
 				bthread_stream_running = FALSE;
 				plock4stream->Unlock();
-				break;
+				break;				
 			}
-
-			sleep(1);
-			continue;
-		}
-		else
-		{
-			idle_cnt = 0;
 		}
 		
+		idle_cnt = 0;
 		plock4stream->Unlock();
 
 		ret = select(fd_max+1, &rset, NULL, NULL, &timeout);
@@ -3641,21 +3693,25 @@ void CBizDevice::threadStreamRcv(uint param)
 			continue;
 		}
 
-		//plock4stream->Lock();//plock4stream->Unlock();
+		plock4stream->Lock();  //plock4stream->Unlock();
 		for (i = 0; i < MaxMediaLinks; ++i)
 		{
-			fd_tmp = stearm_rcv[i].sockfd;
+			//plock4stream->Lock();
+			
+			fd_tmp = stream_rcv[i].sockfd;
 			//0：预览 1：文件回放 2：时间回放 3：文件下载 4：升级 
 			//5 VOIP 6 文件按帧下载 7 时间按帧下载 8 透明通道
 			//9 远程格式化硬盘 10 主机端抓图 11 多路按时间回放 12 按时间下载文件
-			req_command = stearm_rcv[i].req.command;
-			pstream = stearm_rcv[i].pstream;
+			req_command = stream_rcv[i].req.command;
+			pstream = stream_rcv[i].pstream;
+			
+			//plock4stream->Unlock();
 			
 			if ((INVALID_SOCKET != fd_tmp) && FD_ISSET(fd_tmp, &rset))
 			{				
 				memset(&frame_hdr, 0, sizeof(FRAMEHDR));
 				
-				if (req_command == 0 || req_command == 1)
+				if (req_command < 3)
 				{
 					ret = looprecv(fd_tmp, (char *)&hdr, sizeof(ifly_MediaFRAMEHDR_t));
 					if (ret)
@@ -3729,23 +3785,32 @@ void CBizDevice::threadStreamRcv(uint param)
 				{
 					DBG_PRINT("svr IP: %s, stream req command(%d) not supported\n", inet_ntoa(in), req_command);
 				}
-			}
-			continue;
-			
+
+				continue;//正常情况在此
+				
 over: //接收出错
-			plock4stream->Lock();
-			_CleanStream(i);
-			plock4stream->Unlock();
-			
-			if (pstream != NULL)
-			{
-				pstream->dealStateFunc(EM_STREAM_RCV_ERR);//处理接收错误	
+				//plock4stream->Lock();
+				
+				_CleanStream(i);
+				if (pstream != NULL)
+				{
+					pstream->dealStateFunc(EM_STREAM_RCV_ERR);//处理接收错误	
+				}
+				
+				//plock4stream->Unlock();
 			}
-		}		
+		}
+		plock4stream->Unlock();
 	}
 
-	delete [] pframe_data;
-	pframe_data = NULL;
+	if (NULL != pframe_data)
+	{
+		delete [] pframe_data;
+		pframe_data = NULL;
+	}
+
+	sem_exit.Post();
+	
 	DBG_PRINT("svr IP: %s, CBizDevice::threadStreamRcv exit\n", inet_ntoa(in));
 }
 
@@ -4039,14 +4104,14 @@ int BizStartNotifyDevInfo(void)	//使能通知。设备层将信息通知给上层
 	return g_biz_device_manager.StartNotifyDevInfo();
 }
 
-int BizReqStreamStart(s32 dev_idx, ifly_TCP_Stream_Req *preq, CMediaStream *pstream)
+int BizReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_TCP_Stream_Req *preq, CMediaStream *pstream)
 {
-	return g_biz_device_manager.ReqStreamStart(dev_idx, preq, pstream);
+	return g_biz_device_manager.ReqStreamStart(dev_type, dev_ip, preq, pstream);
 }
 
-int BizReqStreamStop(s32 dev_idx, s32 stream_idx)
+int BizReqStreamStop(EM_DEV_TYPE dev_type, u32 dev_ip, s32 stream_idx)
 {
-	return g_biz_device_manager.ReqStreamStop(dev_idx, stream_idx);
+	return g_biz_device_manager.ReqStreamStop(dev_type, dev_ip, stream_idx);
 }
 
 

@@ -52,7 +52,7 @@ int CMutex::Create()
 	if (NULL == lock)
 	{
 		ERR_PRINT("new CMutex except\n");
-		goto fail1;
+		goto fail;
 	}
 	
 	if (MUTEX_FAST == type)
@@ -61,7 +61,7 @@ int CMutex::Create()
 		if (ret)
 		{
 			ERR_PRINT("pthread_mutex_init\n");
-			goto fail2;
+			goto fail;
 		}
 	}
 	else //MUTEX_RECURSIVE
@@ -71,21 +71,21 @@ int CMutex::Create()
 		if (ret)
 		{
 			ERR_PRINT("pthread_mutexattr_init\n");
-			
+			goto fail;
 		}
     	
     	ret = pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE_NP);
     	if (ret)
 		{
 			ERR_PRINT("pthread_mutexattr_settype\n");
-			goto fail2;
+			goto fail;
 		}
 		
 		ret = pthread_mutex_init(lock, &attr);
 		if (ret)
 		{
 			ERR_PRINT("pthread_mutex_init\n");
-			goto fail2;
+			goto fail;
 		}
 	}
 	//DBG_PRINT("3 \n");
@@ -93,11 +93,13 @@ int CMutex::Create()
 	return SUCCESS;
 	
 	
-fail2:
-	delete lock;
-	lock = NULL;
+fail:
+	if (lock)
+	{
+		delete lock;
+		lock = NULL;
+	}
 	
-fail1:
 	m_plock = NULL;
 	return -FAILURE;
 }

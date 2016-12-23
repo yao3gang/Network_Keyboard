@@ -132,10 +132,10 @@ private:
 	C_Lock *plock4stream;//mutex
 	VD_BOOL bthread_stream_running;
 	VD_BOOL bthread_stream_exit;//外部控制线程退出
-	int stream_cnt;
+	int stream_cnt;//客户机请求流数量，即stearm_rcv 数组有效成员数
 	int idle_cnt;//空闲计数，线程空闲1分钟后退出
 	CSemaphore sem_exit;//等待threadStreamRcv退出信号量
-	SDev_StearmRcv_t stearm_rcv[MaxMediaLinks]; //数据流结构MaxMediaLinks
+	SDev_StearmRcv_t stream_rcv[MaxMediaLinks]; //数据流结构MaxMediaLinks
 	void threadStreamRcv(uint param);
 	Threadlet m_threadlet_stream_rcv;
 };
@@ -187,8 +187,8 @@ int BizStartNotifyDevInfo();//使能通知。设备层将信息通知给上层
 
 
 
-int BizReqStreamStart(s32 dev_idx, ifly_TCP_Stream_Req *preq, CMediaStream *pstream);
-int BizReqStreamStop(s32 dev_idx, s32 stream_idx);
+int BizReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_TCP_Stream_Req *preq, CMediaStream *pstream);
+int BizReqStreamStop(EM_DEV_TYPE dev_type, u32 dev_ip, s32 stream_idx);
 
 
 

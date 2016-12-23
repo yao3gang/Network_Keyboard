@@ -37,14 +37,15 @@
 #include "ctrlprotocol.h"
 #include "net.h"
 
-int CMediaStream::Start(CMediaStream *pstream)
+//·µ»ØÁ÷ID
+int CMediaStream::Start()
 {
-	return BizReqStreamStart(dev_idx, &req, pstream);
+	return BizReqStreamStart(dev_type, dev_ip, &req, this);
 }
 
 int CMediaStream::Stop()
 {
-	return BizReqStreamStop(dev_idx, stream_idx);
+	return BizReqStreamStop(dev_type, dev_ip, stream_idx);
 }
 
 

@@ -75,12 +75,7 @@ int BizInit(void)
 	{
 		ERR_PRINT("BizDeviceInit failed\n");
 	}
-	/*
-	if (BizPreviewStart((u32)4244744384, 1, 1))
-	{
-		ERR_PRINT("BizPreviewStart failed\n");
-	}
-	*/
+	
 	if (BizSystemComplexInit())
 	{
 		ERR_PRINT("BizSystemComplexInit failed\n");

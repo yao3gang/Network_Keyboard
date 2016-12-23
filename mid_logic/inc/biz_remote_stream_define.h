@@ -1,6 +1,11 @@
 #ifndef __BIZ_REMOTE_STREAM_DEFINE_H__
 #define __BIZ_REMOTE_STREAM_DEFINE_H__
 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+
 #include "string.h"
 
 #include "types.h"
@@ -8,7 +13,7 @@
 #include "biz_device.h"
 
 
-#define MAX_FRAME_SIZE (768 << 10)
+#define MAX_FRAME_SIZE (1 << 20) // 1MB
 //流接收头
 typedef struct
 {
@@ -37,6 +42,7 @@ typedef enum
 {
 	EM_STREAM_CONNECTED,
 	EM_STREAM_RCV_ERR,
+	EM_STREAM_STOP,
 	EM_STREAM_PROGRESS,	//文件下载进度
 	EM_STREAM_END,	 	//文件下载完成
 } EM_STREAM_STATE_TYPE;
@@ -48,22 +54,26 @@ typedef enum
 class CMediaStream : public CObject
 {
 public:
-	int Start(CMediaStream *pstream);
+	int Start();//返回流ID
 	int Stop();
 	virtual int dealFrameFunc(FRAMEHDR *pframe_hdr)
 	{
+		ERR_PRINT("this is virtual function!!!");
+		
 		return TRUE;
 	}
-	virtual int dealStateFunc(EM_STREAM_STATE_TYPE state, int param = 0)//param: 文件下载进度值
+	virtual int dealStateFunc(EM_STREAM_STATE_TYPE state, u32 param = 0)//param: 文件下载进度值
 	{
+		ERR_PRINT("this is virtual function!!!");
+		
 		return TRUE;
 	}
 
 	CMediaStream()
-	: bstart(0)
-	, dev_ip(0)
-	, dev_idx(-1)
-	, stream_idx(-1)
+	: b_connect(FALSE)
+	, dev_type(EM_DEV_TYPE_NONE)
+	, dev_ip(INADDR_NONE)
+	, stream_idx(INVALID_VALUE)
 	{
 		memset(&req, 0, sizeof(ifly_TCP_Stream_Req));
 	}
@@ -73,9 +83,9 @@ public:
 	}
 	
 protected:
-	u8	bstart;
+	VD_BOOL	b_connect;
+	EM_DEV_TYPE dev_type;
 	u32 dev_ip;
-	s32 dev_idx;
 	s32 stream_idx;
 	ifly_TCP_Stream_Req req;
 
@@ -88,16 +98,16 @@ private:
 
 typedef struct _SDev_StearmRcv_t
 {
-	u8 bstart;
+	VD_BOOL b_connect;
 	int	sockfd;	
 	u32 linkid;
 	ifly_TCP_Stream_Req req;
 	CMediaStream* pstream; //指向具体的流结构，预览、回放、文件备份
 
 	_SDev_StearmRcv_t()
-	: bstart(0)
+	: b_connect(FALSE)
 	, sockfd(INVALID_SOCKET)
-	, linkid(-1)
+	, linkid(INVALID_VALUE)
 	, pstream(NULL)
 	{
 		memset(&req, 0, sizeof(ifly_TCP_Stream_Req));

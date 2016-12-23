@@ -52,10 +52,10 @@ public:
 	~CBizPreview();
 	
 	int Init(void);
-	int PreviewStart(u32 svr_ip, u8 chn, u8 bmain);//bmain 是否主码流
+	int PreviewStart(EM_DEV_TYPE _dev_type, u32 _dev_ip, u8 chn, u8 bmain);//bmain 是否主码流
 	int PreviewStop();
 	virtual int dealFrameFunc(FRAMEHDR *pframe_hdr);
-	virtual int dealStateFunc(EM_STREAM_STATE_TYPE state, int param = 0);//param: 文件下载进度值
+	virtual int dealStateFunc(EM_STREAM_STATE_TYPE state, u32 param = 0);//param: 文件下载进度值
 	
 	
 private:
@@ -69,8 +69,6 @@ private:
 	
 private:
 	VD_BOOL b_inited;
-	u8 b_start;
-	u8 b_connect;
 	C_Lock *plock4param;//mutex
 	
 };
@@ -79,8 +77,6 @@ PATTERN_SINGLETON_IMPLEMENT(CBizPreview);
 
 CBizPreview::CBizPreview()
 : b_inited(FALSE)
-, b_start(0)
-, b_connect(0)
 , plock4param(NULL)
 {
 	
@@ -110,6 +106,7 @@ int CBizPreview::Init(void)
 	return SUCCESS;
 
 fail:
+	
 	FreeSrc();
 	return -FAILURE;
 }
@@ -125,48 +122,51 @@ void CBizPreview::FreeSrc()
 	b_inited = FALSE;
 }
 
-int CBizPreview::PreviewStart(u32 svr_ip, u8 chn, u8 bmain)//bmain 是否主码流
+int CBizPreview::PreviewStart(EM_DEV_TYPE _dev_type, u32 _dev_ip, u8 chn, u8 bmain)//bmain 是否主码流
 {
+	if (!b_inited)
+	{
+		ERR_PRINT("module not inited\n");
+		return -FAILURE;
+	}
+	
 	int ret = SUCCESS;
 	
 	plock4param->Lock();
 
-	if (b_start)//已经开启预览
+	if (b_connect)//已经开启预览
 	{
-		Stop();
-		b_start = 0;
-		b_connect = 0;
+		ret = Stop();
+		if (ret < 0)
+		{
+			ERR_PRINT("Stop failed, ret: %d\n", ret);
+			
+			plock4param->Unlock();
+			return ret;
+		}
+
+		b_connect = FALSE;
 	}
-	
-	dev_ip = svr_ip;
+
+	dev_type = _dev_type;
+	dev_ip = _dev_ip;
 
 	memset(&req, 0, sizeof(ifly_TCP_Stream_Req));
 	req.command = 0;
 	req.Monitor_t.chn = chn;
 	req.Monitor_t.type = bmain ? 0:2;
 	
-	ret = BizGetDevIdx(EM_NVR, dev_ip);
+	ret = Start();
 	if (ret < 0)
 	{
-		ERR_PRINT("BizGetDevIdx failed, ret: %d\n", ret);
-		plock4param->Unlock();
-		return ret;
-	}
-
-	dev_idx = ret;
-	
-	ret = Start(this);
-	if (ret < 0)
-	{
-		ERR_PRINT("PreviewStart failed, ret: %d\n", ret);
+		ERR_PRINT("Start failed, ret: %d\n", ret);
 		plock4param->Unlock();
 		return ret;
 	}
 
 	stream_idx = ret;
-
-	b_start = 1;
-	b_connect = 1;
+	b_connect = TRUE;
+	
 	plock4param->Unlock();
 	
 	return SUCCESS;
@@ -174,14 +174,33 @@ int CBizPreview::PreviewStart(u32 svr_ip, u8 chn, u8 bmain)//bmain 是否主码流
 
 int CBizPreview::PreviewStop()
 {
+	if (!b_inited)
+	{
+		ERR_PRINT("module not inited\n");
+		return -FAILURE;
+	}
+	
+	int ret = SUCCESS;
+	
 	plock4param->Lock();
 
-	if (b_start)
+	if (b_connect)
 	{
-		Stop();
-		b_start = 0;
-		b_connect = 0;
+		ret = Stop();
+		if (ret < 0)
+		{
+			ERR_PRINT("PreviewStop failed, ret: %d\n", ret);
+			
+			plock4param->Unlock();
+			return ret;
+		}
 	}
+
+	b_connect = FALSE;
+	dev_type = EM_DEV_TYPE_NONE;
+	dev_ip = INADDR_NONE;
+	stream_idx = INVALID_VALUE;
+	memset(&req, 0, sizeof(ifly_TCP_Stream_Req));
 	
 	plock4param->Unlock();
 	
@@ -190,6 +209,12 @@ int CBizPreview::PreviewStop()
 
 int CBizPreview::dealFrameFunc(FRAMEHDR *pframe_hdr)
 {
+	if (!b_inited)
+	{
+		ERR_PRINT("module not inited\n");
+		return -FAILURE;
+	}
+	
 	int rtn = 0;
 	vdec_stream_s in_stream;
 	in_stream.rsv = 0;
@@ -213,8 +238,14 @@ int CBizPreview::dealFrameFunc(FRAMEHDR *pframe_hdr)
 	return SUCCESS;
 }
 
-int CBizPreview::dealStateFunc(EM_STREAM_STATE_TYPE state, int param)//param: 文件下载进度
+int CBizPreview::dealStateFunc(EM_STREAM_STATE_TYPE state, u32 param)//param: 文件下载进度
 {
+	if (!b_inited)
+	{
+		ERR_PRINT("module not inited\n");
+		return -FAILURE;
+	}
+	
 	DBG_PRINT("\n");
 	
 	return SUCCESS;
@@ -234,9 +265,9 @@ int BizPreviewInit(void)
 	return g_biz_preview.Init();
 }
 
-int BizPreviewStart(u32 svr_ip, u8 chn, u8 bmain)//bmain 是否主码流
+int BizPreviewStart(EM_DEV_TYPE _dev_type, u32 _dev_ip, u8 chn, u8 bmain)//bmain 是否主码流
 {
-	return g_biz_preview.PreviewStart(svr_ip, chn, bmain);
+	return g_biz_preview.PreviewStart(_dev_type, _dev_ip, chn, bmain);
 }
 
 int BizPreviewStop()

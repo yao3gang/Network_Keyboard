@@ -1,6 +1,4 @@
----- MIN Matches (5 in 4 files) ----
-biz_device.cpp (mid_logic\src):	u16 file_nums = MIN(psearch_para->max_return, desc.endID-desc.startID+1);
-ctimer.cpp (common\src):	int len = MIN(strlen(pszName), 63);
-ctrlprotocol.c (low_module\net\src):		if (memcmp(buf, gc_protocolGUID, MIN(recvlen,16)))
-types.h (common\inc):#ifndef MIN
-types.h (common\inc):#define MIN(a,b)				(((a) < (b)) ? (a) : (b))
+---- ShutdownStreamAll Matches (3 in 2 files) ----
+biz_device.cpp (mid_logic\src):			pcdev->ShutdownStreamAll();
+biz_device.cpp (mid_logic\src):int CBizDevice::ShutdownStreamAll()
+biz_device.h (mid_logic\inc):	int ShutdownStreamAll();

@@ -84,6 +84,7 @@ typedef void* (*LINUXFUNC)(void*);
 #define TRUE	1
 #define FALSE	0
 #define INVALID_FD (-1)
+#define INVALID_VALUE	(-1)
 
 #ifndef MAX
 #define MAX(a,b)				(((a) > (b)) ? (a) : (b))

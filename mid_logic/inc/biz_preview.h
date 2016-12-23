@@ -16,9 +16,8 @@ int BizPreviewInit(void);
 //窗口显示初始化
 int BizPreviewDisplayInit(void);
 
-//stream_type: 0 主码流，1 子码流
-//handle: 成功后返回的句柄
-int BizPreviewStart(u32 svr_ip, u8 chn, u8 bmain);
+//bmain 是否主码流
+int BizPreviewStart(EM_DEV_TYPE _dev_type, u32 _dev_ip, u8 chn, u8 bmain);
 
 int BizPreviewStop();
 
