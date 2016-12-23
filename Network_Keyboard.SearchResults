@@ -1,4 +1,4 @@
 ---- ShutdownStreamAll Matches (3 in 2 files) ----
-biz_device.cpp (mid_logic\src):			pcdev->ShutdownStreamAll();
-biz_device.cpp (mid_logic\src):int CBizDevice::ShutdownStreamAll()
-biz_device.h (mid_logic\inc):	int ShutdownStreamAll();
+Biz_device.cpp (mid_logic\src):			pcdev->ShutdownStreamAll();
+Biz_device.cpp (mid_logic\src):int CBizDevice::ShutdownStreamAll()
+Biz_device.h (mid_logic\inc):	int ShutdownStreamAll();

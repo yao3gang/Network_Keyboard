@@ -81,7 +81,7 @@ public:
 	//stream
 	//成功返回stearm_rcv[MaxMediaLinks] 下标stream_idx
 	int StreamStart(ifly_TCP_Stream_Req *preq, CMediaStream *pstream);
-	int StreamStop(int stream_idx);
+	int StreamStop(int stream_idx, EM_STREAM_STATE_TYPE stop_reason = EM_STREAM_STOP);//关闭原因默认主动关闭
 	void _CleanStream(int stream_idx);
 
 	//关闭所有数据流连接
@@ -89,6 +89,8 @@ public:
 	
 	//重连部分数据流连接
 	int CheckAndReconnectStream();
+
+	
 	
 	//获取所有通道的IPC信息
 	int GetChnIPCInfo(ifly_ipc_info_t * pipc_info, u32 size);
@@ -101,8 +103,6 @@ public:
 	int DelChnIpc(u8 dec_chn);	
 	//NVR 录像搜索
 	int RecFilesSearch(ifly_recsearch_param_t *psearch_para, ifly_search_file_result_t *psearch_result);
-
-	
 	//获取设备轮巡参数
 	int GetPatrolPara(ifly_patrol_para_t *para, u32 *pbuf_size);
 
@@ -126,7 +126,7 @@ private:
 	s32 dev_idx; //dev pool index
 	int sock_cmd;		//命令sock，登录，接收报警
 	VD_BOOL b_alive;	//是否在线
-	int cnt_err;		//暂时未用。错误计数，累计2次，重新连接设备
+	int err_cnt;		//暂时未用。错误计数，累计2次，重新连接设备
 						//_Add2SetFromMap 检测cnt_err ，close dev sock
 	//stream					
 	C_Lock *plock4stream;//mutex

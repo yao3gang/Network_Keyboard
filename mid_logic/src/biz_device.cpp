@@ -2490,7 +2490,7 @@ void CBizDeviceManager::threadKeepAlive(uint param)
 			
 			if (NULL == pcdev)
 			{
-				DBG_PRINT("dev_idx(%d) pcdev == NULLs\n", dev_idx);
+				DBG_PRINT("dev_idx(%d) pcdev == NULL\n", dev_idx);
 				pplock_dev[dev_idx]->Unlock();
 
 				continue;
@@ -2696,7 +2696,7 @@ CBizDevice::CBizDevice()
 , dev_idx(-1)
 , sock_cmd(INVALID_SOCKET)
 , b_alive(FALSE)
-, cnt_err(0)
+, err_cnt(0)
 //stream
 , plock4stream(NULL)
 , bthread_stream_running(FALSE)
@@ -2773,7 +2773,7 @@ void CBizDevice::CleanSock()
 		sock_cmd = INVALID_SOCKET;
 
 		b_alive = FALSE;
-		cnt_err = 0;
+		err_cnt = 0;
 	}
 }
 
@@ -3330,6 +3330,8 @@ int CBizDevice::DevConnect()
 #endif
 
 	b_alive = TRUE;
+	err_cnt = 0;//清零
+	
 	return SUCCESS;
 
 fail2:
@@ -3495,7 +3497,7 @@ fail:
 	return -FAILURE;
 }
 
-int CBizDevice::StreamStop(int stream_idx)
+int CBizDevice::StreamStop(int stream_idx, EM_STREAM_STATE_TYPE stop_reason)
 {
 	int ret = -FAILURE;
 	struct in_addr in;
@@ -3524,17 +3526,7 @@ int CBizDevice::StreamStop(int stream_idx)
 		return SUCCESS;
 	}
 	
-	id = htonl(stream_rcv[stream_idx].linkid);
-	_CleanStream(stream_idx);
-	stream_cnt--;
-	
-	plock4stream->Unlock();
-
-	if (pstream != NULL)
-	{
-		pstream->dealStateFunc(EM_STREAM_STOP);//主动关闭
-	}
-
+	id = htonl(stream_rcv[stream_idx].linkid);	
 	if (b_alive && (INVALID_SOCKET != sock_cmd))
 	{
 		ret = g_biz_device_manager.NetDialogue(sock_cmd, CTRL_CMD_STOPVIDEOMONITOR, &id, sizeof(id), buf, sizeof(buf), &realacklen);
@@ -3547,6 +3539,16 @@ int CBizDevice::StreamStop(int stream_idx)
 	{
 		DBG_PRINT("something wrong!!!, b_alive: %d, sock_cmd: %d\n", b_alive, sock_cmd);
 	}
+
+	_CleanStream(stream_idx);
+	stream_cnt--;
+
+	if (pstream != NULL)
+	{
+		pstream->dealStateFunc(stop_reason);//关闭原因默认主动关闭
+	}
+
+	plock4stream->Unlock();
 
 	return SUCCESS;
 }
@@ -3716,8 +3718,8 @@ void CBizDevice::threadStreamRcv(uint param)
 					ret = looprecv(fd_tmp, (char *)&hdr, sizeof(ifly_MediaFRAMEHDR_t));
 					if (ret)
 					{
-						DBG_PRINT("svr IP: %s, recv ifly_MediaFRAMEHDR_t failed\n", inet_ntoa(in));
-						goto over;
+						ERR_PRINT("svr IP: %s, recv ifly_MediaFRAMEHDR_t failed\n", inet_ntoa(in));
+						goto fail;
 					}
 					
 					hdr.m_dwDataSize = ntohl(hdr.m_dwDataSize);
@@ -3728,18 +3730,17 @@ void CBizDevice::threadStreamRcv(uint param)
 
 					if (hdr.m_dwDataSize > MAX_FRAME_SIZE)
 					{
-						DBG_PRINT("svr IP: %s, recv DataSize(%d) > MAX_FRAME_SIZE(%d) failed\n",
+						ERR_PRINT("svr IP: %s, recv DataSize(%d) > MAX_FRAME_SIZE(%d) failed\n",
 							inet_ntoa(in), hdr.m_dwDataSize, MAX_FRAME_SIZE);
-						goto over;
+						goto fail;
 					}
 					
 					ret = looprecv(fd_tmp, pframe_data, hdr.m_dwDataSize);
 					if (ret)
 					{
-						DBG_PRINT("svr IP: %s, recv one frame failed\n", inet_ntoa(in));
-						goto over;
+						ERR_PRINT("svr IP: %s, recv one frame failed\n", inet_ntoa(in));
+						goto fail;
 					}
-
 					
 					frame_hdr.m_byMediaType = hdr.m_byMediaType;
 					frame_hdr.m_byFrameRate = hdr.m_byFrameRate;
@@ -3771,7 +3772,7 @@ void CBizDevice::threadStreamRcv(uint param)
 					if (ret <= 0)
 					{
 						DBG_PRINT("svr IP: %s, recv one frame failed\n", inet_ntoa(in));
-						goto over;
+						goto fail;
 					}
 					frame_hdr.m_pData = (u8 *)pframe_data;
 					frame_hdr.m_dwDataSize = ret;
@@ -3788,9 +3789,11 @@ void CBizDevice::threadStreamRcv(uint param)
 
 				continue;//正常情况在此
 				
-over: //接收出错
-				//plock4stream->Lock();
+fail: //接收出错
 				
+				StreamStop(i, EM_STREAM_RCV_ERR);
+			#if 0
+				//plock4stream->Lock();
 				_CleanStream(i);
 				if (pstream != NULL)
 				{
@@ -3798,6 +3801,7 @@ over: //接收出错
 				}
 				
 				//plock4stream->Unlock();
+			#endif
 			}
 		}
 		plock4stream->Unlock();
