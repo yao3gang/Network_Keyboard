@@ -11,6 +11,8 @@
 #include <sys/time.h>
 #include <sys/select.h>
 #include <sys/types.h>
+#include <signal.h>
+
 
 
 #include "ctimer.h"
@@ -49,9 +51,40 @@ typedef struct hiRECT_S
 	 HI_U32 u32Height; 
 }RECT_S;
 */
+
+void term_exit(int signo)
+{
+	time_t cur;
+	cur = time(NULL);
+	cur += 3600*8;
+	
+	DBG_PRINT("!!!!!!recv signal(%d),SIGBUS=%d,SIGPIPE=%d,at %s", signo, SIGBUS, SIGPIPE, ctime(&cur));
+	if(signo != 17)//子进程结束//SIGCHLD
+	{
+		//SIGINT=2;//SIGTSTP=20
+		if(signo != SIGINT && signo != SIGTSTP && signo != 21 && signo != SIGQUIT && signo != SIGWINCH)
+		{
+			//sleep(10);
+			printf("process quit!!!\n");
+			exit(-1);
+		}
+		else
+		{
+			//ignore "CTRL+C" "CTRL+Z"
+			printf("???\n");
+		}
+	}
+}
+
+
 int BizInit(void)
 {
 	biz_inited = 0;
+
+	if(signal(SIGPIPE, term_exit) == SIG_ERR)
+	{
+		DBG_PRINT("Register SIGPIPE handler failed, %s\n", strerror(errno));
+	}
 	
 	g_ThreadManager.RegisterMainThread(ThreadGetID());
 	g_TimerManager.Start();

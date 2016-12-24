@@ -1,4 +1,7 @@
----- ShutdownStreamAll Matches (3 in 2 files) ----
-Biz_device.cpp (mid_logic\src):			pcdev->ShutdownStreamAll();
-Biz_device.cpp (mid_logic\src):int CBizDevice::ShutdownStreamAll()
-Biz_device.h (mid_logic\inc):	int ShutdownStreamAll();
+---- pool_dev_count Matches (6 in 1 files) ----
+biz_device.cpp (mid_logic\src):	u32 pool_dev_count;
+biz_device.cpp (mid_logic\src):, pool_dev_count(0)
+biz_device.cpp (mid_logic\src):		ERR_PRINT("%s dev pool full, count: %d\n", str_dev_type.c_str(), pool_dev_count);
+biz_device.cpp (mid_logic\src):	++pool_dev_count;
+biz_device.cpp (mid_logic\src):	--pool_dev_count;
+biz_device.cpp (mid_logic\src):			--pool_dev_count;

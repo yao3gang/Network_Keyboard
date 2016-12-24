@@ -4,6 +4,8 @@
 #include <map>
 #include <vector>
 
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
 
 
@@ -16,6 +18,7 @@
 #include "biz_remote_stream_define.h"
 #include "gui_dev.h"
 #include "ctrlprotocol.h"
+#include "glb_error_num.h"
 
 
 //设备信息
@@ -53,7 +56,7 @@ typedef struct DeviceInfo_t
 	: maxChnNum(0)
 	, devicetype(0)
 	, devicePort(0)
-	, deviceIP(0)
+	, deviceIP(INADDR_NONE)
 	{
 		
 	}
@@ -118,7 +121,8 @@ private:
 	int _DevLogin(ifly_loginpara_t *plogin);
 	int _DevLogout(ifly_loginpara_t *plogin);
 	int _DevSetAlarmUpload(u8 upload_enable);
-
+	int _ErrProcess(int err_ret);//在每次网络通信后处理错误
+	
 private:
 	C_Lock *plock4param;//mutex
 	SBiz_DeviceInfo_t dev_info;
