@@ -43,8 +43,11 @@ private:
     u32 search_nvr_chn;
 
 private slots:
-    void showTableWidget(bool b);
     void refreshDevInfo(SGuiDev dev);
+
+    void tableWidgetClicked(QTableWidgetItem * item);
+    void tableWidgetDoubleClicked(QTableWidgetItem * item);
+    void showTableWidget(bool b);
     void on_btn_srh_clicked();
     void on_btn_page_start_clicked();
     void on_btn_page_pre_clicked();

@@ -264,6 +264,10 @@ void form_playback::setupWidgetBottom()
     ui->widget_result->hide();
 
     connect(ui->btn_extra, SIGNAL(toggled(bool)), this, SLOT(showTableWidget(bool)));
+    connect(ui->tableWidget_left, SIGNAL(itemClicked(QTableWidgetItem*)), this, SLOT(tableWidgetClicked(QTableWidgetItem*)));
+    connect(ui->tableWidget_left, SIGNAL(itemDoubleClicked(QTableWidgetItem*)), this, SLOT(tableWidgetDoubleClicked(QTableWidgetItem*)));
+    connect(ui->tableWidget_right, SIGNAL(itemClicked(QTableWidgetItem*)), this, SLOT(tableWidgetClicked(QTableWidgetItem*)));
+    connect(ui->tableWidget_right, SIGNAL(itemDoubleClicked(QTableWidgetItem*)), this, SLOT(tableWidgetDoubleClicked(QTableWidgetItem*)));
 }
 
 void form_playback::setupTableWidgetResult()
@@ -279,7 +283,6 @@ void form_playback::setupTableWidgetResult()
     ui->tableWidget_left->setFocusPolicy(Qt::NoFocus);//让table失去焦点，防止没有选中行时，添加第一行
     ui->tableWidget_left->setSelectionBehavior(QAbstractItemView::SelectRows);//点击选择整行
     ui->tableWidget_left->setSelectionMode(QAbstractItemView::SingleSelection);
-    //ui->tableWidget_left->clearSelection()清除选择区域
     ui->tableWidget_left->setAlternatingRowColors(true);//奇偶行不同颜色显示
     ui->tableWidget_left->setEditTriggers(QAbstractItemView::NoEditTriggers);//单元格不可编辑
     ui->tableWidget_left->horizontalHeader()->setStretchLastSection(true);//最后一列单元格占满 tablewidget
@@ -329,9 +332,86 @@ void form_playback::setupTableWidgetResult()
     ui->tableWidget_right->setHorizontalHeaderLabels(header);
 }
 
+void form_playback::tableWidgetClicked(QTableWidgetItem * item)
+{
+    //ui->tableWidget_left->clearSelection()清除选择区域
+    if (NULL == item)
+    {
+        ERR_PRINT("NULL == item\n");
+
+        return ;
+    }
+
+    QTableWidget *ptable_widget = NULL;
+    ptable_widget = item->tableWidget();
+    if (NULL == ptable_widget)
+    {
+        ERR_PRINT("NULL == ptable_widget\n");
+        return ;
+    }
+
+    if (ui->tableWidget_left == ptable_widget)
+    {
+        ui->tableWidget_right->clearSelection();//清除选择区域
+    }
+    else if (ui->tableWidget_right == ptable_widget)
+    {
+        ui->tableWidget_left->clearSelection();
+    }
+    else
+    {
+        ERR_PRINT("ptable_widget neither left nor right\n");
+        return ;
+    }
+}
+
+void form_playback::tableWidgetDoubleClicked(QTableWidgetItem * item)
+{
+    if (NULL == item)
+    {
+        ERR_PRINT("NULL == item\n");
+
+        return ;
+    }
+
+    QTableWidget *ptable_widget = NULL;
+    ptable_widget = item->tableWidget();
+    if (NULL == ptable_widget)
+    {
+        ERR_PRINT("NULL == ptable_widget\n");
+        return ;
+    }
+
+    if (ui->tableWidget_left != ptable_widget
+            && ui->tableWidget_right != ptable_widget)
+    {
+        ERR_PRINT("ptable_widget neither left nor right\n");
+        return ;
+    }
+
+    int file_idx = item->row();//file 在search_result.pfile_info 数组中的index，并非startID之类
+    if (ui->tableWidget_right == ptable_widget)
+    {
+        file_idx += MAX_FILE_NUMS / 2;
+    }
+    DBG_PRINT("file_no: %d\n", file_idx);
+
+    if (file_idx < 0
+            || file_idx >= search_result.result_desc.endID-search_result.result_desc.startID+1)
+    {
+        ERR_PRINT("file_idx: %d invalid, startID: %d, endID: %d\n",
+                  file_idx, search_result.result_desc.startID, search_result.result_desc.endID);
+        return ;
+    }
+
+    DBG_PRINT("file name: %s\n", search_result.pfile_info[file_idx].filename);
+}
+
 void form_playback::showTableWidget(bool b)
 {
     ui->widget_result->setVisible(b);
+
+    DBG_PRINT("widget_play_ctrl height: %d\n", ui->widget_play_ctrl->height());
 
     QIcon icon;
     QString icon_name;
@@ -874,7 +954,7 @@ void form_playback::on_btn_page_end_clicked()
 
 void form_playback::on_btn_to_dec_clicked()
 {
-    ShowMessageBoxInfo(QString::fromutf8("该功能尚未实现！"));
+    ShowMessageBoxInfo(QString::fromUtf8("该功能尚未实现！"));
 
     return ;
 }

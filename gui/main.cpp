@@ -71,13 +71,6 @@ bool myApplication::isRunning()
 int main(int argc, char *argv[])
 {
     //逻辑层初始化
-    if (HisiSysInit())
-    {
-        qDebug("HisiSysInit failed\n");
-        return 0;
-    }
-    qDebug("HisiSysInit success\n");
-
     if (BizInit())
     {
         qDebug("BizInit failed\n");

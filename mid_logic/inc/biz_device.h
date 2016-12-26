@@ -75,7 +75,9 @@ public:
 	VD_BOOL Init(void);
 	void CleanSock();
 
-	int GetDeviceInfo(ifly_DeviceInfo_t *pDeviceInfo);	
+	int GetDeviceInfo(ifly_DeviceInfo_t *pDeviceInfo);
+	//keepalive保活使用
+	int GetDevSysTime(ifly_sysTime_t *psys_time);
 	//连接、登录服务器
 	int DevConnect();
 	//断开命令连接
@@ -121,7 +123,10 @@ private:
 	int _DevLogin(ifly_loginpara_t *plogin);
 	int _DevLogout(ifly_loginpara_t *plogin);
 	int _DevSetAlarmUpload(u8 upload_enable);
-	int _ErrProcess(int err_ret);//在每次网络通信后处理错误
+	//底层数据交互
+	int DevNetDialogue(u16 event, const void *content, int length, void* ackbuf, int ackbuflen);
+	//后期错误检查
+	int DevNetDialogueAfter(int net_ret);
 	
 private:
 	C_Lock *plock4param;//mutex

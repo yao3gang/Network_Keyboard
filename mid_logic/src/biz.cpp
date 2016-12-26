@@ -25,6 +25,7 @@
 #include "biz_device.h"
 #include "biz_preview.h"
 #include "biz_system_complex.h"
+#include "hisi_sys.h"
 
 #include "ctrlprotocol.h"
 #include "net.h"
@@ -62,7 +63,7 @@ void term_exit(int signo)
 	if(signo != 17)//子进程结束//SIGCHLD
 	{
 		//SIGINT=2;//SIGTSTP=20
-		if(signo != SIGINT && signo != SIGTSTP && signo != 21 && signo != SIGQUIT && signo != SIGWINCH)
+		if(signo != SIGPIPE && signo != SIGINT && signo != SIGTSTP && signo != 21 && signo != SIGQUIT && signo != SIGWINCH)
 		{
 			//sleep(10);
 			printf("process quit!!!\n");
@@ -85,6 +86,13 @@ int BizInit(void)
 	{
 		DBG_PRINT("Register SIGPIPE handler failed, %s\n", strerror(errno));
 	}
+
+	//hisi_3535
+	if (HisiSysInit())
+    {
+        ERR_PRINT("HisiSysInit failed\n");
+        return -FAILURE;
+    }
 	
 	g_ThreadManager.RegisterMainThread(ThreadGetID());
 	g_TimerManager.Start();

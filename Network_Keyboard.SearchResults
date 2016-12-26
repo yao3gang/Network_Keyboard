@@ -1,7 +1,5 @@
----- pool_dev_count Matches (6 in 1 files) ----
-biz_device.cpp (mid_logic\src):	u32 pool_dev_count;
-biz_device.cpp (mid_logic\src):, pool_dev_count(0)
-biz_device.cpp (mid_logic\src):		ERR_PRINT("%s dev pool full, count: %d\n", str_dev_type.c_str(), pool_dev_count);
-biz_device.cpp (mid_logic\src):	++pool_dev_count;
-biz_device.cpp (mid_logic\src):	--pool_dev_count;
-biz_device.cpp (mid_logic\src):			--pool_dev_count;
+---- HisiSysInit Matches (4 in 3 files) ----
+biz.cpp (mid_logic\src):	if (HisiSysInit())
+biz.cpp (mid_logic\src):        ERR_PRINT("HisiSysInit failed\n");
+hisi_sys.c (hisi_lib\src):int HisiSysInit()
+hisi_sys.h (hisi_lib\inc):int HisiSysInit(void);
