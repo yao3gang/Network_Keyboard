@@ -53,6 +53,8 @@ public:
 	
 	int Init(void);
 	int PreviewStart(EM_DEV_TYPE _dev_type, u32 _dev_ip, u8 chn, u8 bmain);//bmain 是否主码流
+	//预览是否已经处于进行中
+	VD_BOOL PreviewIsStarted();
 	int PreviewStop();
 	virtual int dealFrameFunc(FRAMEHDR *pframe_hdr);
 	virtual int dealStateFunc(EM_STREAM_STATE_TYPE state, u32 param = 0);//param: 文件下载进度值
@@ -172,6 +174,18 @@ int CBizPreview::PreviewStart(EM_DEV_TYPE _dev_type, u32 _dev_ip, u8 chn, u8 bma
 	return SUCCESS;
 }
 
+//预览是否已经处于进行中
+VD_BOOL CBizPreview::PreviewIsStarted()
+{	
+	plock4param->Lock();
+
+	VD_BOOL b = b_connect;
+		
+	plock4param->Unlock();
+
+	return b;
+}
+
 int CBizPreview::PreviewStop()
 {
 	if (!b_inited)
@@ -268,6 +282,12 @@ int BizPreviewInit(void)
 int BizPreviewStart(EM_DEV_TYPE _dev_type, u32 _dev_ip, u8 chn, u8 bmain)//bmain 是否主码流
 {
 	return g_biz_preview.PreviewStart(_dev_type, _dev_ip, chn, bmain);
+}
+
+//预览是否已经处于进行中
+VD_BOOL BizPreviewIsStarted()
+{
+	return g_biz_preview.PreviewIsStarted();
 }
 
 int BizPreviewStop()

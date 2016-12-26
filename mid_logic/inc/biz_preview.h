@@ -13,11 +13,11 @@ extern "C" {
 //模块初始化
 int BizPreviewInit(void);
 
-//窗口显示初始化
-int BizPreviewDisplayInit(void);
-
 //bmain 是否主码流
 int BizPreviewStart(EM_DEV_TYPE _dev_type, u32 _dev_ip, u8 chn, u8 bmain);
+
+//预览是否已经处于进行中
+VD_BOOL BizPreviewIsStarted();
 
 int BizPreviewStop();
 

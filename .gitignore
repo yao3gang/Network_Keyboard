@@ -1,6 +1,9 @@
+build-gui-hisi-Debug/
 build-gui-hisi-Release/
 build-gui-Qt_4_8_6_x86-Debug/
+build-gui-Qt_4_8_6_x86-Release/
 build-gui-x86-Debug/
+build-gui-x86-Release/
 ext_libs/
 .svn/
 Network_Keyboard.*

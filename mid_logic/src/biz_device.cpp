@@ -2844,6 +2844,16 @@ int CBizDevice::DevNetDialogue(u16 event, const void *content, int length, void*
 		return -EDEV_OFFLINE;
 	}
 
+	if (isSockIOErr(sock_cmd))
+	{
+		ERR_PRINT("isSockIOErr true\n");
+
+		//关闭cmd socket
+		CleanSock();
+		ret = -ERECV;
+		goto fail;
+	}
+
 	//查询dev: sock_cmd是否在map_fd_idx
 	//如果不在说明在thread_Rcv 中已经发生接收错误
 	if (!g_biz_device_manager.isInMapRcv(sock_cmd))
@@ -3467,9 +3477,10 @@ int CBizDevice::StreamStart(ifly_TCP_Stream_Req *preq, CMediaStream *pstream)
 	struct in_addr in;
 	in.s_addr = dev_info.deviceIP;
 
-	if (!b_alive)
+	
+	if (!b_alive || INVALID_SOCKET == sock_cmd)
 	{
-		DBG_PRINT("svr IP: %s, svr not alive\n", inet_ntoa(in));
+		DBG_PRINT("svr IP: %s, offline\n", inet_ntoa(in));
 		return -EDEV_OFFLINE;
 	}
 	
@@ -3485,14 +3496,14 @@ int CBizDevice::StreamStart(ifly_TCP_Stream_Req *preq, CMediaStream *pstream)
 
 	if (i == MaxMediaLinks)
 	{
-		DBG_PRINT("svr IP: %s, media link num >= MaxMediaLinks\n", inet_ntoa(in));
+		ERR_PRINT("svr IP: %s, media link num >= MaxMediaLinks\n", inet_ntoa(in));
 		goto fail;
 	}
 
 	fd_tmp = socket(AF_INET, SOCK_STREAM, 0);
 	if (fd_tmp < 0)
 	{
-		DBG_PRINT("svr IP: %s, create socket failed, %s\n", inet_ntoa(in), strerror(errno));
+		ERR_PRINT("svr IP: %s, create socket failed, %s\n", inet_ntoa(in), strerror(errno));
 		goto fail;
 	}	
 
@@ -3573,7 +3584,7 @@ fail:
 	return -FAILURE;
 }
 
-int CBizDevice::StreamStop(int stream_idx, EM_STREAM_STATE_TYPE stop_reason)
+int CBizDevice::StreamStop(int stream_idx, EM_STREAM_STATE_TYPE stop_reason)123
 {
 	int ret = -FAILURE;
 	struct in_addr in;
