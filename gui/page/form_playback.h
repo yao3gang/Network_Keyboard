@@ -44,7 +44,8 @@ private:
 
 private slots:
     void refreshDevInfo(SGuiDev dev);
-
+	void slotNotifyPlaybackInfo(SPlaybackNotify_t playback_msg);
+	
     void tableWidgetClicked(QTableWidgetItem * item);
     void tableWidgetDoubleClicked(QTableWidgetItem * item);
     void showTableWidget(bool b);

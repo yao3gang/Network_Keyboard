@@ -65,4 +65,11 @@ int notifyDevInfo(SGuiDev *pdev)//设备层将信息通知给上层
     return 0;
 }
 
+int notifyPlaybackInfo(SPlaybackNotify_t *para)
+{
+	gp_bond->bondNotifyPlaybackInfo(para);
+    return 0;
+}
+
+
 

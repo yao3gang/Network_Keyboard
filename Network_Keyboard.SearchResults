@@ -1,0 +1,4 @@
+---- qRegisterMetaType Matches (3 in 3 files) ----
+Page_dev_mgt.cpp (gui\page):    qRegisterMetaType<SGuiDev>("SGuiDev");
+Page_main.cpp (gui\backup):    qRegisterMetaType<SDateTime>("SDateTime");
+Page_main.cpp (gui\page):    qRegisterMetaType<SDateTime>("SDateTime");

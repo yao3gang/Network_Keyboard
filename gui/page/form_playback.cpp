@@ -1,6 +1,8 @@
 #include <time.h>
 
 #include <QtGui>
+#include "bond.h"
+
 #include "form_playback.h"
 #include "ui_form_playback.h"
 #include "frmmessagebox.h"
@@ -58,6 +60,8 @@ void form_playback::init_form() //æŽ§ä»¶
 {
     setupWidgetLeft();
     setupWidgetBottom();
+
+	connect(gp_bond, SIGNAL(signalNotifyPlaybackInfo(SPlaybackNotify_t)), this, SLOT(slotNotifyPlaybackInfo(SPlaybackNotify_t)), Qt::QueuedConnection);
 }
 
 void form_playback::setupWidgetLeft()
@@ -528,6 +532,20 @@ void form_playback::refreshDevInfo(SGuiDev dev)
         dev_item->setIcon(0, QIcon(":/image/dev_offline.png"));
     }
 }
+
+void form_playback::slotNotifyPlaybackInfo(SPlaybackNotify_t playback_msg)123
+{
+	//0 Õý³£½áÊø1 ÍøÂç´íÎó
+	if (0 == playback_msg.msg_type)
+	{
+		
+	}
+	else if (1 == playback_msg.msg_type)
+	{
+		
+	}		
+}
+
 
 void form_playback::refreshWidgetResult()
 {

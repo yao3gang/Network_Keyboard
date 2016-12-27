@@ -61,6 +61,7 @@ typedef enum
     EM_BIZ_EVENT_FORMAT_DONE, //格式化结束
 
     EM_BIZ_EVENT_PLAYBACK_INIT = 150,  //回放初始化
+    EM_BIZ_EVENT_PLAYBACK_START, //回放开始
     EM_BIZ_EVENT_PLAYBACK_RUN, //回放中
     EM_BIZ_EVENT_PLAYBACK_DONE, //回放结束
     EM_BIZ_EVENT_PLAYBACK_NETWORK_ERR, //回放时发生网络错误

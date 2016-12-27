@@ -3596,6 +3596,12 @@ int CBizDevice::StreamStart(ifly_TCP_Stream_Req *preq, CMediaStream *pstream)
 
 	stream_cnt++;
 	idle_cnt = 0;
+
+	//通知状态
+	if (pstream != NULL)
+	{
+		pstream->dealStateFunc(EM_STREAM_CONNECTED);//流连接成功
+	}
 	
 	plock4stream->Unlock();
 

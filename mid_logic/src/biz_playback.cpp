@@ -341,7 +341,12 @@ int CBizPlayback::dealStateFunc(EM_STREAM_STATE_TYPE status, u32 param)//param: 
 
 	SBizEventPara para;
 
-	if (EM_STREAM_RCV_ERR == status)
+	if (EM_STREAM_CONNECTED == status)
+	{
+		para.emType = EM_BIZ_EVENT_PLAYBACK_START; //回放开始
+		para.playback_para.dev_ip = dev_ip;
+	}
+	else if (EM_STREAM_RCV_ERR == status)
 	{
 		para.emType = EM_BIZ_EVENT_PLAYBACK_NETWORK_ERR; //回放时发生网络错误
 		para.playback_para.dev_ip = dev_ip;

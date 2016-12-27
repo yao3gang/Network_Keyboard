@@ -149,10 +149,19 @@ int BizEventCB(SBizEventPara* pSBizEventPara)
 
 	switch (emType)
 	{
+		case EM_BIZ_EVENT_PLAYBACK_START: //回放开始
+		{
+			//hisi process
+			hisi_chn_start(0);
+			
+		} break;
+		
 		case EM_BIZ_EVENT_PLAYBACK_DONE: //回放结束
 		{
 			//hisi process
-			
+			hisi_chn_stop(0);
+
+			//notify gui
 			SPlaybackNotify_t para;
 			para.msg_type = 0;
 			para.dev_ip = pSBizEventPara->playback_para.dev_ip;
@@ -162,7 +171,9 @@ int BizEventCB(SBizEventPara* pSBizEventPara)
 		case EM_BIZ_EVENT_PLAYBACK_NETWORK_ERR: //回放时发生网络错误
 		{
 			//hisi process
-			
+			hisi_chn_stop(0);
+
+			//notify gui
 			SPlaybackNotify_t para;
 			para.msg_type = 1;
 			para.dev_ip = pSBizEventPara->playback_para.dev_ip;

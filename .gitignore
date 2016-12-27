@@ -6,7 +6,6 @@ build-gui-x86-Debug/
 build-gui-x86-Release/
 ext_libs/
 .svn/
-Network_Keyboard.*
 *.o
 *.a
 *.so
