@@ -54,6 +54,8 @@ private slots:
     void on_btn_page_next_clicked();
     void on_btn_page_end_clicked();
     void on_btn_to_dec_clicked();
+    //play ctl
+    void on_btn_stop_clicked();
 };
 
 #endif // FORM_PLAYBACK_H

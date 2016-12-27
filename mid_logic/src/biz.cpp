@@ -13,7 +13,7 @@
 #include <sys/types.h>
 #include <signal.h>
 
-
+#include "bond.h"
 
 #include "ctimer.h"
 #include "cthread.h"
@@ -24,6 +24,8 @@
 #include "biz_net.h"
 #include "biz_device.h"
 #include "biz_preview.h"
+#include "biz_playback.h"
+
 #include "biz_system_complex.h"
 #include "hisi_sys.h"
 
@@ -116,6 +118,11 @@ int BizInit(void)
 	{
 		ERR_PRINT("BizDeviceInit failed\n");
 	}
+
+	if (BizPlaybackInit())
+	{
+		ERR_PRINT("BizDeviceInit failed\n");
+	}
 	
 	if (BizSystemComplexInit())
 	{
@@ -136,6 +143,36 @@ int BizSetNetParam(SConfigNetParam &snet_param)
 
 int BizEventCB(SBizEventPara* pSBizEventPara)
 {
+	EMBIZEVENT emType = pSBizEventPara->emType;
+
+	DBG_PRINT("emType: %d\n", emType);
+
+	switch (emType)
+	{
+		case EM_BIZ_EVENT_PLAYBACK_DONE: //回放结束
+		{
+			//hisi process
+			
+			SPlaybackNotify_t para;
+			para.msg_type = 0;
+			para.dev_ip = pSBizEventPara->playback_para.dev_ip;
+			notifyPlaybackInfo(&para);
+		} break;
+		
+		case EM_BIZ_EVENT_PLAYBACK_NETWORK_ERR: //回放时发生网络错误
+		{
+			//hisi process
+			
+			SPlaybackNotify_t para;
+			para.msg_type = 1;
+			para.dev_ip = pSBizEventPara->playback_para.dev_ip;
+			notifyPlaybackInfo(&para);
+		} break;	
+
+		default:
+			break;
+	}
+	
 	return 0;
 }
 

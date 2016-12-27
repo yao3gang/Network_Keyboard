@@ -195,7 +195,7 @@ int BizDevRecFilesSearch(u32 nvr_ip, ifly_recsearch_param_t *psearch_para, ifly_
 int BizStartNotifyDevInfo();//使能通知。设备层将信息通知给上层
 
 
-
+//成功返回stearm_rcv[MaxMediaLinks] 下标stream_idx
 int BizReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_TCP_Stream_Req *preq, CMediaStream *pstream);
 int BizReqStreamStop(EM_DEV_TYPE dev_type, u32 dev_ip, s32 stream_idx);
 

@@ -3,6 +3,7 @@ include ../Makefile.param
 TARGET=libtl_hslib_nvr.so
 
 INC_PATH += -I./inc
+INC_PATH += -I../common/inc
 INC_PATH += $(TL_APP_INC_PATH)
 
 SRC_DIR := ./src

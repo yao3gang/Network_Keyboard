@@ -35,6 +35,19 @@ void Cbond::bondNotifyDevInfo(SGuiDev *pdev)
     }
 }
 
+void bondNotifyPlaybackInfo(SPlaybackNotify_t *para)
+{
+	SPlaybackNotify_t data = *pdev;
+
+	QMutexLocker locker(&mutex);
+	
+	if (b_recv)
+    {
+        //DBG_PRINT("\n");
+        emit signalNotifyPlaybackInfo(data);
+    }
+}
+
 
 
 

@@ -17,6 +17,9 @@ extern "C"{
 
 int HisiSysInit(void);
 int nvr_preview_vdec_write(int stream_chn, vdec_stream_s *pin_stream);
+int hisi_chn_start(int stream_chn);
+int hisi_chn_stop(int stream_chn);
+
 
 #ifdef __cplusplus
 #if __cplusplus

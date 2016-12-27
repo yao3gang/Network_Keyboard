@@ -44,7 +44,7 @@
 #define DIALOGUE_TIMEOUT	(3) //一次命令回话超时
 #define RECONNECT_TIMEOUT	(5) //秒
 #define KEEP_ALIVE_INTERVAL	(15) //秒
-#define NETDIALOGUE_ERR_MAX	(3) //网络通信错误累计值，>=该值时认为设备断开
+#define NETDIALOGUE_ERR_MAX	(2) //网络通信错误累计值，>=该值时认为设备断开
 
 
 #ifdef __cplusplus
@@ -106,6 +106,7 @@ public:
 	int StartNotifyDevInfo();//使能通知。设备层将信息通知给上层
 	int AddDev(EM_DEV_TYPE dev_type, u32 dev_ip);
 	int DelDev(EM_DEV_TYPE dev_type, u32 dev_ip);	
+	//成功返回stearm_rcv[MaxMediaLinks] 下标stream_idx
 	int ReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_TCP_Stream_Req *preq, CMediaStream *pstream);
 	int ReqStreamStop(EM_DEV_TYPE dev_type, u32 dev_ip, s32 stream_idx);
 	//底层数据交互
@@ -2745,11 +2746,11 @@ int CBizDevice::_DevLogin(ifly_loginpara_t *plogin)
 
 int CBizDevice::_DevLogout(ifly_loginpara_t *plogin)
 {
-	int realacklen = 0;
+	//int realacklen = 0;
 	int ret = SUCCESS;
 	u8 buf[128];
 
-#if 1    
+#if 0   
 	ret = g_biz_device_manager.NetDialogue(sock_cmd, CTRL_CMD_LOGOFF, plogin, sizeof(ifly_loginpara_t), buf, sizeof(buf), &realacklen);
 	if (SUCCESS != ret)
 	{
@@ -2769,7 +2770,7 @@ int CBizDevice::_DevLogout(ifly_loginpara_t *plogin)
 
 int CBizDevice::_DevSetAlarmUpload(u8 upload_enable)
 {
-	int realacklen = 0;
+	//int realacklen = 0;
 	int ret = SUCCESS;
 	u8 buf[128];
 
@@ -2778,14 +2779,23 @@ int CBizDevice::_DevSetAlarmUpload(u8 upload_enable)
         DBG_PRINT("upload_enable: %d, invalid\n", upload_enable);
         return -EPARAM;
     }
-	
+
+#if 0	
 	ret = g_biz_device_manager.NetDialogue(sock_cmd, CTRL_CMD_ALARMUPLOADCENTER, &upload_enable,sizeof(upload_enable), buf, sizeof(buf), &realacklen);
 	if (SUCCESS != ret)
 	{
 		ERR_PRINT("NetDialogue CTRL_CMD_ALARMUPLOADCENTER invalid\n");
 		return -FAILURE;
 	}
-	
+#else
+	ret = DevNetDialogue(CTRL_CMD_ALARMUPLOADCENTER, &upload_enable, sizeof(upload_enable), buf, sizeof(buf));
+	if (SUCCESS != ret)
+	{
+		ERR_PRINT("DevNetDialogue CTRL_CMD_LOGOFF failed\n");
+		return ret;
+	}
+#endif
+
 	return SUCCESS;
 }
 
@@ -2837,53 +2847,71 @@ int CBizDevice::DevNetDialogue(u16 event, const void *content, int length, void*
 {
 	int realacklen = 0;
 	int ret = SUCCESS;
+	struct in_addr in;
+	in.s_addr = dev_info.deviceIP;
 
-	if (!b_alive || INVALID_SOCKET == sock_cmd)
+	do //用于超时重发
 	{
-		DBG_PRINT("dev offline\n");
-		return -EDEV_OFFLINE;
-	}
+		//DBG_PRINT("dev(%s) cmd(%d) send\n", inet_ntoa(in), event);	
+		
+		if (!b_alive || INVALID_SOCKET == sock_cmd)
+		{
+			DBG_PRINT("dev(%s) offline\n", inet_ntoa(in));
+			return -EDEV_OFFLINE;
+		}
 
-	if (isSockIOErr(sock_cmd))
-	{
-		ERR_PRINT("isSockIOErr true\n");
+		if (isSockIOErr(sock_cmd))
+		{
+			ERR_PRINT("dev(%s) isSockIOErr true\n", inet_ntoa(in));
 
-		//关闭cmd socket
-		CleanSock();
-		ret = -ERECV;
-		goto fail;
-	}
+			//关闭cmd socket
+			CleanSock();
+			ret = -ERECV;
+			goto fail;
+		}
 
-	//查询dev: sock_cmd是否在map_fd_idx
-	//如果不在说明在thread_Rcv 中已经发生接收错误
-	if (!g_biz_device_manager.isInMapRcv(sock_cmd))
-	{
-		ERR_PRINT("sock_cmd not in MapRcv\n");
+		//查询dev: sock_cmd是否在map_fd_idx
+		//如果不在说明在thread_Rcv 中已经发生接收错误
+		if (!g_biz_device_manager.isInMapRcv(sock_cmd))
+		{
+			ERR_PRINT("dev(%s) sock_cmd not in MapRcv\n", inet_ntoa(in));
 
-		//关闭cmd socket
-		CleanSock();
-		ret = -ERECV;
-		goto fail;
-	}
-	
-	ret = g_biz_device_manager.NetDialogue(sock_cmd, event, content, length, ackbuf, ackbuflen, &realacklen);
+			//关闭cmd socket
+			CleanSock();
+			ret = -ERECV;
+			goto fail;
+		}
+		
+		ret = g_biz_device_manager.NetDialogue(sock_cmd, event, content, length, ackbuf, ackbuflen, &realacklen);
 
 fail:
-	//成功与否都要进行后期处理
-	ret = DevNetDialogueAfter(ret);
-
+		//成功与否都要进行后期处理
+		ret = DevNetDialogueAfter(ret);
+		if (SUCCESS == ret)
+		{
+			break;
+		}
+		else if (-ETIMEOUT == ret)//一次超时可能发生，不一定网络错误了
+		{
+			ERR_PRINT("dev(%s) cmd(%d) timeout, try again!!!\n", inet_ntoa(in), event);			
+		}
+	} while (ret != -EDEV_OFFLINE);
+	
 	return ret;
 }
 
 int CBizDevice::DevNetDialogueAfter(int net_ret)//后期错误检查
 {
+	struct in_addr in;
+	in.s_addr = dev_info.deviceIP;
+	
 	if (SUCCESS == net_ret)
 	{
 		err_cnt = 0;//网络通信成功后，清零
 		return SUCCESS;
 	}
 
-	DBG_PRINT("net_ret: %d\n", net_ret);
+	//DBG_PRINT("dev(%s) net_ret: %d\n", inet_ntoa(in), net_ret);
 
 	if (-ETIMEOUT == net_ret)//一次超时可能发生，不一定网络错误了
 	{
@@ -2897,18 +2925,18 @@ int CBizDevice::DevNetDialogueAfter(int net_ret)//后期错误检查
 
 	if (err_cnt >= NETDIALOGUE_ERR_MAX)
 	{
-		struct in_addr in;
-		in.s_addr = dev_info.deviceIP;
+		net_ret = -EDEV_OFFLINE;//设备离线
 		
 		DBG_PRINT("dev(%s) disconnect\n", inet_ntoa(in));
+
+		//关闭cmd socket
+		CleanSock();
+		
 		//断开流连接
 		ShutdownStreamAll();
 		
 		//注销logout
 		DevDisconnect();
-		
-		//关闭cmd socket
-		CleanSock();
 	}
 
 	return net_ret;
@@ -3392,6 +3420,9 @@ int CBizDevice::DevConnect()
 	}
 	DBG_PRINT("svr IP: %s, DeviceLogin success\n", inet_ntoa(in));
 
+	b_alive = TRUE;
+	err_cnt = 0;//清零
+
 #if 0
 	//设置接收报警信息
 	ret = _DevSetAlarmUpload(1);
@@ -3402,10 +3433,7 @@ int CBizDevice::DevConnect()
 		goto fail2;
 	}
 	DBG_PRINT("svr IP: %s, Device SetAlarmUpload success\n", inet_ntoa(in));
-#endif
-
-	b_alive = TRUE;
-	err_cnt = 0;//清零
+#endif	
 
 	//通知设备在线
 	
@@ -3441,7 +3469,7 @@ int CBizDevice::DevDisconnect()
 	{
 		DBG_PRINT("svr IP: %s, DeviceLogout failed\n", inet_ntoa(in));
 	}
-	DBG_PRINT("svr IP: %s, DeviceLogout success\n", inet_ntoa(in));
+	//DBG_PRINT("svr IP: %s, DeviceLogout success\n", inet_ntoa(in));
 
 #if 0
 	//设置接收报警信息
@@ -3584,12 +3612,12 @@ fail:
 	return -FAILURE;
 }
 
-int CBizDevice::StreamStop(int stream_idx, EM_STREAM_STATE_TYPE stop_reason)123
+int CBizDevice::StreamStop(int stream_idx, EM_STREAM_STATE_TYPE stop_reason)
 {
 	int ret = -FAILURE;
 	struct in_addr in;
 	in.s_addr = dev_info.deviceIP;
-	u32 id = 0;
+	u32 linkid = 0;
 	char buf[128];
 	CMediaStream* pstream = NULL;
 	
@@ -3610,9 +3638,35 @@ int CBizDevice::StreamStop(int stream_idx, EM_STREAM_STATE_TYPE stop_reason)123
 		
 		plock4stream->Unlock();
 		return SUCCESS;
-	}	
+	}
+
+	//0：预览 1：文件回放 2：时间回放 3：文件下载 4：升级 
+	//5 VOIP 6 文件按帧下载 7 时间按帧下载 8 透明通道
+	//9 远程格式化硬盘 10 主机端抓图 11 多路按时间回放 12 按时间下载文件
+	u16 cmd = 0;
+	if (stream_rcv[stream_idx].req.command == 0)
+	{
+		cmd = CTRL_CMD_STOPVIDEOMONITOR;
+	}
+	else if (stream_rcv[stream_idx].req.command == 1)
+	{
+		cmd = CTRL_CMD_STOPFILEPLAY;
+	}
+	else if (stream_rcv[stream_idx].req.command == 2)
+	{
+		cmd = CTRL_CMD_STOPTIMEPLAY;
+	}
+	else
+	{
+		ERR_PRINT("stream req cmd: %d not support\n", stream_rcv[stream_idx].req.command);
+		plock4stream->Unlock();
+
+		return -EPARAM;
+	}
 	
-	ret = DevNetDialogue(CTRL_CMD_STOPVIDEOMONITOR, &id, sizeof(id), buf, sizeof(buf));
+	linkid = htonl(stream_rcv[stream_idx].linkid);
+	
+	ret = DevNetDialogue(cmd, &linkid, sizeof(linkid), buf, sizeof(buf));
 	if (ret)
 	{
 		ERR_PRINT("DevNetDialogue CTRL_CMD_STOPVIDEOMONITOR failed, ret: %d\n", ret);
@@ -3832,13 +3886,13 @@ void CBizDevice::threadStreamRcv(uint param)
 					frame_hdr.m_dwFrameID = hdr.m_dwFrameID;
 					frame_hdr.m_dwTimeStamp = hdr.m_dwTimeStamp;
 					frame_hdr.m_pData = (u8 *)pframe_data;
-
+#if 1
 					if (hdr.m_bKeyFrame)
 					{
 						DBG_PRINT("svr IP: %s, recv one frame, command: %d, m_byMediaType: %d, m_bKeyFrame: %d, m_dwFrameID: %d, m_dwDataSize: %d\n", 
 							inet_ntoa(in), req_command, hdr.m_byMediaType, hdr.m_bKeyFrame, hdr.m_dwFrameID, hdr.m_dwDataSize);
 					}
-					
+#endif					
 					if (pstream != NULL)
 					{
 						pstream->dealFrameFunc(&frame_hdr);
@@ -4186,6 +4240,7 @@ int BizStartNotifyDevInfo(void)	//使能通知。设备层将信息通知给上层
 	return g_biz_device_manager.StartNotifyDevInfo();
 }
 
+//返回流ID
 int BizReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_TCP_Stream_Req *preq, CMediaStream *pstream)
 {
 	return g_biz_device_manager.ReqStreamStart(dev_type, dev_ip, preq, pstream);

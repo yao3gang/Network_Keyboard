@@ -7,6 +7,13 @@
 
 #include "gui_dev.h"
 
+typedef struct
+{
+	int msg_type;//0 Õı³£½áÊø1 ÍøÂç´íÎó
+	u32 dev_ip;
+} SPlaybackNotify_t;
+
+
 /**********************************************************/
 #ifdef GUI_BOND_CLASS_DECLARE   //ä»… gui éƒ¨åˆ†éœ€è¦çœ‹åˆ°ç±»çš„å£°æ˜
 
@@ -36,6 +43,7 @@ public:
 	void guiEnableRcvNotify();
     void bondNotifyUpdateTime(SDateTime *pdt);
 	void bondNotifyDevInfo(SGuiDev *pdev);
+	void bondNotifyPlaybackInfo(SPlaybackNotify_t *para);
 
 public:
     bool b_recv;//main.cpp set
@@ -50,6 +58,7 @@ private:
 signals:
     void signalNotifyUpdateTime(SDateTime dt);
 	void signalNotifyDevInfo(SGuiDev dev);
+	void signalNotifyPlaybackInfo(SPlaybackNotify_t para);
 };
 
 #define gp_bond (Cbond::Instance())
@@ -67,6 +76,7 @@ int notifyGuiUpdateTime(SDateTime *pdt);
 
 int notifyDevInfo(SGuiDev *pdev); //Éè±¸²ã½«ĞÅÏ¢Í¨Öª¸øÉÏ²ã
 
+int notifyPlaybackInfo(SPlaybackNotify_t *para);
 
 #ifdef __cplusplus
 }

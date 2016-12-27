@@ -63,6 +63,7 @@ typedef enum
     EM_BIZ_EVENT_PLAYBACK_INIT = 150,  //回放初始化
     EM_BIZ_EVENT_PLAYBACK_RUN, //回放中
     EM_BIZ_EVENT_PLAYBACK_DONE, //回放结束
+    EM_BIZ_EVENT_PLAYBACK_NETWORK_ERR, //回放时发生网络错误
 
     EM_BIZ_EVENT_BACKUP_INIT = 200,  //备份初始化
     EM_BIZ_EVENT_BACKUP_RUN, //备份中
@@ -112,7 +113,10 @@ typedef struct
 	EMBIZEVENT emType;
 	union
 	{
-		u16 nDelay;
+		struct
+		{
+			u32 dev_ip;
+		} playback_para;
 		
 	};   
 } SBizEventPara;

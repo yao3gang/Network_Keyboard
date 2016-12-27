@@ -17,6 +17,8 @@
 #include "sample_comm.h"
 
 #include <linux/fb.h>
+
+#include "types.h"
 #include "hifb.h"
 #include "loadbmp.h"
 #include "hi_math.h"
@@ -31,6 +33,7 @@
 
 #define ALIGN_BACK(x, a)		 ((a) * (((x) / (a))))
 
+static pthread_mutex_t hisi_lock = PTHREAD_MUTEX_INITIALIZER; 
 
 static VO_DEV VoDev = 0;//Vo设备和Vo图形层都是0
 static VO_LAYER VoLayer = 0;
@@ -40,6 +43,63 @@ static struct fb_bitfield s_r32 = {16,8,0};
 static struct fb_bitfield s_g32 = {8,8,0};
 static struct fb_bitfield s_b32 = {0,8,0};
 
+int hisi_chn_start(int stream_chn)
+{
+	int ret = 0;
+	pthread_mutex_lock(&hisi_lock);
+
+	ret = HI_MPI_VO_EnableChn(VoLayer, stream_chn);
+	if (ret)
+	{
+		ERR_PRINT("HI_MPI_VO_EnableChn failed, ret: 0x%x\n", ret);
+	}
+	
+	ret = HI_MPI_VDEC_StartRecvStream(stream_chn);//yaogang modify 20150306
+	if (ret)
+	{
+		ERR_PRINT("HI_MPI_VDEC_StartRecvStream failed, ret: 0x%x\n", ret);
+	}
+								
+	pthread_mutex_unlock(&hisi_lock);
+
+	return 0;
+}
+
+int hisi_chn_stop(int stream_chn)
+{
+	int ret = 0;
+	pthread_mutex_lock(&hisi_lock);
+	
+	HI_MPI_VDEC_StopRecvStream(stream_chn);
+	if (ret)
+	{
+		ERR_PRINT("HI_MPI_VDEC_StopRecvStream failed, ret: 0x%x\n", ret);
+	}
+	
+	HI_MPI_VDEC_ResetChn(stream_chn);
+	if (ret)
+	{
+		ERR_PRINT("HI_MPI_VDEC_ResetChn failed, ret: 0x%x\n", ret);
+	}
+	
+	HI_MPI_VO_ClearChnBuffer(VoLayer, stream_chn, HI_TRUE);
+	if (ret)
+	{
+		ERR_PRINT("HI_MPI_VO_ClearChnBuffer failed, ret: 0x%x\n", ret);
+	}
+	//yaogang modify 20150323
+	//HI_MPI_VO_DisableChn + HI_MPI_VO_EnableChn是为了解决删除IPC通道后，
+	//双击该通道区域会有一帧画面残留，逻辑上应该是黑屏
+	HI_MPI_VO_DisableChn(VoLayer, stream_chn);
+	if (ret)
+	{
+		ERR_PRINT("HI_MPI_VO_DisableChn failed, ret: 0x%x\n", ret);
+	}
+	
+	pthread_mutex_unlock(&hisi_lock);
+
+	return 0;
+}
 
 
 int HisiMPPInit(SIZE_S *pstSize)

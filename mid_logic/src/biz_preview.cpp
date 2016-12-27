@@ -159,15 +159,12 @@ int CBizPreview::PreviewStart(EM_DEV_TYPE _dev_type, u32 _dev_ip, u8 chn, u8 bma
 	req.Monitor_t.type = bmain ? 0:2;
 	
 	ret = Start();
-	if (ret < 0)
+	if (ret)
 	{
 		ERR_PRINT("Start failed, ret: %d\n", ret);
 		plock4param->Unlock();
 		return ret;
 	}
-
-	stream_idx = ret;
-	b_connect = TRUE;
 	
 	plock4param->Unlock();
 	
@@ -177,6 +174,12 @@ int CBizPreview::PreviewStart(EM_DEV_TYPE _dev_type, u32 _dev_ip, u8 chn, u8 bma
 //预览是否已经处于进行中
 VD_BOOL CBizPreview::PreviewIsStarted()
 {	
+	if (!b_inited)
+	{
+		ERR_PRINT("module not inited\n");
+		return -FAILURE;
+	}
+	
 	plock4param->Lock();
 
 	VD_BOOL b = b_connect;
@@ -208,13 +211,13 @@ int CBizPreview::PreviewStop()
 			plock4param->Unlock();
 			return ret;
 		}
-	}
 
-	b_connect = FALSE;
-	dev_type = EM_DEV_TYPE_NONE;
-	dev_ip = INADDR_NONE;
-	stream_idx = INVALID_VALUE;
-	memset(&req, 0, sizeof(ifly_TCP_Stream_Req));
+		b_connect = FALSE;
+		dev_type = EM_DEV_TYPE_NONE;
+		dev_ip = INADDR_NONE;
+		stream_idx = INVALID_VALUE;
+		memset(&req, 0, sizeof(ifly_TCP_Stream_Req));
+	}
 	
 	plock4param->Unlock();
 	

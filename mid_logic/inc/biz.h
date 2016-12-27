@@ -21,7 +21,7 @@ int BizInit(void);
 int BizSetNetParam(SConfigNetParam &snet_param);
 
 
-//int BizEventCB(SBizEventPara* pSBizEventPara);
+int BizEventCB(SBizEventPara* pSBizEventPara);
 
 //处理网络客户机命令(回应客户机命令)
 u16 BizDealClientCmd(

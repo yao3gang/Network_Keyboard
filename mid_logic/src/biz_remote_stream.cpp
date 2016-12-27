@@ -37,15 +37,39 @@
 #include "ctrlprotocol.h"
 #include "net.h"
 
-//返回流ID
+
 int CMediaStream::Start()
 {
-	return BizReqStreamStart(dev_type, dev_ip, &req, this);
+	int ret = SUCCESS;
+	ret = BizReqStreamStart(dev_type, dev_ip, &req, this);//返回流ID
+	if (ret < 0)
+	{
+		ERR_PRINT("BizReqStreamStop failed, ret: %d\n", ret);
+	}
+	else
+	{
+		stream_idx = ret;//返回流ID
+		b_connect = TRUE;
+		
+		ret = SUCCESS;
+	}
+	
+	return ret;
 }
 
 int CMediaStream::Stop()
 {
-	return BizReqStreamStop(dev_type, dev_ip, stream_idx);
+	int ret = SUCCESS;
+	
+	ret = BizReqStreamStop(dev_type, dev_ip, stream_idx);
+	if (ret)
+	{
+		ERR_PRINT("BizReqStreamStop failed, ret: %d\n", ret);
+	}
+
+	b_connect = FALSE;
+		
+	return ret;
 }
 
 

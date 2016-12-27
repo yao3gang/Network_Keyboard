@@ -10,6 +10,7 @@
 #include "page_dev_mgt.h"
 
 #include "biz_system_complex.h"
+#include "biz_playback.h"
 
 #define MAX_FILE_NUMS (10)
 #define MB (1024*1024)
@@ -405,6 +406,12 @@ void form_playback::tableWidgetDoubleClicked(QTableWidgetItem * item)
     }
 
     DBG_PRINT("file name: %s\n", search_result.pfile_info[file_idx].filename);
+    int ret = SUCCESS;
+    ret = BizPlaybackStartByFile(search_nvr_ip, &search_result.pfile_info[file_idx]);
+    if (ret)
+    {
+        ERR_PRINT("BizPlaybackStartByFile failed, ret: %d\n", ret);
+    }
 }
 
 void form_playback::showTableWidget(bool b)
@@ -957,6 +964,18 @@ void form_playback::on_btn_to_dec_clicked()
     ShowMessageBoxInfo(QString::fromUtf8("该功能尚未实现！"));
 
     return ;
+}
+
+//play ctl
+void form_playback::on_btn_stop_clicked()
+{
+    int ret = SUCCESS;
+
+    ret = BizPlaybackStop();
+    if (ret)
+    {
+        ERR_PRINT("BizPlaybackStartByFile failed, ret: %d\n", ret);
+    }
 }
 
 void form_playback::mousePressEvent(QMouseEvent *event)
