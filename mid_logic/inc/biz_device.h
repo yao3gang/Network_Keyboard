@@ -90,7 +90,7 @@ public:
 	void _CleanStream(int stream_idx);
 
 	//关闭所有数据流连接
-	int ShutdownStreamAll();
+	int ShutdownStreamAll(EM_STREAM_STATE_TYPE stop_reason = EM_STREAM_STOP);
 	
 	//重连部分数据流连接
 	int CheckAndReconnectStream();
@@ -155,7 +155,11 @@ private:
 extern "C" {
 #endif
 
-int	BizDeviceInit();
+int BizDeviceFirstInit(void);
+
+int BizDeviceSecondInit(void);
+
+
 
 //设备搜索
 int BizDevSearch(std::vector<SBiz_DeviceInfo_t> *pvnvr_list, 
@@ -198,7 +202,7 @@ int BizStartNotifyDevInfo();//使能通知。设备层将信息通知给上层
 //成功返回stearm_rcv[MaxMediaLinks] 下标stream_idx
 int BizReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_TCP_Stream_Req *preq, CMediaStream *pstream);
 int BizReqStreamStop(EM_DEV_TYPE dev_type, u32 dev_ip, s32 stream_idx);
-
+int BizDevStreamProgress(VD_BOOL b);//接收回放进度信息
 
 
 

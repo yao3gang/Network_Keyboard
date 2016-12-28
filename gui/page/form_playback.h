@@ -3,6 +3,9 @@
 
 #include <QtGui>
 
+#include "bond.h"
+
+#include "biz_playback.h"
 #include "gui_dev.h"
 #include "types.h"
 #include "ctrlprotocol.h"

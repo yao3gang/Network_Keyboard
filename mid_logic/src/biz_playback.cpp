@@ -171,9 +171,24 @@ int CBizPlayback::PlaybackStartByFile(u32 _dev_ip, ifly_recfileinfo_t *pfile_inf
 	req.FilePlayBack_t.offset = htonl(pfile_info->offset);
 	
 	ret = Start();
-	if (ret < 0)
+	if (ret)
 	{
 		ERR_PRINT("Start failed, ret: %d\n", ret);
+		plock4param->Unlock();
+		return ret;
+	}
+
+	//进度
+	ret = BizDevStreamProgress(TRUE);//接收进度信息
+	if (ret)
+	{
+		ERR_PRINT("BizDevStreamProgress failed, ret: %d\n", ret);
+
+		if (Stop())
+		{
+			ERR_PRINT("Stop failed\n", ret);
+		}
+		
 		plock4param->Unlock();
 		return ret;
 	}

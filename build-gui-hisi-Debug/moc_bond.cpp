@@ -22,23 +22,25 @@ static const uint qt_meta_data_Cbond[] = {
        6,       // revision
        0,       // classname
        0,    0, // classinfo
-       2,   14, // methods
+       3,   14, // methods
        0,    0, // properties
        0,    0, // enums/sets
        0,    0, // constructors
        0,       // flags
-       2,       // signalCount
+       3,       // signalCount
 
  // signals: signature, parameters, type, tag, flags
       10,    7,    6,    6, 0x05,
       48,   44,    6,    6, 0x05,
+      82,   77,    6,    6, 0x05,
 
        0        // eod
 };
 
 static const char qt_meta_stringdata_Cbond[] = {
     "Cbond\0\0dt\0signalNotifyUpdateTime(SDateTime)\0"
-    "dev\0signalNotifyDevInfo(SGuiDev)\0"
+    "dev\0signalNotifyDevInfo(SGuiDev)\0para\0"
+    "signalNotifyPlaybackInfo(SPlaybackNotify_t)\0"
 };
 
 void Cbond::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void **_a)
@@ -49,6 +51,7 @@ void Cbond::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void 
         switch (_id) {
         case 0: _t->signalNotifyUpdateTime((*reinterpret_cast< SDateTime(*)>(_a[1]))); break;
         case 1: _t->signalNotifyDevInfo((*reinterpret_cast< SGuiDev(*)>(_a[1]))); break;
+        case 2: _t->signalNotifyPlaybackInfo((*reinterpret_cast< SPlaybackNotify_t(*)>(_a[1]))); break;
         default: ;
         }
     }
@@ -86,9 +89,9 @@ int Cbond::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 2)
+        if (_id < 3)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 2;
+        _id -= 3;
     }
     return _id;
 }
@@ -105,5 +108,12 @@ void Cbond::signalNotifyDevInfo(SGuiDev _t1)
 {
     void *_a[] = { 0, const_cast<void*>(reinterpret_cast<const void*>(&_t1)) };
     QMetaObject::activate(this, &staticMetaObject, 1, _a);
+}
+
+// SIGNAL 2
+void Cbond::signalNotifyPlaybackInfo(SPlaybackNotify_t _t1)
+{
+    void *_a[] = { 0, const_cast<void*>(reinterpret_cast<const void*>(&_t1)) };
+    QMetaObject::activate(this, &staticMetaObject, 2, _a);
 }
 QT_END_MOC_NAMESPACE

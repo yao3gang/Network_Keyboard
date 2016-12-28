@@ -15,11 +15,16 @@
 extern "C" {
 #endif
 
-int BizInit(void);
+int BizFirstInit(void);
+int BizSecondInit(void);
+
+
 
 //设置参数
 int BizSetNetParam(SConfigNetParam &snet_param);
 
+//查询gui 是否准备好接收通知消息
+VD_BOOL BizGuiIsReady();
 
 int BizEventCB(SBizEventPara* pSBizEventPara);
 
@@ -39,7 +44,8 @@ int BizDealClientDataLink(
 	struct sockaddr_in *pcli_addr_in);
 
 //处理网络服务器事件通知
-void BizDealSvrNotify(u32 svr_ip, u16 event, s8 *pbyMsgBuf, int msgLen);
+void BizDealSvrNotify(s32 dev_idx, u16 event, s8 *pbyMsgBuf, int msgLen);
+
 
 
 #ifdef __cplusplus

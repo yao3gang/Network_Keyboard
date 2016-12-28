@@ -9,8 +9,8 @@
 
 typedef struct
 {
-	int msg_type;//0 正常结束1 网络错误
-	u32 dev_ip;
+    int msg_type;//0 姝ｅ父缁撴潫 1 鎺ユ敹鍑洪敊
+    u32 dev_ip;
 } SPlaybackNotify_t;
 
 
@@ -40,10 +40,13 @@ public:
     }
 
     ~Cbond() {}
-	void guiEnableRcvNotify();
+    void guiEnableRcvNotify();
+    //鏄惁鍑嗗濂芥帴鏀堕�氱煡
+    VD_BOOL bondNotifyIsReady();
+
     void bondNotifyUpdateTime(SDateTime *pdt);
-	void bondNotifyDevInfo(SGuiDev *pdev);
-	void bondNotifyPlaybackInfo(SPlaybackNotify_t *para);
+    void bondNotifyDevInfo(SGuiDev *pdev);
+    void bondNotifyPlaybackInfo(SPlaybackNotify_t *para);
 
 public:
     bool b_recv;//main.cpp set
@@ -53,12 +56,12 @@ private:
 
 private:
     static Cbond *_instance;
-	static QMutex mutex;
+    static QMutex mutex;
 
 signals:
     void signalNotifyUpdateTime(SDateTime dt);
-	void signalNotifyDevInfo(SGuiDev dev);
-	void signalNotifyPlaybackInfo(SPlaybackNotify_t para);
+    void signalNotifyDevInfo(SGuiDev dev);
+    void signalNotifyPlaybackInfo(SPlaybackNotify_t para);
 };
 
 #define gp_bond (Cbond::Instance())
@@ -72,9 +75,12 @@ signals:
 extern "C" {
 #endif
 
+//鏄惁鍑嗗濂芥帴鏀堕�氱煡
+VD_BOOL notifyIsReady();
+
 int notifyGuiUpdateTime(SDateTime *pdt);
 
-int notifyDevInfo(SGuiDev *pdev); //设备层将信息通知给上层
+int notifyDevInfo(SGuiDev *pdev);
 
 int notifyPlaybackInfo(SPlaybackNotify_t *para);
 

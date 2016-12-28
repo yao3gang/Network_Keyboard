@@ -1,4 +1,7 @@
----- qRegisterMetaType Matches (3 in 3 files) ----
-Page_dev_mgt.cpp (gui\page):    qRegisterMetaType<SGuiDev>("SGuiDev");
-Page_main.cpp (gui\backup):    qRegisterMetaType<SDateTime>("SDateTime");
-Page_main.cpp (gui\page):    qRegisterMetaType<SDateTime>("SDateTime");
+---- bthread_stream_exit Matches (7 in 2 files) ----
+biz_device.cpp (mid_logic\src):, bthread_stream_exit(FALSE)
+biz_device.cpp (mid_logic\src):		bthread_stream_exit = FALSE;
+biz_device.cpp (mid_logic\src):		bthread_stream_exit = TRUE;//请求关闭
+biz_device.cpp (mid_logic\src):		if (bthread_stream_exit)//外部请求退出
+biz_device.cpp (mid_logic\src):			DBG_PRINT("bthread_stream_exit: %d\n", bthread_stream_exit);
+biz_device.h (mid_logic\inc):	VD_BOOL bthread_stream_exit;//外部控制线程退出

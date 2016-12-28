@@ -111,7 +111,8 @@ public:
 	int ReqStreamStop(EM_DEV_TYPE dev_type, u32 dev_ip, s32 stream_idx);
 	//底层数据交互
 	int NetDialogue(int sock, u16 event, const void *content, int length, void* ackbuf, int ackbuflen, int *realacklen);
-	int Init();
+	int FirstInit();
+	int SecondInit();
 	VD_BOOL isInited();
 	//add and del  map_fd_idx 需要接收网络信息的表
 	int AddMapRcv(s32 sock_fd, s32 dev_idx);
@@ -222,7 +223,7 @@ CBizDeviceManager::~CBizDeviceManager()
 	FreeSrc();
 }
 
-int CBizDeviceManager::Init(void)
+int CBizDeviceManager::FirstInit(void)
 {
 	int ret;
 	std::vector<u32> dev_list;
@@ -406,12 +407,12 @@ int CBizDeviceManager::Init(void)
 		}
 	}
 
-	m_reconnect_timer = new CTimer("CBizDeviceManager-reconnect_timer");
-	if (NULL == m_reconnect_timer)
-	{
-		ERR_PRINT("BizConfigGetNvrList failed\n");
-		goto fail;
-	}
+	//m_reconnect_timer = new CTimer("CBizDeviceManager-reconnect_timer");
+	//if (NULL == m_reconnect_timer)
+	//{
+	//	ERR_PRINT("BizConfigGetNvrList failed\n");
+	//	goto fail;
+	//}
 
 	//待删除设备
 	plock_list_del= new CMutex;
@@ -480,6 +481,24 @@ int CBizDeviceManager::Init(void)
 		ERR_PRINT("new sync_buf failed\n");
 		goto fail;
 	}
+
+	b_inited = TRUE;
+	return SUCCESS;
+	
+fail:
+
+	FreeSrc();
+	return -FAILURE;
+}
+
+int CBizDeviceManager::SecondInit(void)
+{
+	m_reconnect_timer = new CTimer("CBizDeviceManager-reconnect_timer");
+	if (NULL == m_reconnect_timer)
+	{
+		ERR_PRINT("BizConfigGetNvrList failed\n");
+		return -FAILURE;
+	}
 	
 	//启动服务器接收线程	
 	m_threadlet_rcv.run("BizDeviceManager-rcv", this, (ASYNPROC)&CBizDeviceManager::threadRcv, 0, 0);
@@ -487,14 +506,7 @@ int CBizDeviceManager::Init(void)
 	//启动线程: 保活
 	m_threadlet_keep_alive.run("BizDeviceManager-keep_alive", this, (ASYNPROC)&CBizDeviceManager::threadKeepAlive, 0, 0);
 	
-	b_inited = TRUE;
-
 	return SUCCESS;
-	
-fail:
-
-	FreeSrc();
-	return -FAILURE;
 }
 
 void CBizDeviceManager::FreeSrc()//释放资源
@@ -2070,7 +2082,7 @@ void CBizDeviceManager::threadRcv(uint param)
 
 						continue;
 					}
-					
+
 					pplock_dev[dev_idx]->Lock();
 
 					pcdev = ppcdev[dev_idx];
@@ -2081,15 +2093,47 @@ void CBizDeviceManager::threadRcv(uint param)
 						pplock_dev[dev_idx]->Unlock();						
 						continue;
 					}
-
+					
 					deviceIP = pcdev->dev_info.deviceIP;
+					struct in_addr in;
+					in.s_addr = deviceIP;
+					
+					switch (cprcvhead.event)
+					{
+						case CTRL_NOTIFY_PLAYPROGRESS: //放像进度通知
+						{
+							ifly_progress_t progress;
+							memcpy(&progress, rcv_buf + sizeof(ifly_cp_header_t), sizeof(ifly_progress_t));
+
+							progress.id = ntohl(progress.id);				//回放id
+							progress.currPos = ntohl(progress.currPos);		//当前进度
+							progress.totallen = ntohl(progress.totallen);	//总时间
+
+							DBG_PRINT("totallen: %d, currPos: %d\n", progress.totallen, progress.currPos);
+						} break;
+
+						case CTRL_NOTIFY_PLAYEND: //放像结束
+						{
+							u32 linkid = 0;
+							memcpy(&linkid, rcv_buf + sizeof(ifly_cp_header_t), sizeof(linkid));
+							
+						} break;
+
+						case CTRL_NOTIFY_ALARMINFO: //异步报警信息
+						{
+						} break;
+
+						default:
+							DBG_PRINT("dev(%s) notify event(%d) not support\n", inet_ntoa(in), cprcvhead.event);
+					}
 					
 					pplock_dev[dev_idx]->Unlock();
-
-					BizDealSvrNotify(deviceIP, 
+#if 0
+					BizDealSvrNotify(dev_idx, 
 							cprcvhead.event,
 							rcv_buf + sizeof(ifly_cp_header_t), 
-							cprcvhead.length - sizeof(ifly_cp_header_t));																				
+							cprcvhead.length - sizeof(ifly_cp_header_t));																			
+#endif
 				}
 				else
 				{
@@ -2433,11 +2477,18 @@ void CBizDeviceManager::threadKeepAlive(uint param)
 	int fd_tmp = INVALID_SOCKET;
 	
 	DBG_PRINT("CBizDeviceManager::threadKeepAlive running\n");
+
+	//查询gui 是否准备好接收通知消息
+	while (!BizGuiIsReady())
+	{
+		DBG_PRINT("wait BizGuiIsReady\n");
+		sleep(1);
+	}
 	
 	while(1)
 	{	
 		pre_tick = SystemGetMSCount64();
-		
+#if 0		
 		//网络状态机，检查网络是否正常
 		b_network_ok = BizisNetworkOk();
 		switch (state)
@@ -2464,7 +2515,7 @@ void CBizDeviceManager::threadKeepAlive(uint param)
 			sleep(1);
 			continue;
 		}
-		
+#endif		
 		// 1、处理待删除设备
 		do
 		{
@@ -2933,7 +2984,7 @@ int CBizDevice::DevNetDialogueAfter(int net_ret)//后期错误检查
 		CleanSock();
 		
 		//断开流连接
-		ShutdownStreamAll();
+		ShutdownStreamAll(EM_STREAM_RCV_ERR);
 		
 		//注销logout
 		DevDisconnect();
@@ -3533,7 +3584,14 @@ int CBizDevice::StreamStart(ifly_TCP_Stream_Req *preq, CMediaStream *pstream)
 	{
 		ERR_PRINT("svr IP: %s, create socket failed, %s\n", inet_ntoa(in), strerror(errno));
 		goto fail;
-	}	
+	}
+
+	struct timeval timeout = {3,0};
+	struct timeval timeout0 = {0,0};
+	
+	socklen_t optlen = sizeof(struct timeval);
+	getsockopt(fd_tmp, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout0, &optlen);//为之后恢复
+	setsockopt(fd_tmp, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(struct timeval));//设置超时时间
 
 	server.sin_family = AF_INET;
 	server.sin_addr.s_addr = dev_info.deviceIP;
@@ -3575,7 +3633,7 @@ int CBizDevice::StreamStart(ifly_TCP_Stream_Req *preq, CMediaStream *pstream)
 
 	if (stream_ack.errcode != 0)
 	{
-		DBG_PRINT("svr IP: %s, stream req cmd: %d, ack errcode: %d\n", 
+		ERR_PRINT("svr IP: %s, stream req cmd: %d, ack errcode: %d\n", 
 			inet_ntoa(in), preq->command, stream_ack.errcode);
 		goto fail2;
 	}
@@ -3583,9 +3641,12 @@ int CBizDevice::StreamStart(ifly_TCP_Stream_Req *preq, CMediaStream *pstream)
 	//success
 	if (!bthread_stream_running)
 	{
+		bthread_stream_running = TRUE;
+		bthread_stream_exit = FALSE;
+		
 		//启动服务器接收线程	
 		m_threadlet_stream_rcv.run("BizDevice-streamrcv", this, (ASYNPROC)&CBizDevice::threadStreamRcv, 0, 0);
-		bthread_stream_running = TRUE;
+		
 	}
 	
 	stream_rcv[i].sockfd = fd_tmp;
@@ -3602,6 +3663,8 @@ int CBizDevice::StreamStart(ifly_TCP_Stream_Req *preq, CMediaStream *pstream)
 	{
 		pstream->dealStateFunc(EM_STREAM_CONNECTED);//流连接成功
 	}
+
+	setsockopt(fd_tmp, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout0, sizeof(struct timeval));//恢复
 	
 	plock4stream->Unlock();
 
@@ -3610,6 +3673,7 @@ int CBizDevice::StreamStart(ifly_TCP_Stream_Req *preq, CMediaStream *pstream)
 	return i;//success
 
 fail2:
+	setsockopt(fd_tmp, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout0, sizeof(struct timeval));//恢复
 	close(fd_tmp);
 	
 fail:
@@ -3675,7 +3739,7 @@ int CBizDevice::StreamStop(int stream_idx, EM_STREAM_STATE_TYPE stop_reason)
 	ret = DevNetDialogue(cmd, &linkid, sizeof(linkid), buf, sizeof(buf));
 	if (ret)
 	{
-		ERR_PRINT("DevNetDialogue CTRL_CMD_STOPVIDEOMONITOR failed, ret: %d\n", ret);
+		ERR_PRINT("DevNetDialogue cmd(%d) failed, ret: %d\n", cmd, ret);
 	}	
 
 	_CleanStream(stream_idx);
@@ -3683,6 +3747,9 @@ int CBizDevice::StreamStop(int stream_idx, EM_STREAM_STATE_TYPE stop_reason)
 
 	if (pstream != NULL)
 	{
+		if (!b_alive)
+			stop_reason = EM_STREAM_RCV_ERR;
+		
 		pstream->dealStateFunc(stop_reason);//关闭原因默认主动关闭
 	}
 
@@ -3709,7 +3776,7 @@ void CBizDevice::_CleanStream(int stream_idx)
 }
 
 //关闭所有数据流连接
-int CBizDevice::ShutdownStreamAll()
+int CBizDevice::ShutdownStreamAll(EM_STREAM_STATE_TYPE stop_reason)
 {
 	int i = 0;
 	struct in_addr in;
@@ -3719,7 +3786,7 @@ int CBizDevice::ShutdownStreamAll()
 	
 	for (i = 0; i < MaxMediaLinks; ++i)
 	{
-		StreamStop(i);
+		StreamStop(i, stop_reason);
 	}
 
 	if (bthread_stream_running)
@@ -3785,6 +3852,7 @@ void CBizDevice::threadStreamRcv(uint param)
 
 		if (bthread_stream_exit)//外部请求退出
 		{
+			DBG_PRINT("bthread_stream_exit: %d\n", bthread_stream_exit);
 			bthread_stream_running = FALSE;
 			
 			plock4stream->Unlock();			
@@ -3812,6 +3880,7 @@ void CBizDevice::threadStreamRcv(uint param)
 			}
 			else	//空闲一段时间自行退出
 			{
+				DBG_PRINT("idle exit\n");
 				bthread_stream_running = FALSE;
 				plock4stream->Unlock();
 				break;				
@@ -4155,14 +4224,20 @@ int BizDevSearch(std::vector<SBiz_DeviceInfo_t> *pvnvr_list,
 			Device  Manager外部接口实现
 *****************************************************/
 
-int BizDeviceInit(void)
+int BizDeviceFirstInit(void)
+{	
+	return g_biz_device_manager.FirstInit();
+}
+
+int BizDeviceSecondInit(void)
 {
 	
 	//注册搜索回调函数
 	SetFindDeviceCB(SearchDevice_CB, NULL);
 	
-	return g_biz_device_manager.Init();
+	return g_biz_device_manager.SecondInit();
 }
+
 int BizAddDev(EM_DEV_TYPE dev_type, u32 dev_ip)
 {
 	return g_biz_device_manager.AddDev(dev_type, dev_ip);

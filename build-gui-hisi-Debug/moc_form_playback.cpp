@@ -22,7 +22,7 @@ static const uint qt_meta_data_form_playback[] = {
        6,       // revision
        0,       // classname
        0,    0, // classinfo
-      11,   14, // methods
+      12,   14, // methods
        0,    0, // properties
        0,    0, // enums/sets
        0,    0, // constructors
@@ -31,22 +31,24 @@ static const uint qt_meta_data_form_playback[] = {
 
  // slots: signature, parameters, type, tag, flags
       19,   15,   14,   14, 0x08,
-      48,   43,   14,   14, 0x08,
-      86,   43,   14,   14, 0x08,
-     132,  130,   14,   14, 0x08,
-     154,   14,   14,   14, 0x08,
-     175,   14,   14,   14, 0x08,
-     203,   14,   14,   14, 0x08,
-     229,   14,   14,   14, 0x08,
-     256,   14,   14,   14, 0x08,
-     282,   14,   14,   14, 0x08,
-     306,   14,   14,   14, 0x08,
+      56,   43,   14,   14, 0x08,
+     103,   98,   14,   14, 0x08,
+     141,   98,   14,   14, 0x08,
+     187,  185,   14,   14, 0x08,
+     209,   14,   14,   14, 0x08,
+     230,   14,   14,   14, 0x08,
+     258,   14,   14,   14, 0x08,
+     284,   14,   14,   14, 0x08,
+     311,   14,   14,   14, 0x08,
+     337,   14,   14,   14, 0x08,
+     361,   14,   14,   14, 0x08,
 
        0        // eod
 };
 
 static const char qt_meta_stringdata_form_playback[] = {
     "form_playback\0\0dev\0refreshDevInfo(SGuiDev)\0"
+    "playback_msg\0slotNotifyPlaybackInfo(SPlaybackNotify_t)\0"
     "item\0tableWidgetClicked(QTableWidgetItem*)\0"
     "tableWidgetDoubleClicked(QTableWidgetItem*)\0"
     "b\0showTableWidget(bool)\0on_btn_srh_clicked()\0"
@@ -64,16 +66,17 @@ void form_playback::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _i
         form_playback *_t = static_cast<form_playback *>(_o);
         switch (_id) {
         case 0: _t->refreshDevInfo((*reinterpret_cast< SGuiDev(*)>(_a[1]))); break;
-        case 1: _t->tableWidgetClicked((*reinterpret_cast< QTableWidgetItem*(*)>(_a[1]))); break;
-        case 2: _t->tableWidgetDoubleClicked((*reinterpret_cast< QTableWidgetItem*(*)>(_a[1]))); break;
-        case 3: _t->showTableWidget((*reinterpret_cast< bool(*)>(_a[1]))); break;
-        case 4: _t->on_btn_srh_clicked(); break;
-        case 5: _t->on_btn_page_start_clicked(); break;
-        case 6: _t->on_btn_page_pre_clicked(); break;
-        case 7: _t->on_btn_page_next_clicked(); break;
-        case 8: _t->on_btn_page_end_clicked(); break;
-        case 9: _t->on_btn_to_dec_clicked(); break;
-        case 10: _t->on_btn_stop_clicked(); break;
+        case 1: _t->slotNotifyPlaybackInfo((*reinterpret_cast< SPlaybackNotify_t(*)>(_a[1]))); break;
+        case 2: _t->tableWidgetClicked((*reinterpret_cast< QTableWidgetItem*(*)>(_a[1]))); break;
+        case 3: _t->tableWidgetDoubleClicked((*reinterpret_cast< QTableWidgetItem*(*)>(_a[1]))); break;
+        case 4: _t->showTableWidget((*reinterpret_cast< bool(*)>(_a[1]))); break;
+        case 5: _t->on_btn_srh_clicked(); break;
+        case 6: _t->on_btn_page_start_clicked(); break;
+        case 7: _t->on_btn_page_pre_clicked(); break;
+        case 8: _t->on_btn_page_next_clicked(); break;
+        case 9: _t->on_btn_page_end_clicked(); break;
+        case 10: _t->on_btn_to_dec_clicked(); break;
+        case 11: _t->on_btn_stop_clicked(); break;
         default: ;
         }
     }
@@ -111,9 +114,9 @@ int form_playback::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 11)
+        if (_id < 12)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 11;
+        _id -= 12;
     }
     return _id;
 }

@@ -74,6 +74,7 @@ public:
 	, dev_type(EM_DEV_TYPE_NONE)
 	, dev_ip(INADDR_NONE)
 	, stream_idx(INVALID_VALUE)
+	, err_code(SUCCESS)
 	{
 		memset(&req, 0, sizeof(ifly_TCP_Stream_Req));
 	}
@@ -87,6 +88,7 @@ protected:
 	EM_DEV_TYPE dev_type;
 	u32 dev_ip;
 	s32 stream_idx;
+	int err_code;
 	ifly_TCP_Stream_Req req;
 
 private:

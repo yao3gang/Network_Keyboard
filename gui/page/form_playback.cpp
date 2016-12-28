@@ -61,7 +61,7 @@ void form_playback::init_form() //æŽ§ä»¶
     setupWidgetLeft();
     setupWidgetBottom();
 
-	connect(gp_bond, SIGNAL(signalNotifyPlaybackInfo(SPlaybackNotify_t)), this, SLOT(slotNotifyPlaybackInfo(SPlaybackNotify_t)), Qt::QueuedConnection);
+    connect(gp_bond, SIGNAL(signalNotifyPlaybackInfo(SPlaybackNotify_t)), this, SLOT(slotNotifyPlaybackInfo(SPlaybackNotify_t)), Qt::QueuedConnection);
 }
 
 void form_playback::setupWidgetLeft()
@@ -533,17 +533,28 @@ void form_playback::refreshDevInfo(SGuiDev dev)
     }
 }
 
-void form_playback::slotNotifyPlaybackInfo(SPlaybackNotify_t playback_msg)123
+void form_playback::slotNotifyPlaybackInfo(SPlaybackNotify_t playback_msg)
 {
-	//0 Õý³£½áÊø1 ÍøÂç´íÎó
-	if (0 == playback_msg.msg_type)
-	{
-		
-	}
-	else if (1 == playback_msg.msg_type)
-	{
-		
-	}		
+    //0 æ­£å¸¸ç»“æŸ 1 æŽ¥æ”¶é”™è¯¯
+    if (0 == playback_msg.msg_type)
+    {
+        ShowMessageBoxInfo(QString::fromUtf8("æ’­æ”¾ç»“æŸ"));
+    }
+    else if (1 == playback_msg.msg_type)
+    {
+        struct in_addr in;
+        in.s_addr = playback_msg.dev_ip;
+        QString dev_ip = QString::fromUtf8(inet_ntoa(in));
+
+        if (!dev_ip.isEmpty())
+        {
+            ShowMessageBoxError(QString::fromUtf8("ä¸Žè®¾å¤‡%1é€šä¿¡æ•…éšœï¼Œè¯·æ£€æŸ¥ç½‘ç»œ").arg(dev_ip));
+        }
+        else
+        {
+            ERR_PRINT("dev_ip invalid\n");
+        }
+    }
 }
 
 
@@ -1011,6 +1022,7 @@ void form_playback::mousePressEvent(QMouseEvent *event)
         pmain->show();
     }
 }
+
 
 
 

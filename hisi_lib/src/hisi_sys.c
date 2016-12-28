@@ -52,13 +52,13 @@ int hisi_chn_start(int stream_chn)
 	s32Ret = HI_MPI_VO_EnableChn(VoLayer, stream_chn);
 	if(HI_SUCCESS != s32Ret)
 	{
-		ERR_PRINT("HI_MPI_VO_EnableChn failed, ret: 0x%x\n", ret);
+		ERR_PRINT("HI_MPI_VO_EnableChn failed, ret: 0x%x\n", s32Ret);
 	}
 	
 	s32Ret = HI_MPI_VDEC_StartRecvStream(stream_chn);//yaogang modify 20150306
 	if(HI_SUCCESS != s32Ret)
 	{
-		ERR_PRINT("HI_MPI_VDEC_StartRecvStream failed, ret: 0x%x\n", ret);
+		ERR_PRINT("HI_MPI_VDEC_StartRecvStream failed, ret: 0x%x\n", s32Ret);
 	}
 								
 	pthread_mutex_unlock(&hisi_lock);
@@ -75,28 +75,28 @@ int hisi_chn_stop(int stream_chn)
 	s32Ret = HI_MPI_VDEC_StopRecvStream(stream_chn);
 	if(HI_SUCCESS != s32Ret)
 	{
-		ERR_PRINT("HI_MPI_VDEC_StopRecvStream failed, ret: 0x%x\n", ret);
+		ERR_PRINT("HI_MPI_VDEC_StopRecvStream failed, ret: 0x%x\n", s32Ret);
 	}
 	
 	s32Ret = HI_MPI_VDEC_ResetChn(stream_chn);
 	if(HI_SUCCESS != s32Ret)
 	{
-		ERR_PRINT("HI_MPI_VDEC_ResetChn failed, ret: 0x%x\n", ret);
+		ERR_PRINT("HI_MPI_VDEC_ResetChn failed, ret: 0x%x\n", s32Ret);
 	}
 
-	s32Ret = HI_MPI_VPSS_ResetGrp(chn);
+	s32Ret = HI_MPI_VPSS_ResetGrp(stream_chn);
 	if(HI_SUCCESS != s32Ret)
 	{
-		LIB_PRT("nvr HI_MPI_VPSS_ResetGrp(vdch=%d) failed!\n", chn);
-		SAMPLE_COMM_VPSS_Stop(chn, 1, VPSS_MAX_CHN_NUM);
-		SampleWaitDestroyVdecChn(chn);
+		ERR_PRINT("HI_MPI_VPSS_ResetGrp(vdch=%d) failed, ret: 0x%x\n", stream_chn, s32Ret);
+		//SAMPLE_COMM_VPSS_Stop(chn, 1, VPSS_MAX_CHN_NUM);
+		//SampleWaitDestroyVdecChn(chn);
 		return 0;
 	}
 	
 	s32Ret = HI_MPI_VO_ClearChnBuffer(VoLayer, stream_chn, HI_TRUE);
 	if(HI_SUCCESS != s32Ret)
 	{
-		ERR_PRINT("HI_MPI_VO_ClearChnBuffer failed, ret: 0x%x\n", ret);
+		ERR_PRINT("HI_MPI_VO_ClearChnBuffer failed, ret: 0x%x\n", s32Ret);
 	}
 	//yaogang modify 20150323
 	//HI_MPI_VO_DisableChn + HI_MPI_VO_EnableChn是为了解决删除IPC通道后，
@@ -104,7 +104,7 @@ int hisi_chn_stop(int stream_chn)
 	s32Ret = HI_MPI_VO_DisableChn(VoLayer, stream_chn);
 	if(HI_SUCCESS != s32Ret)
 	{
-		ERR_PRINT("HI_MPI_VO_DisableChn failed, ret: 0x%x\n", ret);
+		ERR_PRINT("HI_MPI_VO_DisableChn failed, ret: 0x%x\n", s32Ret);
 	}
 	
 	pthread_mutex_unlock(&hisi_lock);
@@ -874,12 +874,12 @@ int HisiSysInit()
 	//MPP version
 	MPP_VERSION_S stMppVersion;
 	HI_MPI_SYS_GetVersion(&stMppVersion);
-	printf("Mpp version: %s\n", stMppVersion.aVersion);
+	DBG_PRINT("Mpp version: %s\n", stMppVersion.aVersion);
 	
 	s32Ret = HisiMPPInit(&stSize_dec);
 	if (HI_SUCCESS != s32Ret)
     {
-        printf("HisiMPPInit failed!\n");
+        ERR_PRINT("HisiMPPInit failed!\n");
         goto END1;
     }
 	/************************************************
@@ -900,7 +900,7 @@ int HisiSysInit()
 	s32Ret = HisiVdecInit(&stSize_dec);
 	if (HI_SUCCESS != s32Ret)
 	{
-        printf("HisiVdecInit failed!\n");
+        ERR_PRINT("HisiVdecInit failed!\n");
         goto END1;
     }
 
@@ -910,7 +910,7 @@ int HisiSysInit()
 	s32Ret = HisiVpssInit(&stSize_dec);
 	if (HI_SUCCESS != s32Ret)
 	{
-        printf("HisiVpssInit failed!\n");
+        ERR_PRINT("HisiVpssInit failed!\n");
         goto END2;
     }
 
@@ -920,7 +920,7 @@ int HisiSysInit()
 	s32Ret = HisiVoInit(&stSize_disp);
 	if (HI_SUCCESS != s32Ret)
 	{
-        printf("HisivVoInit failed!\n");
+        ERR_PRINT("HisivVoInit failed!\n");
         goto END3;
     }
 
@@ -930,7 +930,7 @@ int HisiSysInit()
 	s32Ret = SAMLE_COMM_VDEC_BindVpss(0, 0);
 	if (HI_SUCCESS != s32Ret)
 	{
-		printf("SAMLE_COMM_VDEC_BindVpss failed!\n");
+		ERR_PRINT("SAMLE_COMM_VDEC_BindVpss failed!\n");
 		goto END4;
 	}
 
@@ -940,7 +940,7 @@ int HisiSysInit()
 	s32Ret = SAMPLE_COMM_VO_BindVpss(VoLayer, 0, 0, VPSS_BSTR_CHN);
 	if (HI_SUCCESS != s32Ret)
 	{
-		printf("SAMLE_COMM_VDEC_BindVpss failed!\n");
+		ERR_PRINT("SAMLE_COMM_VDEC_BindVpss failed!\n");
 		goto END5;
 	}
 
@@ -950,11 +950,11 @@ int HisiSysInit()
 	s32Ret = HisiFBInit(&stSize_disp);
 	if (HI_SUCCESS != s32Ret)
 	{
-		printf("HisiFBInit failed!\n");
+		ERR_PRINT("HisiFBInit failed!\n");
 		goto END6;
 	}	
 	
-	printf("vo & hifb ready!\n");
+	DBG_PRINT("vo & hifb ready!\n");
 	
 	return HI_SUCCESS;
 

@@ -79,8 +79,7 @@ void term_exit(int signo)
 	}
 }
 
-
-int BizInit(void)
+int BizFirstInit(void)
 {
 	biz_inited = 0;
 
@@ -103,17 +102,27 @@ int BizInit(void)
 	{
 		ERR_PRINT("BizConfigInit failed\n");
 	}
-	
+
 	if (BizNetInit())
 	{
 		ERR_PRINT("BizNetInit failed\n");
 	}
 	
-	if (BizDeviceInit())
+	if (BizDeviceFirstInit())
 	{
-		ERR_PRINT("BizDeviceInit failed\n");
+		ERR_PRINT("BizDeviceFirstInit failed\n");
 	}
+	
+	return SUCCESS;
+}
 
+int BizSecondInit(void)
+{
+	if (BizDeviceSecondInit())
+	{
+		ERR_PRINT("BizDeviceSecondInit failed\n");
+	}
+	
 	if (BizPreviewInit())
 	{
 		ERR_PRINT("BizDeviceInit failed\n");
@@ -134,10 +143,17 @@ int BizInit(void)
 	return SUCCESS;
 }
 
+
 //设置参数
 int BizSetNetParam(SConfigNetParam &snet_param)
 {
 	return BizNetSetNetParam(snet_param);
+}
+
+//查询gui 是否准备好接收通知消息
+VD_BOOL BizGuiIsReady()
+{
+	return notifyIsReady();
 }
 
 
@@ -246,9 +262,9 @@ int BizDealClientDataLink(
 }
 
 //处理网络服务器事件通知
-void BizDealSvrNotify(u32 svr_ip, u16 event, s8 *pbyMsgBuf, int msgLen)
+void BizDealSvrNotify(s32 dev_idx, u16 event, s8 *pbyMsgBuf, int msgLen)
 {
-	//s32 ip_le = ntohl(svr_ip);
+	u32 dev_ip = INADDR_NONE;
 	struct in_addr in;
 	in.s_addr = svr_ip;
 		

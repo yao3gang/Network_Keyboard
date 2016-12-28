@@ -71,18 +71,12 @@ bool myApplication::isRunning()
 int main(int argc, char *argv[])
 {
     //逻辑层初始化
-    if (BizInit())
+    if (BizFirstInit())
     {
-        qDebug("BizInit failed\n");
+        qDebug("BizFirstInit failed\n");
         return 0;
     }
-    qDebug("BizInit success\n");
-
-    //while (1)
-    //{
-    //    sleep(1);
-    //}
-    //sleep(5);
+    qDebug("BizFirstInit success\n");
 
     //应用层初始化
     QApplication app(argc, argv);
@@ -139,6 +133,14 @@ int main(int argc, char *argv[])
     }
 
     page_dev->syncAllDevInfo();
+
+    //逻辑层初始化
+    if (BizSecondInit())
+    {
+        qDebug("BizSecondInit failed\n");
+        return 0;
+    }
+    qDebug("BizSecondInit success\n");
 
     return app.exec();
 }
