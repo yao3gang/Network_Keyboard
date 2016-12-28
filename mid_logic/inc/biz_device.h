@@ -87,6 +87,7 @@ public:
 	//成功返回stearm_rcv[MaxMediaLinks] 下标stream_idx
 	int StreamStart(ifly_TCP_Stream_Req *preq, CMediaStream *pstream);
 	int StreamStop(int stream_idx, EM_STREAM_STATE_TYPE stop_reason = EM_STREAM_STOP);//关闭原因默认主动关闭
+	int StreamProgress(s32 stream_idx, VD_BOOL b);//接收回放进度信息
 	void _CleanStream(int stream_idx);
 
 	//关闭所有数据流连接
@@ -127,6 +128,7 @@ private:
 	int DevNetDialogue(u16 event, const void *content, int length, void* ackbuf, int ackbuflen);
 	//后期错误检查
 	int DevNetDialogueAfter(int net_ret);
+	int getStreamFromLinkID(u32 link_id);//通过link_id得到对应tream_rcv[MaxMediaLinks] 下标
 	
 private:
 	C_Lock *plock4param;//mutex
@@ -202,7 +204,7 @@ int BizStartNotifyDevInfo();//使能通知。设备层将信息通知给上层
 //成功返回stearm_rcv[MaxMediaLinks] 下标stream_idx
 int BizReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_TCP_Stream_Req *preq, CMediaStream *pstream);
 int BizReqStreamStop(EM_DEV_TYPE dev_type, u32 dev_ip, s32 stream_idx);
-int BizDevStreamProgress(VD_BOOL b);//接收回放进度信息
+int BizDevStreamProgress(EM_DEV_TYPE dev_type, u32 dev_ip, s32 stream_idx, VD_BOOL b);//接收回放进度信息
 
 
 

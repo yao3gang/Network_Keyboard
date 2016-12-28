@@ -262,11 +262,10 @@ int BizDealClientDataLink(
 }
 
 //处理网络服务器事件通知
-void BizDealSvrNotify(s32 dev_idx, u16 event, s8 *pbyMsgBuf, int msgLen)
+void BizDealSvrNotify(u32 dev_ip, u16 event, s8 *pbyMsgBuf, int msgLen)
 {
-	u32 dev_ip = INADDR_NONE;
 	struct in_addr in;
-	in.s_addr = svr_ip;
+	in.s_addr = dev_ip;
 		
 	DBG_PRINT("svr IP: %s, event: %d\n", inet_ntoa(in), event);
 }

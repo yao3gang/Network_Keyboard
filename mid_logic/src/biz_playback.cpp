@@ -60,6 +60,8 @@ public:
 	virtual int dealFrameFunc(FRAMEHDR *pframe_hdr);
 	virtual int dealStateFunc(EM_STREAM_STATE_TYPE state, u32 param = 0);//param: 文件下载进度值
 	
+protected:
+	int _StreamProgress(VD_BOOL b);//接收进度信息
 	
 private:
 	CBizPlayback();
@@ -179,14 +181,14 @@ int CBizPlayback::PlaybackStartByFile(u32 _dev_ip, ifly_recfileinfo_t *pfile_inf
 	}
 
 	//进度
-	ret = BizDevStreamProgress(TRUE);//接收进度信息
+	ret = _StreamProgress(TRUE);//接收进度信息
 	if (ret)
 	{
 		ERR_PRINT("BizDevStreamProgress failed, ret: %d\n", ret);
 
 		if (Stop())
 		{
-			ERR_PRINT("Stop failed\n", ret);
+			ERR_PRINT("Stop failed\n");
 		}
 		
 		plock4param->Unlock();
@@ -309,6 +311,12 @@ int CBizPlayback::PlaybackStop()
 	
 	return SUCCESS;
 }
+
+int CBizPlayback::_StreamProgress(VD_BOOL b)//接收进度信息
+{
+	return BizDevStreamProgress(dev_type, dev_ip, stream_idx, b);
+}
+
 
 int CBizPlayback::dealFrameFunc(FRAMEHDR *pframe_hdr)
 {

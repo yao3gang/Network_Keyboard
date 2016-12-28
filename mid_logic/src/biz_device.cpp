@@ -109,6 +109,7 @@ public:
 	//成功返回stearm_rcv[MaxMediaLinks] 下标stream_idx
 	int ReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_TCP_Stream_Req *preq, CMediaStream *pstream);
 	int ReqStreamStop(EM_DEV_TYPE dev_type, u32 dev_ip, s32 stream_idx);
+	int DevStreamProgress(EM_DEV_TYPE dev_type, u32 dev_ip, s32 stream_idx, VD_BOOL b);//接收回放进度信息
 	//底层数据交互
 	int NetDialogue(int sock, u16 event, const void *content, int length, void* ackbuf, int ackbuflen, int *realacklen);
 	int FirstInit();
@@ -132,6 +133,7 @@ private:
 	void threadKeepAlive(uint param);//服务器保活
 	void timerFuncReconnect(uint param);//服务器重连
 	void threadRcv(uint param);// 1.接收服务器回应---2. 接收服务器报警
+	void dealDevNotify(s32 dev_idx, u16 event, s8 *pbyMsgBuf, int msgLen); //处理设备通知信息
 	//按是否在线, 分离添加的设备
 	void _SplitDevFromMap(EM_DEV_TYPE dev_type, 
 								std::list<s32> &list_devs_online, 
@@ -1406,7 +1408,47 @@ int CBizDeviceManager::ReqStreamStop(EM_DEV_TYPE dev_type, u32 dev_ip, s32 strea
 	}
 
 	ret = pcdev->StreamStop(stream_idx);
-	if (ret < 0)
+	if (ret)
+	{
+		ERR_PRINT("IP(%s) StreamStop failed: %d\n", inet_ntoa(in), ret);
+		
+		pplock_dev[dev_idx]->Unlock();
+		return ret;
+	}
+	
+	pplock_dev[dev_idx]->Unlock();
+	return SUCCESS;
+}
+
+int CBizDeviceManager::DevStreamProgress(EM_DEV_TYPE dev_type, u32 dev_ip, s32 stream_idx, VD_BOOL b)//接收回放进度信息
+{
+	CBizDevice *pcdev = NULL;
+	int dev_idx = INVALID_VALUE;
+	int ret = SUCCESS;
+	struct in_addr in;
+	in.s_addr = dev_ip;
+
+	dev_idx = GetDevIdx(dev_type, dev_ip);
+	if (dev_idx < 0)
+	{
+		ERR_PRINT("IP(%s) GetDevIdx failed\n", inet_ntoa(in));
+		
+		return -EDEV_NOTFOUND;
+	}
+	
+	pplock_dev[dev_idx]->Lock();
+
+	pcdev = ppcdev[dev_idx];
+	if (NULL == pcdev)
+	{	
+		ERR_PRINT("IP(%s) pcdev == NULL\n", inet_ntoa(in));
+
+		pplock_dev[dev_idx]->Unlock();
+		return -EDEV_NOTFOUND;		
+	}
+
+	ret = pcdev->StreamProgress(stream_idx, b);
+	if (ret)
 	{
 		ERR_PRINT("IP(%s) StreamStop failed: %d\n", inet_ntoa(in), ret);
 		
@@ -2083,57 +2125,11 @@ void CBizDeviceManager::threadRcv(uint param)
 						continue;
 					}
 
-					pplock_dev[dev_idx]->Lock();
-
-					pcdev = ppcdev[dev_idx];
-					if (NULL == pcdev)
-					{
-						ERR_PRINT("dev_idx(%d) pcdev == NULL\n", dev_idx);
-						
-						pplock_dev[dev_idx]->Unlock();						
-						continue;
-					}
-					
-					deviceIP = pcdev->dev_info.deviceIP;
-					struct in_addr in;
-					in.s_addr = deviceIP;
-					
-					switch (cprcvhead.event)
-					{
-						case CTRL_NOTIFY_PLAYPROGRESS: //放像进度通知
-						{
-							ifly_progress_t progress;
-							memcpy(&progress, rcv_buf + sizeof(ifly_cp_header_t), sizeof(ifly_progress_t));
-
-							progress.id = ntohl(progress.id);				//回放id
-							progress.currPos = ntohl(progress.currPos);		//当前进度
-							progress.totallen = ntohl(progress.totallen);	//总时间
-
-							DBG_PRINT("totallen: %d, currPos: %d\n", progress.totallen, progress.currPos);
-						} break;
-
-						case CTRL_NOTIFY_PLAYEND: //放像结束
-						{
-							u32 linkid = 0;
-							memcpy(&linkid, rcv_buf + sizeof(ifly_cp_header_t), sizeof(linkid));
-							
-						} break;
-
-						case CTRL_NOTIFY_ALARMINFO: //异步报警信息
-						{
-						} break;
-
-						default:
-							DBG_PRINT("dev(%s) notify event(%d) not support\n", inet_ntoa(in), cprcvhead.event);
-					}
-					
-					pplock_dev[dev_idx]->Unlock();
-#if 0
-					BizDealSvrNotify(dev_idx, 
+					dealDevNotify(dev_idx, 
 							cprcvhead.event,
 							rcv_buf + sizeof(ifly_cp_header_t), 
-							cprcvhead.length - sizeof(ifly_cp_header_t));																			
-#endif
+							cprcvhead.length - sizeof(ifly_cp_header_t));
+					
 				}
 				else
 				{
@@ -2151,6 +2147,77 @@ fail:
 		delete []rcv_buf;
 		rcv_buf = NULL;
 	}
+}
+
+void CBizDeviceManager::dealDevNotify(s32 dev_idx, u16 event, s8 *pbyMsgBuf, int msgLen) //处理设备通知信息
+{
+	CBizDevice *pcdev = NULL;
+	u32 dev_ip = INADDR_NONE;
+	
+	pplock_dev[dev_idx]->Lock();
+
+	pcdev = ppcdev[dev_idx];
+	if (NULL == pcdev)
+	{
+		ERR_PRINT("dev_idx(%d) pcdev == NULL\n", dev_idx);
+		
+		pplock_dev[dev_idx]->Unlock();						
+		return ;
+	}
+	
+	dev_ip = pcdev->dev_info.deviceIP;
+	
+	struct in_addr in;
+	in.s_addr = dev_ip;
+	
+	switch (event)
+	{
+		case CTRL_NOTIFY_PLAYPROGRESS: //回放进度通知
+		{
+			ifly_progress_t progress;
+			memcpy(&progress, pbyMsgBuf, sizeof(ifly_progress_t));
+
+			progress.id = ntohl(progress.id);				//回放linkid
+			progress.currPos = ntohl(progress.currPos);		//当前进度
+			progress.totallen = ntohl(progress.totallen);	//总时间
+
+			DBG_PRINT("totallen: %d, currPos: %d\n", progress.totallen, progress.currPos);
+			s32 stream_idx = INVALID_VALUE;
+			stream_idx = pcdev->getStreamFromLinkID(progress.id);
+
+			if (INVALID_VALUE != stream_idx)
+			{
+				CMediaStream* pstream = pcdev->stream_rcv[stream_idx];
+				if (pstream)
+				{
+					pstream->dealStateFunc(EM_STREAM_PROGRESS);123
+				}
+			}
+			
+		} break;
+
+		case CTRL_NOTIFY_PLAYEND: //放像结束
+		{
+			u32 linkid = 0;
+			memcpy(&linkid, pbyMsgBuf, sizeof(linkid));
+			
+		} break;
+
+		case CTRL_NOTIFY_ALARMINFO: //异步报警信息
+		{
+		} break;
+
+		default:
+			DBG_PRINT("dev(%s) notify event(%d) not support\n", inet_ntoa(in), cprcvhead.event);
+	}
+	
+	pplock_dev[dev_idx]->Unlock();
+#if 0
+	BizDealSvrNotify(dev_ip, 
+			cprcvhead.event,
+			rcv_buf + sizeof(ifly_cp_header_t), 
+			cprcvhead.length - sizeof(ifly_cp_header_t));																			
+#endif
 }
 
 //重连
@@ -2993,6 +3060,28 @@ int CBizDevice::DevNetDialogueAfter(int net_ret)//后期错误检查
 	return net_ret;
 }
 
+int CBizDevice::getStreamFromLinkID(u32 link_id)//通过link_id得到对应tream_rcv[MaxMediaLinks] 下标
+{
+	int stream_idx = INVALID_VALUE;
+	int i = 0;
+	
+	plock4stream->Lock();
+
+	for (i=0; i<MaxMediaLinks; ++i)
+	{
+		if (stream_rcv[i].b_connect
+			&& stream_rcv[i].linkid == link_id)
+		{
+			stream_idx = i;
+			break;
+		}
+	}
+	
+	plock4stream->Unlock();
+
+	return stream_idx;
+}
+
 
 //keepalive保活使用
 int CBizDevice::GetDevSysTime(ifly_sysTime_t *psys_time)
@@ -3555,6 +3644,9 @@ int CBizDevice::StreamStart(ifly_TCP_Stream_Req *preq, CMediaStream *pstream)
 	struct sockaddr_in server;
 	struct in_addr in;
 	in.s_addr = dev_info.deviceIP;
+	struct timeval timeout = {3,0};
+	struct timeval timeout0 = {0,0};
+	socklen_t optlen = 0; 
 
 	
 	if (!b_alive || INVALID_SOCKET == sock_cmd)
@@ -3585,11 +3677,8 @@ int CBizDevice::StreamStart(ifly_TCP_Stream_Req *preq, CMediaStream *pstream)
 		ERR_PRINT("svr IP: %s, create socket failed, %s\n", inet_ntoa(in), strerror(errno));
 		goto fail;
 	}
-
-	struct timeval timeout = {3,0};
-	struct timeval timeout0 = {0,0};
 	
-	socklen_t optlen = sizeof(struct timeval);
+	optlen = sizeof(struct timeval);
 	getsockopt(fd_tmp, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout0, &optlen);//为之后恢复
 	setsockopt(fd_tmp, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(struct timeval));//设置超时时间
 
@@ -3751,6 +3840,56 @@ int CBizDevice::StreamStop(int stream_idx, EM_STREAM_STATE_TYPE stop_reason)
 			stop_reason = EM_STREAM_RCV_ERR;
 		
 		pstream->dealStateFunc(stop_reason);//关闭原因默认主动关闭
+	}
+
+	plock4stream->Unlock();
+
+	return SUCCESS;
+}
+
+int CBizDevice::StreamProgress(s32 stream_idx, VD_BOOL b) //接收回放进度信息
+{
+	int ret = -FAILURE;
+	struct in_addr in;
+	in.s_addr = dev_info.deviceIP;
+	u32 linkid = 0;
+	u32 sndlen = 0;
+	char sndbuf[128];
+	char rcvbuf[128];
+	CMediaStream* pstream = NULL;
+	
+	if (stream_idx < 0 || stream_idx > MaxMediaLinks)
+	{
+		DBG_PRINT("svr IP: %s, stream_idx(%d) out of range[%d, %d)\n", 
+			inet_ntoa(in), stream_idx, 0, MaxMediaLinks);
+		return -EPARAM;
+	}
+	
+	plock4stream->Lock();
+	pstream = stream_rcv[stream_idx].pstream;
+	
+	if (!stream_rcv[stream_idx].b_connect)
+	{
+		ERR_PRINT("svr IP: %s, stream_idx(%d) not start\n", 
+			inet_ntoa(in), stream_idx);
+		
+		plock4stream->Unlock();
+		return SUCCESS;
+	}
+	
+	linkid = htonl(stream_rcv[stream_idx].linkid);
+	char flagSend = b;
+	memcpy(sndbuf, &linkid, sizeof(linkid));
+	memcpy(sndbuf + sizeof(linkid), &flagSend, sizeof(flagSend));
+	sndlen = sizeof(linkid) + sizeof(flagSend);
+	
+	ret = DevNetDialogue(CTRL_CMD_PLAYPROGRESS, sndbuf, sndlen, rcvbuf, sizeof(rcvbuf));
+	if (ret)
+	{
+		ERR_PRINT("DevNetDialogue CTRL_CMD_PLAYPROGRESS failed, ret: %d\n", ret);
+
+		plock4stream->Unlock();
+		return ret;
 	}
 
 	plock4stream->Unlock();
@@ -4332,6 +4471,10 @@ int BizReqStreamStop(EM_DEV_TYPE dev_type, u32 dev_ip, s32 stream_idx)
 	return g_biz_device_manager.ReqStreamStop(dev_type, dev_ip, stream_idx);
 }
 
+int BizDevStreamProgress(EM_DEV_TYPE dev_type, u32 dev_ip, s32 stream_idx, VD_BOOL b)//接收回放进度信息
+{
+	return g_biz_device_manager.DevStreamProgress(dev_type, dev_ip, stream_idx, b);//接收回放进度信息
+}
 
 
 

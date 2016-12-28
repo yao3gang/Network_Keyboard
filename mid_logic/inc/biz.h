@@ -44,7 +44,7 @@ int BizDealClientDataLink(
 	struct sockaddr_in *pcli_addr_in);
 
 //处理网络服务器事件通知
-void BizDealSvrNotify(s32 dev_idx, u16 event, s8 *pbyMsgBuf, int msgLen);
+void BizDealSvrNotify(u32 dev_ip, u16 event, s8 *pbyMsgBuf, int msgLen);
 
 
 

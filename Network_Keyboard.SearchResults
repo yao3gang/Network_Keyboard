@@ -1,7 +1,4 @@
----- bthread_stream_exit Matches (7 in 2 files) ----
-biz_device.cpp (mid_logic\src):, bthread_stream_exit(FALSE)
-biz_device.cpp (mid_logic\src):		bthread_stream_exit = FALSE;
-biz_device.cpp (mid_logic\src):		bthread_stream_exit = TRUE;//请求关闭
-biz_device.cpp (mid_logic\src):		if (bthread_stream_exit)//外部请求退出
-biz_device.cpp (mid_logic\src):			DBG_PRINT("bthread_stream_exit: %d\n", bthread_stream_exit);
-biz_device.h (mid_logic\inc):	VD_BOOL bthread_stream_exit;//外部控制线程退出
+---- PlaybackStartByFile Matches (3 in 1 files) ----
+Biz_playback.cpp (mid_logic\src):	int PlaybackStartByFile(u32 _dev_ip, ifly_recfileinfo_t *pfile_info);
+Biz_playback.cpp (mid_logic\src):int CBizPlayback::PlaybackStartByFile(u32 _dev_ip, ifly_recfileinfo_t *pfile_info)
+Biz_playback.cpp (mid_logic\src):	return g_biz_playback.PlaybackStartByFile(_dev_ip, pfile_info);
