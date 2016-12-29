@@ -672,7 +672,7 @@ VD_BOOL isSockIOErr(int sock)
 
 	if (status != 0)
 	{
-		DBG_PRINT("socker error(%d, %s)\n", status, strerror(status));
+		ERR_PRINT("socket error(%d, %s)\n", status, strerror(status));
 		return TRUE;
 	}
 	

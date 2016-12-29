@@ -130,6 +130,7 @@ private:
 	}
 	void FreeSrc();//释放资源
 	int _AddDev2Map(EM_DEV_TYPE dev_type, u32 dev_ip);//外部加锁
+	void threadMsg(uint param);//读消息
 	void threadKeepAlive(uint param);//服务器保活
 	void timerFuncReconnect(uint param);//服务器重连
 	void threadRcv(uint param);// 1.接收服务器回应---2. 接收服务器报警
@@ -187,6 +188,13 @@ private:
 	char *send_buf;
 	char *sync_buf; //存储服务器回应数据
 	u32 sync_ack_len; // 服务器回应数据长度
+
+	//消息队列数据
+	pthread_cond_t mq_cond;		//写flash 的条件变量
+	pthread_mutex_t mq_mutex;	//条件变量互斥锁
+	int mq_msg_count;			//条件，pmsg_queue 中消息数目
+	CcircularBuffer *pmq_ccbuf;	//环形缓冲区
+	Threadlet mq_msg_thread;	//消息线程
 };
 
 PATTERN_SINGLETON_IMPLEMENT(CBizDeviceManager);
@@ -216,6 +224,9 @@ CBizDeviceManager::CBizDeviceManager()
 , send_buf(NULL)
 , sync_buf(NULL)
 , sync_ack_len(0)
+//消息队列数据
+, mq_msg_count(0)
+, pmq_ccbuf(NULL)
 {
 	
 }
@@ -484,6 +495,32 @@ int CBizDeviceManager::FirstInit(void)
 		goto fail;
 	}
 
+	//创建消息队列线程及相关数据
+	if (pthread_cond_init(&mq_cond, NULL))
+	{
+		ERR_PRINT("init mq_cond failed\n");
+		goto fail;
+	}
+	
+	if (pthread_mutex_init(&mq_mutex, NULL))
+	{
+		ERR_PRINT("init mq_mutex failed\n");
+		goto fail;
+	}
+
+	pmq_ccbuf = new CcircularBuffer(1024);
+	if (NULL == pmq_ccbuf)
+	{
+		ERR_PRINT("new CcircularBuffer failed\n");
+		goto fail;
+	}
+
+	if (pmq_ccbuf->CreateBuffer())
+	{
+		ERR_PRINT("CreateBuffer CcircularBuffer failed\n");
+		goto fail;
+	}
+
 	b_inited = TRUE;
 	return SUCCESS;
 	
@@ -501,6 +538,9 @@ int CBizDeviceManager::SecondInit(void)
 		ERR_PRINT("BizConfigGetNvrList failed\n");
 		return -FAILURE;
 	}
+
+	//启动消息队列读取线程
+	mq_msg_thread.run("BizDeviceManager-mq", this, (ASYNPROC)&CBizDeviceManager::threadMsg, 0, 0);
 	
 	//启动服务器接收线程	
 	m_threadlet_rcv.run("BizDeviceManager-rcv", this, (ASYNPROC)&CBizDeviceManager::threadRcv, 0, 0);
@@ -801,17 +841,9 @@ int CBizDeviceManager::GetDevChnIPCInfo(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_i
 	ret = pcdev->GetChnIPCInfo(pipc_info, size);
 	if (ret)
 	{
-		ERR_PRINT("IP(%s) GetChnIPCInfo failed\n", inet_ntoa(in));
+		ERR_PRINT("IP(%s) GetChnIPCInfo failed, ret: %d\n", inet_ntoa(in), ret);
 		
-		int fd_tmp = pcdev->sock_cmd;
-		
-		//关闭cmd socket
-		pcdev->CleanSock();
-		pplock_dev[dev_idx]->Unlock();
-		
-		//移除接收map_fd_idx
-		DelMapRcv(fd_tmp);
-		
+		pplock_dev[dev_idx]->Unlock();		
 		return ret;
 	}	
 
@@ -851,17 +883,9 @@ int CBizDeviceManager::GetDevChnName(EM_DEV_TYPE dev_type, u32 dev_ip, u8 chn, c
 	ret = pcdev->GetChnName(chn, pbuf, size);
 	if (ret)
 	{
-		ERR_PRINT("IP(%s) GetChnName failed\n", inet_ntoa(in));
+		ERR_PRINT("IP(%s) GetChnName failed, ret: %d\n", inet_ntoa(in), ret);
 		
-		int fd_tmp = pcdev->sock_cmd;
-		
-		//关闭cmd socket
-		pcdev->CleanSock();
-		pplock_dev[dev_idx]->Unlock();
-		
-		//移除接收map_fd_idx
-		DelMapRcv(fd_tmp);
-		
+		pplock_dev[dev_idx]->Unlock();	
 		return ret;
 	}	
 
@@ -943,17 +967,9 @@ int CBizDeviceManager::SetDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_ch
 	ret = pcdev->SetChnIpc(dec_chn, nvr_ip, nvr_chn);
 	if (ret)
 	{
-		ERR_PRINT("DEC IP(%s) SetChnIpc failed\n", inet_ntoa(in));
+		ERR_PRINT("DEC IP(%s) SetChnIpc failed, ret: %d\n", inet_ntoa(in), ret);
 		
-		int fd_tmp = pcdev->sock_cmd;
-		
-		//关闭cmd socket
-		pcdev->CleanSock();
-		pplock_dev[dev_idx]->Unlock();
-		
-		//移除接收map_fd_idx
-		DelMapRcv(fd_tmp);
-		
+		pplock_dev[dev_idx]->Unlock();		
 		return ret;
 	}	
 
@@ -1003,17 +1019,9 @@ int CBizDeviceManager::DelDevChnIpc(EM_DEV_TYPE dev_type, u32 dec_ip , u8 dec_ch
 	ret = pcdev->DelChnIpc(dec_chn);
 	if (ret)
 	{
-		ERR_PRINT("DEC IP(%s) DelChnIpc failed\n", inet_ntoa(in));
+		ERR_PRINT("DEC IP(%s) DelChnIpc failed, ret: %d\n", inet_ntoa(in), ret);
 		
-		int fd_tmp = pcdev->sock_cmd;
-		
-		//关闭cmd socket
-		pcdev->CleanSock();
 		pplock_dev[dev_idx]->Unlock();
-		
-		//移除接收map_fd_idx
-		DelMapRcv(fd_tmp);
-		
 		return ret;
 	}	
 
@@ -1054,17 +1062,9 @@ int CBizDeviceManager::DevRecFilesSearch(u32 nvr_ip, ifly_recsearch_param_t *pse
 	ret = pcdev->RecFilesSearch(psearch_para, psearch_result);
 	if (ret)
 	{
-		ERR_PRINT("DEC IP(%s) DelChnIpc failed\n", inet_ntoa(in));
+		ERR_PRINT("DEC IP(%s) DelChnIpc failed, ret: %d\n", inet_ntoa(in), ret);
 		
-		int fd_tmp = pcdev->sock_cmd;
-		
-		//关闭cmd socket
-		pcdev->CleanSock();
 		pplock_dev[dev_idx]->Unlock();
-		
-		//移除接收map_fd_idx
-		DelMapRcv(fd_tmp);
-		
 		return ret;
 	}	
 
@@ -1105,17 +1105,9 @@ int CBizDeviceManager::DevGetPatrolPara(EM_DEV_TYPE dev_type, u32 dec_ip, ifly_p
 	ret = pcdev->GetPatrolPara(para, pbuf_size);
 	if (ret)
 	{
-		ERR_PRINT("DEC IP(%s) DelChnIpc failed\n", inet_ntoa(in));
+		ERR_PRINT("DEC IP(%s) DelChnIpc failed, ret: %d\n", inet_ntoa(in), ret);
 		
-		int fd_tmp = pcdev->sock_cmd;
-		
-		//关闭cmd socket
-		pcdev->CleanSock();
 		pplock_dev[dev_idx]->Unlock();
-		
-		//移除接收map_fd_idx
-		DelMapRcv(fd_tmp);
-		
 		return ret;
 	}	
 
@@ -1746,7 +1738,14 @@ fail:
 	return ret;
 }
 
-//按是否在线, 分离添加的设备
+/************************************************************
+检查添加的设备
+1-按是否在线分
+2-1-离线设备--> reconnect
+2-2-在线设备按有无网络错误再分
+2-2-1-无错--> keepalive
+2-2-2-有错--> 清理后在下一次检查时为离线设备
+************************************************************/
 void CBizDeviceManager::_SplitDevFromMap(EM_DEV_TYPE dev_type, 
 							std::list<s32> &list_devs_online, 
 							std::list<s32> &list_devs_offline)
@@ -1778,7 +1777,7 @@ void CBizDeviceManager::_SplitDevFromMap(EM_DEV_TYPE dev_type,
 		in.s_addr = htonl(map_iter->first);
 		dev_idx = map_iter->second;
 
-		if ((dev_idx < 0) || (dev_idx >= pool_size))
+		if (dev_idx < 0 || dev_idx >= pool_size)
 		{
 			ERR_PRINT("%s dev(%s) idx(%d) out of range, pool_size: %d\n", 
 				str_dev_type.c_str(), inet_ntoa(in), dev_idx, pool_size);
@@ -1794,7 +1793,21 @@ void CBizDeviceManager::_SplitDevFromMap(EM_DEV_TYPE dev_type,
 			if (pcdev->b_alive)
 			{
 				//DBG_PRINT("device online, IP(%s)\n", inet_ntoa(in));
-				list_devs_online.push_back(dev_idx);
+				if (pcdev->err_cnt > NETDIALOGUE_ERR_MAX)//出错
+				{
+					//断开流连接
+					pcdev->ShutdownStreamAll();
+					
+					//注销logout
+					pcdev->DevDisconnect();
+					
+					//关闭cmd socket
+					pcdev->CleanSock();	
+				}
+				else
+				{
+					list_devs_online.push_back(dev_idx);
+				}
 			}
 			else
 			{
@@ -1828,6 +1841,7 @@ int CBizDeviceManager::AddMapRcv(s32 sock_fd, s32 dev_idx)//在pplock_dev[dev_idx
 	}
 	
 	plock_map_fd_idx->Lock();
+	
 	if (!map_fd_idx.insert(std::make_pair(sock_fd, dev_idx)).second)
 	{
 		ERR_PRINT("map_fd_idx insert failed, fd_tmp(%d) conflict\n", sock_fd);
@@ -1846,6 +1860,7 @@ int CBizDeviceManager::DelMapRcv(s32 sock_fd)//在pplock_dev[dev_idx]->Lock(); 锁
 
 	if (INVALID_SOCKET == sock_fd)
 	{
+		ERR_PRINT("INVALID_SOCKET == sock_fd\n");
 		return SUCCESS;
 	}
 	
@@ -1854,8 +1869,9 @@ int CBizDeviceManager::DelMapRcv(s32 sock_fd)//在pplock_dev[dev_idx]->Lock(); 锁
 	map_iter = map_fd_idx.find(sock_fd);
 	if (map_iter == map_fd_idx.end())
 	{
-		plock_map_fd_idx->Unlock();
+		DBG_PRINT("sock fd(%d) not found in map_fd_idx\n", sock_fd);
 		
+		plock_map_fd_idx->Unlock();		
 		return -FAILURE;
 	}
 
@@ -1873,6 +1889,7 @@ VD_BOOL CBizDeviceManager::isInMapRcv(s32 sock_fd)
 
 	if (INVALID_SOCKET == sock_fd)
 	{
+		ERR_PRINT("INVALID_SOCKET == sock_fd\n");
 		return FALSE;
 	}
 	
@@ -2645,10 +2662,14 @@ void CBizDeviceManager::threadKeepAlive(uint param)
 			
 		} while(1);
 
-		//处理已添加的设备
-		// 1、在线: 保活
-		// 2、离线: 重连，提交给定时器函数
-		//按是否在线，分离添加的设备
+	/************************************************************
+		检查添加的设备
+		1-按是否在线分
+		2-1-离线设备--> reconnect
+		2-2-在线设备按有无网络错误再分
+		2-2-1-无错--> keepalive
+		2-2-2-有错--> 清理后在下一次检查时为离线设备
+	************************************************************/
 		list_devs_online.clear();
 		list_devs_offline.clear();
 
@@ -2721,9 +2742,14 @@ void CBizDeviceManager::threadKeepAlive(uint param)
 		}
 
 		cur_tick = SystemGetMSCount64();
-		if (cur_tick - pre_tick < 3*1000)
+		if (cur_tick < pre_tick)
 		{
-			sleep(1);
+			ERR_PRINT("cur_tick(%llu) < pre_tick(%llu), inconceivable\n", cur_tick, pre_tick);
+			sleep(3);
+		}
+		else if ((cur_tick - pre_tick)/1000 < 3)
+		{
+			sleep(3-(cur_tick - pre_tick)/1000);
 		}
 	}
 
@@ -2978,15 +3004,19 @@ int CBizDevice::DevNetDialogue(u16 event, const void *content, int length, void*
 			return -EDEV_OFFLINE;
 		}
 
+		if (err_cnt > NETDIALOGUE_ERR_MAX)
+		{
+			DBG_PRINT("dev(%s) err_cnt > NETDIALOGUE_ERR_MAX\n", inet_ntoa(in));
+			return -EDEV_OFFLINE;
+		}
+
 		if (isSockIOErr(sock_cmd))
 		{
 			ERR_PRINT("dev(%s) isSockIOErr true\n", inet_ntoa(in));
 
-			//关闭cmd socket
-			CleanSock();
 			ret = -ERECV;
 			goto fail;
-		}
+		}		
 
 		//查询dev: sock_cmd是否在map_fd_idx
 		//如果不在说明在thread_Rcv 中已经发生接收错误
@@ -2994,8 +3024,6 @@ int CBizDevice::DevNetDialogue(u16 event, const void *content, int length, void*
 		{
 			ERR_PRINT("dev(%s) sock_cmd not in MapRcv\n", inet_ntoa(in));
 
-			//关闭cmd socket
-			CleanSock();
 			ret = -ERECV;
 			goto fail;
 		}
@@ -3013,7 +3041,7 @@ fail:
 		{
 			ERR_PRINT("dev(%s) cmd(%d) timeout, try again!!!\n", inet_ntoa(in), event);			
 		}
-	} while (ret != -EDEV_OFFLINE);
+	} while (err_cnt < NETDIALOGUE_ERR_MAX);
 	
 	return ret;
 }
@@ -3046,7 +3074,7 @@ int CBizDevice::DevNetDialogueAfter(int net_ret)//后期错误检查
 		net_ret = -EDEV_OFFLINE;//设备离线
 		
 		DBG_PRINT("dev(%s) disconnect\n", inet_ntoa(in));
-
+#if 0
 		//关闭cmd socket
 		CleanSock();
 		
@@ -3055,6 +3083,7 @@ int CBizDevice::DevNetDialogueAfter(int net_ret)//后期错误检查
 		
 		//注销logout
 		DevDisconnect();
+#endif
 	}
 
 	return net_ret;

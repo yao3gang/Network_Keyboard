@@ -67,6 +67,17 @@ typedef struct DeviceInfo_t
 #define MaxMediaLinks (5)
 #define MaxIdleNum (60)
 
+typedef struct DevStream_t
+{
+	u32 linkid;
+	EM_STREAM_STATUS_TYPE status;
+	ifly_TCP_Stream_Req req;
+} SDevStream_t;
+
+//u64: 高32位 devip，低32位 linkid 
+typedef std::map<u64, SDevStream_t*> MAP_IPID_PSTREAM;
+
+
 class CBizDevice : public CObject {
 	friend class CBizDeviceManager;
 public:
@@ -141,6 +152,10 @@ private:
 						//_Add2SetFromMap 检测cnt_err ，close dev sock
 	//stream					
 	C_Lock *plock4stream;//mutex
+#if 1
+	MAP_IPID_PSTREAM map_ipid_pstream;
+
+#else
 	VD_BOOL bthread_stream_running;
 	VD_BOOL bthread_stream_exit;//外部控制线程退出
 	int stream_cnt;//客户机请求流数量，即stearm_rcv 数组有效成员数
@@ -149,6 +164,7 @@ private:
 	SDev_StearmRcv_t stream_rcv[MaxMediaLinks]; //数据流结构MaxMediaLinks
 	void threadStreamRcv(uint param);
 	Threadlet m_threadlet_stream_rcv;
+#endif
 };
 
 
