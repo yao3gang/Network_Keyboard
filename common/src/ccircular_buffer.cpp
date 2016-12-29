@@ -76,10 +76,15 @@ int CcircularBuffer::CreateBuffer()
 }
 void CcircularBuffer::Reset()
 {
-	m_read_p = m_write_p = 0;
+	m_pre_read_p = m_read_p = m_pre_write_p = m_write_p = 0;
 }
 
-int CcircularBuffer::Put(uchar *pbuf, uint len)
+void CcircularBuffer::PutRst()
+{
+	m_write_p = m_pre_write_p;
+}
+
+int CcircularBuffer::Put(u8 *pbuf, u32 len)
 {
 	if (NULL == pbuf)
 		return -EPARAM;
@@ -100,13 +105,18 @@ int CcircularBuffer::Put(uchar *pbuf, uint len)
 	memcpy(m_pbuf, pbuf + l, len - l);
 	
 	//__sync_synchronize();
-	
+	m_pre_write_p = m_write_p;
 	m_write_p += len;
 
 	return SUCCESS;
 }
 
-int CcircularBuffer::Get(uchar *pbuf, uint len)
+void CcircularBuffer::GetRst()
+{
+	m_read_p = m_pre_read_p;
+}
+
+int CcircularBuffer::Get(u8 *pbuf, u32 len)
 {
 	if (NULL == pbuf)
 		return -EPARAM;
@@ -127,7 +137,7 @@ int CcircularBuffer::Get(uchar *pbuf, uint len)
 	memcpy(pbuf + l, m_pbuf, len - l);
 	
 	//__sync_synchronize();
-	
+	m_pre_read_p = m_read_p;
 	m_read_p += len;
 	
 	return SUCCESS;

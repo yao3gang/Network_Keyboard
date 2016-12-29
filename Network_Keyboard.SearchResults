@@ -1,4 +1,31 @@
----- PlaybackStartByFile Matches (3 in 1 files) ----
-Biz_playback.cpp (mid_logic\src):	int PlaybackStartByFile(u32 _dev_ip, ifly_recfileinfo_t *pfile_info);
-Biz_playback.cpp (mid_logic\src):int CBizPlayback::PlaybackStartByFile(u32 _dev_ip, ifly_recfileinfo_t *pfile_info)
-Biz_playback.cpp (mid_logic\src):	return g_biz_playback.PlaybackStartByFile(_dev_ip, pfile_info);
+---- ifly_TCP_Stream_Req Matches (30 in 10 files) ----
+Biz.cpp (mid_logic\src):	ifly_TCP_Stream_Req *preq_hdr, 
+Biz.h (mid_logic\inc):	ifly_TCP_Stream_Req *preq_hdr, 
+Biz_device.cpp (mid_logic\src):	int ReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_TCP_Stream_Req *preq, CMediaStream *pstream);
+Biz_device.cpp (mid_logic\src):int CBizDeviceManager::ReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_TCP_Stream_Req *preq, CMediaStream *pstream)
+Biz_device.cpp (mid_logic\src):int CBizDevice::StreamStart(ifly_TCP_Stream_Req *preq, CMediaStream *pstream)
+Biz_device.cpp (mid_logic\src):	ret = loopsend(fd_tmp, (char *)preq, sizeof(ifly_TCP_Stream_Req));
+Biz_device.cpp (mid_logic\src):		DBG_PRINT("svr IP: %s, Send ifly_TCP_Stream_Req failed\n", inet_ntoa(in));
+Biz_device.cpp (mid_logic\src):	memset(&stream_rcv[stream_idx].req, 0, sizeof(ifly_TCP_Stream_Req));	
+Biz_device.cpp (mid_logic\src):int BizReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_TCP_Stream_Req *preq, CMediaStream *pstream)
+Biz_device.h (mid_logic\inc):	ifly_TCP_Stream_Req req;
+Biz_device.h (mid_logic\inc):	int StreamStart(ifly_TCP_Stream_Req *preq, CMediaStream *pstream);
+Biz_device.h (mid_logic\inc):int BizReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_TCP_Stream_Req *preq, CMediaStream *pstream);
+Biz_net.cpp (mid_logic\src):				ifly_TCP_Stream_Req reqhdr;
+Biz_net.cpp (mid_logic\src):				ret = looprecv(sock_cli, (char *)&reqhdr, sizeof(ifly_TCP_Stream_Req));
+Biz_net.cpp (mid_logic\src):					DBG_PRINT("sock_cli recv ifly_TCP_Stream_Req failed\n");
+Biz_playback.cpp (mid_logic\src):	memset(&req, 0, sizeof(ifly_TCP_Stream_Req));
+Biz_playback.cpp (mid_logic\src):	memset(&req, 0, sizeof(ifly_TCP_Stream_Req));
+Biz_playback.cpp (mid_logic\src):		memset(&req, 0, sizeof(ifly_TCP_Stream_Req));
+Biz_preview.cpp (mid_logic\src):	memset(&req, 0, sizeof(ifly_TCP_Stream_Req));
+Biz_preview.cpp (mid_logic\src):		memset(&req, 0, sizeof(ifly_TCP_Stream_Req));
+Biz_remote_stream_define.h (mid_logic\inc):		memset(&req, 0, sizeof(ifly_TCP_Stream_Req));
+Biz_remote_stream_define.h (mid_logic\inc):	ifly_TCP_Stream_Req req;
+Biz_remote_stream_define.h (mid_logic\inc):	ifly_TCP_Stream_Req req;
+Biz_remote_stream_define.h (mid_logic\inc):		memset(&req, 0, sizeof(ifly_TCP_Stream_Req));
+Ctrlprotocol.c (low_module\net\src):					ifly_TCP_Stream_Req reqhdr;
+Ctrlprotocol.c (low_module\net\src):					int ret=looprecv(hTmp, (char *)buf,sizeof(ifly_TCP_Stream_Req));
+Ctrlprotocol.c (low_module\net\src):					if (ret != sizeof(ifly_TCP_Stream_Req))
+Ctrlprotocol.c (low_module\net\src):						memcpy(&reqhdr, buf, sizeof(ifly_TCP_Stream_Req));
+Ctrlprotocol.h (low_module\net\inc):}ifly_TCP_Stream_Req;					 
+Ctrlprotocol.h (low_module\net\inc):typedef int (*pAddStreamTCPLink)(SOCKHANDLE hSock, ifly_TCP_Stream_Req req, void* pContext);

@@ -1959,7 +1959,7 @@ void CBizConfig::threadWriteFlash(uint param)
 		}
 	}
 
-	ERR_PRINT("CBizConfig::threadWriteFlash exit**********************\n");
+	ERR_PRINT("CBizConfig::threadWriteFlash exit, inconceivable\n");
 }
 //获取默认参数
 int CBizConfig::GetDefaultTimeParam(SConfigTimeParam &stimme_param)

@@ -15,8 +15,8 @@ public:
 	virtual ~CcircularBufferLock();
 	virtual int CreateBuffer();
 	virtual void Reset();
-	virtual int Put(uchar *pbuf, uint len);
-	virtual int Get(uchar *pbuf, uint len);
+	virtual int Put(u8 *pbuf, u32 len);
+	virtual int Get(u8 *pbuf, u32 len);
 
 private:
 	CcircularBufferLock(const CcircularBufferLock& )

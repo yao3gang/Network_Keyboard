@@ -47,7 +47,7 @@ void CcircularBufferLockfree::Reset()
 	m_read_p = m_write_p = 0;
 }
 
-int CcircularBufferLockfree::Put(uchar *pbuf, uint len)
+int CcircularBufferLockfree::Put(u8 *pbuf, u32 len)
 {
 	if (NULL == pbuf)
 		return -EPARAM;
@@ -74,7 +74,7 @@ int CcircularBufferLockfree::Put(uchar *pbuf, uint len)
 	return SUCCESS;
 }
 
-int CcircularBufferLockfree::Get(uchar *pbuf, uint len)
+int CcircularBufferLockfree::Get(u8 *pbuf, u32 len)
 {
 	if (NULL == pbuf)
 		return -EPARAM;

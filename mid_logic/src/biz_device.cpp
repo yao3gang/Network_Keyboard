@@ -194,7 +194,7 @@ private:
 	pthread_mutex_t mq_mutex;	//条件变量互斥锁
 	int mq_msg_count;			//条件，pmsg_queue 中消息数目
 	CcircularBuffer *pmq_ccbuf;	//环形缓冲区
-	Threadlet mq_msg_thread;	//消息线程
+	Threadlet mq_msg_threadlet;	//消息线程
 };
 
 PATTERN_SINGLETON_IMPLEMENT(CBizDeviceManager);
@@ -495,6 +495,13 @@ int CBizDeviceManager::FirstInit(void)
 		goto fail;
 	}
 
+	m_reconnect_timer = new CTimer("CBizDeviceManager-reconnect_timer");
+	if (NULL == m_reconnect_timer)
+	{
+		ERR_PRINT("new CTimer failed\n");
+		goto fail;
+	}
+
 	//创建消息队列线程及相关数据
 	if (pthread_cond_init(&mq_cond, NULL))
 	{
@@ -532,15 +539,8 @@ fail:
 
 int CBizDeviceManager::SecondInit(void)
 {
-	m_reconnect_timer = new CTimer("CBizDeviceManager-reconnect_timer");
-	if (NULL == m_reconnect_timer)
-	{
-		ERR_PRINT("BizConfigGetNvrList failed\n");
-		return -FAILURE;
-	}
-
 	//启动消息队列读取线程
-	mq_msg_thread.run("BizDeviceManager-mq", this, (ASYNPROC)&CBizDeviceManager::threadMsg, 0, 0);
+	mq_msg_threadlet.run("BizDeviceManager-mq", this, (ASYNPROC)&CBizDeviceManager::threadMsg, 0, 0);
 	
 	//启动服务器接收线程	
 	m_threadlet_rcv.run("BizDeviceManager-rcv", this, (ASYNPROC)&CBizDeviceManager::threadRcv, 0, 0);
@@ -653,7 +653,13 @@ void CBizDeviceManager::FreeSrc()//释放资源
 	{
 		delete []sync_buf;
 		sync_buf = NULL;
-	}	
+	}
+
+	if (pmq_ccbuf)
+	{
+		delete pmq_ccbuf;
+		pmq_ccbuf = NULL;
+	}
 }
 
 VD_BOOL CBizDeviceManager::isInited()
@@ -2754,6 +2760,145 @@ void CBizDeviceManager::threadKeepAlive(uint param)
 	}
 
 	ERR_PRINT("CBizDeviceManager::threadKeepAlive exit, inconceivable\n");
+}
+
+// 发消息
+int CBizDeviceManager::WriteMsg(u32 msg_type, u8 *pmsg, u32 msg_len)
+{	
+	int ret = SUCCESS;
+	
+	if (!b_inited)
+	{
+		ERR_PRINT("module not init\n");
+		return -FAILURE;
+	}
+#if 0	
+	if (msg_type >=  EM_MSG_TYPE_MAX)
+	{
+		ERR_PRINT("msg_type(%d) >=  EM_MSG_TYPE_MAX(%d)\n", msg_type, EM_MSG_TYPE_MAX);
+		return -FAILURE;
+	}
+#endif
+	SMQHdr_t hdr;
+	hdr.msg_type = msg_type;
+	hdr.msg_len = msg_len;
+	
+	if (pthread_mutex_lock(&mq_mutex))
+	{
+		ERR_PRINT("cond_mutex lock failed\n");
+		return -FAILURE;
+	}
+
+	ret = pmq_ccbuf->Put((u8 *)&hdr, sizeof(SMQHdr_t));
+	if (ret)
+	{
+		ERR_PRINT("pmsg_queue Put Hdr failed\n");
+		goto fail;
+	}
+
+	ret = pmq_ccbuf->Put((u8 *)pmsg, msg_len);
+	if (ret)
+	{
+		ERR_PRINT("pmsg_queue Put msg failed\n");
+
+		pmq_ccbuf->PutRst();
+		goto fail;
+	} 
+
+	mq_msg_count++;
+
+	if (pthread_cond_signal(&mq_cond))
+	{
+		ERR_PRINT("pthread_cond_broadcast failed\n");
+		goto fail;
+	}
+
+	pthread_mutex_unlock(&mq_mutex);
+	return SUCCESS;
+
+fail:
+	pthread_mutex_unlock(&mq_mutex);
+	return ret;
+}
+
+#define MSGLEN (1024)
+void CBizDeviceManager::threadMsg(uint param)//读消息
+{
+	VD_BOOL b_process = FALSE;
+	int ret = SUCCESS;
+	SMQHdr_t hdr;
+	u8 *pmsg = NULL;
+
+	pmsg = new char[MSGLEN];
+	if (NULL == pmsg)
+	{
+		ERR_PRINT("new msg buffer failed\n");
+		goto thread_exit;
+	}
+	
+	while (1)
+	{
+		b_process = FALSE;
+		
+		pthread_mutex_lock(&mq_mutex);
+		if (mq_msg_count)	//有消息
+		{
+			ret = pmq_ccbuf->Get((u8 *)&hdr, sizeof(SMQHdr_t));
+			if (ret != SUCCESS)
+			{
+				ERR_PRINT("msg_queue get Hdr fail, ret: %d\n", ret);
+				
+				mq_msg_count = 0;
+				pmq_ccbuf->Reset();
+				pthread_mutex_unlock(&mq_mutex);
+				continue;
+			}
+
+			if (hdr.msg_len > MSGLEN)
+			{
+				ERR_PRINT("hdr.msg_len(%d) > MSGLEN(%d)\n",
+					hdr.msg_len, MSGLEN);
+				
+				mq_msg_count = 0;
+				pmq_ccbuf->Reset();
+				pthread_mutex_unlock(&mq_mutex);
+				continue;
+			}
+
+			ret = pmq_ccbuf->Get(pmsg, hdr.msg_len);
+			if (ret != SUCCESS)
+			{
+				ERR_PRINT("msg_queue get msg fail, ret: %d\n", ret);
+				
+				mq_msg_count = 0;
+				pmq_ccbuf->Reset();
+				pthread_mutex_unlock(&mq_mutex);
+				continue;
+			}
+			
+			cond_msg_count--;
+			b_process = TRUE;	
+		}
+		else	//无消息
+		{
+			pthread_cond_wait(&mq_cond, &mq_mutex);			
+		}		
+		pthread_mutex_unlock(&mq_mutex);		
+		
+		if (b_process)
+		{
+			
+		}
+	}
+
+thread_exit:
+	ERR_PRINT("CBizDeviceManager::threadMsg exit, inconceivable\n");
+
+	if (pmsg)
+	{
+		delete[] pmsg;
+		pmsg = NULL;
+	}
 }
 
 #if 0
