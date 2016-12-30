@@ -56,12 +56,18 @@ typedef enum
 } EM_STREAM_STATUS_TYPE;
 
 
+//声明流管理者
+class CMediaStreamManager;
+
+
 /*
 媒体数据请求类
 做为预览、回放、文件下载的基类
 */
 class CMediaStream : public CObject
 {
+	friend class CMediaStreamManager;
+	
 public:
 	int Start();
 	int Stop();

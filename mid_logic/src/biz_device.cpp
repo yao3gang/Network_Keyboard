@@ -3934,6 +3934,7 @@ int CBizDevice::StreamStart(ifly_TCP_Stream_Req *preq, u32 *plink_id, s32 *plink
 	
 	DBG_PRINT("svr IP: %s, stream req cmd: %d success\n", 
 			inet_ntoa(in), preq->command);
+	
 	//send msg to stream manager
 
 	
@@ -4008,10 +4009,6 @@ int CBizDevice::StreamStop(u32 link_id, EM_STREAM_MSG_TYPE stop_reason)
 		return -EPARAM;
 	}
 	
-	//send msg to stream manager
-
-	//
-
 	if (status != EM_STREAM_STATUS_CONNECTED)
 	{
 		DBG_PRINT("svr IP: %s, link_id(%u), stream status(%d) not connected\n", 
@@ -4056,6 +4053,9 @@ int CBizDevice::StreamStop(u32 link_id, EM_STREAM_MSG_TYPE stop_reason)
 	}
 
 	plock4stream->Unlock();
+
+ 	//send msg to stream manager
+ 	
 
 	return SUCCESS;
 }
