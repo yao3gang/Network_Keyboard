@@ -4,11 +4,22 @@
 #include <stdlib.h>
 #include "types.h"
 
+typedef enum
+{
+	//to biz_device
+	EM_MQ_MSG_DEV_NET_REQ=0x10, 	//网络命令请求
+	EM_MQ_MSG_DEV_STREAM_STATUS,		//流状态通知
+	
+	//to stream
+	EM_MQ_MSG_STREAM_STATUS=0x20,		//流状态通知
+} EM_MQ_MSG_TYPE;
+
 typedef struct
 {
 	u32 msg_type;
-	u32 msg_len;//不包含头
-} SMQHdr_t;//消息队列头
+	u32 msg_len;	//不包含头
+} SMQHdr_t;	//消息队列头
+
 
 class CcircularBuffer
 {

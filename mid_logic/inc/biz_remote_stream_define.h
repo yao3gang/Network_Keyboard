@@ -43,14 +43,15 @@ typedef enum
 	EM_STREAM_MSG_CONNECTED,
 	EM_STREAM_MSG_RCV_ERR,
 	EM_STREAM_MSG_STOP,
-	EM_STREAM_MSG_PROGRESS,	//文件回放/下载进度
-	EM_STREAM_MSG_FINISH,	//文件下载完成
+	EM_STREAM_MSG_DEV_OFFLINE,	//设备掉线
+	EM_STREAM_MSG_PROGRESS,		//文件回放/下载进度
+	EM_STREAM_MSG_FINISH,		//文件下载完成
 } EM_STREAM_MSG_TYPE;
 
 typedef enum
 {
 	EM_STREAM_STATUS_DISCONNECT,	//未连接，初始状态
-	EM_STREAM_STATUS_RUNNING,	//已连接，正在运行
+	EM_STREAM_STATUS_CONNECTED,	//已连接，正在运行
 	EM_STREAM_STATUS_STOP,		//结束
 } EM_STREAM_STATUS_TYPE;
 
@@ -62,27 +63,28 @@ typedef enum
 class CMediaStream : public CObject
 {
 public:
-	int Start();//返回流ID
+	int Start();
 	int Stop();
 	virtual int dealFrameFunc(FRAMEHDR *pframe_hdr)
 	{
-		ERR_PRINT("this is virtual function!!!");
+		ERR_PRINT("this is class base virtual function!!!");
 		
 		return TRUE;
 	}
-	virtual int dealStateFunc(EM_STREAM_STATE_TYPE state, u32 param = 0)//param: 文件下载进度值
+	virtual int dealStateFunc(EM_STREAM_MSG_TYPE state, u32 param = 0)//param: 文件下载进度值
 	{
-		ERR_PRINT("this is virtual function!!!");
+		ERR_PRINT("this is class base virtual function!!!");
 		
 		return TRUE;
 	}
 
 	CMediaStream()
-	: b_connect(FALSE)
+	: plock4param(NULL)
 	, dev_type(EM_DEV_TYPE_NONE)
 	, dev_ip(INADDR_NONE)
-	, stream_idx(INVALID_VALUE)
+	, link_id(INVALID_VALUE)
 	, err_code(SUCCESS)
+	, status(EM_STREAM_STATUS_DISCONNECT)
 	{
 		memset(&req, 0, sizeof(ifly_TCP_Stream_Req));
 	}
@@ -92,11 +94,13 @@ public:
 	}
 	
 protected:
-	VD_BOOL	b_connect;
+	C_Lock *plock4param;//mutex
+	
 	EM_DEV_TYPE dev_type;
 	u32 dev_ip;
-	s32 stream_idx;
-	int err_code;
+	u32 link_id;
+	s32 err_code;
+	EM_STREAM_STATUS_TYPE status;
 	ifly_TCP_Stream_Req req;
 
 private:
@@ -109,15 +113,15 @@ private:
 typedef struct _SDev_StearmRcv_t
 {
 	VD_BOOL b_connect;
-	int	sockfd;	
-	u32 linkid;
+	int	sock_fd;	
+	u32 link_id;
 	ifly_TCP_Stream_Req req;
 	CMediaStream* pstream; //指向具体的流结构，预览、回放、文件备份
 
 	_SDev_StearmRcv_t()
 	: b_connect(FALSE)
-	, sockfd(INVALID_SOCKET)
-	, linkid(INVALID_VALUE)
+	, sock_fd(INVALID_SOCKET)
+	, link_id(INVALID_VALUE)
 	, pstream(NULL)
 	{
 		memset(&req, 0, sizeof(ifly_TCP_Stream_Req));
