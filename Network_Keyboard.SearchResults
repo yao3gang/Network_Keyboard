@@ -1,3 +1,3 @@
----- EM_STREAM_STATUS_TYPE Matches (2 in 2 files) ----
-biz_device.h (mid_logic\inc):	EM_STREAM_STATUS_TYPE status;
-biz_remote_stream_define.h (mid_logic\inc):} EM_STREAM_STATUS_TYPE;
+---- BizReqStreamStart Matches (2 in 2 files) ----
+biz_device.cpp (mid_logic\src):int BizReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_TCP_Stream_Req *preq, u32 *plink_id, s32 *plink_sock)
+biz_device.h (mid_logic\inc):int BizReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_TCP_Stream_Req *preq, u32 *plink_id, s32 *plink_sock);

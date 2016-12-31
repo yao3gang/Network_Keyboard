@@ -15,7 +15,7 @@
 #include "csemaphore.h"
 #include "cthread.h"
 #include "biz_config.h"
-#include "biz_remote_stream_define.h"
+#include "biz_remote_stream.h"
 #include "gui_dev.h"
 #include "ctrlprotocol.h"
 #include "glb_error_num.h"

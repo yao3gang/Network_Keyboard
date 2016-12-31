@@ -8,7 +8,7 @@
 #include "biz_net.h"
 #include "biz_device.h"
 #include "biz_playback.h"
-#include "biz_remote_stream_define.h"
+#include "biz_remote_stream.h"
 #include "hisi_sys.h"
 #include "atomic.h"
 #include "c_lock.h"
