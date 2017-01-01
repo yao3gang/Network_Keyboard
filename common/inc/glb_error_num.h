@@ -7,6 +7,7 @@ enum GLB_ERROR_NUM
 	FAILURE,/* 无需或无法描述的错误 */
 	EPARAM,	/* 参数有误 */
 	/* 数据通信 */
+	ESTREAM_ID_CONFLICT, /* stream ID 冲突 */
 	ETIMEOUT,
 	ESEND,
 	ERECV,

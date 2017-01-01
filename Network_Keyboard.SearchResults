@@ -1,3 +1,6 @@
----- BizReqStreamStart Matches (2 in 2 files) ----
-biz_device.cpp (mid_logic\src):int BizReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_TCP_Stream_Req *preq, u32 *plink_id, s32 *plink_sock)
-biz_device.h (mid_logic\inc):int BizReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_TCP_Stream_Req *preq, u32 *plink_id, s32 *plink_sock);
+---- BizSendMsg2StreamManager Matches (5 in 2 files) ----
+biz_device.cpp (mid_logic\src): 	ret = BizSendMsg2StreamManager(&msg, sizeof(SStreamMsg_t));
+biz_device.cpp (mid_logic\src):		ERR_PRINT("svr IP: %s, link_id(%u), msg_type: %d, BizSendMsg2StreamManager failed, ret: %d\n",
+biz_device.cpp (mid_logic\src): 	ret = BizSendMsg2StreamManager(&msg, sizeof(SStreamMsg_t));
+biz_device.cpp (mid_logic\src):		ERR_PRINT("svr IP: %s, link_id(%u), msg_type: %d, BizSendMsg2StreamManager failed, ret: %d\n",
+biz_remote_stream.cpp (mid_logic\src):int BizSendMsg2StreamManager(SStreamMsg_t *pmsg, u32 msg_len)

@@ -61,6 +61,10 @@ typedef struct DeviceInfo_t
 		
 	}
 
+	~DeviceInfo_t()
+	{
+		
+	}
 } SBiz_DeviceInfo_t;
 
 
@@ -69,13 +73,31 @@ typedef struct DeviceInfo_t
 
 typedef struct DevStream_t
 {
-	u32 link_id;
+	u32 link_id;//biz_device 内部使用
+	u32 stream_id;//关键，系统唯一
 	EM_STREAM_STATUS_TYPE status;
+	s32 stream_errno;//错误码
 	ifly_TCP_Stream_Req req;
+
+	DevStream_t()
+	: link_id(INVALID_VALUE)
+	, stream_id(INVALID_VALUE)
+	, status(EM_STREAM_STATUS_DISCONNECT)
+	, stream_errno(SUCCESS)
+	{
+		
+	}
+
+	~DevStream_t()
+	{
+		
+	}
 } SDevStream_t;
 
-//u32 linkid 
-typedef std::map<u32, SDevStream_t*> MAP_ID_PSTREAM;
+//u32 stream_id u32 linkid
+typedef std::map<u32, u32> MAP_SID_LID;
+//u32 linkid
+typedef std::map<u32, SDevStream_t*> MAP_LID_PSTREAM;
 
 
 class CBizDevice : public CObject {
@@ -95,13 +117,14 @@ public:
 	int DevDisconnect();
 
 	//stream
-	int StreamStart(ifly_TCP_Stream_Req *preq, u32 *plink_id, s32 *plink_sock);
-	int StreamStop(u32 link_id, EM_STREAM_MSG_TYPE stop_reason = EM_STREAM_MSG_STOP);//关闭原因默认主动关闭
-	int StreamProgress(u32 link_id, VD_BOOL b);//接收回放进度信息
+	int StreamStart(u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *psock_stream);
+	int StreamStopByStreamID(u32 stream_id, s32 stop_reason = SUCCESS);//GLB_ERROR_NUM 关闭原因默认主动关闭
+	int StreamStopByLinkID(u32 link_id, s32 stop_reason = SUCCESS);//GLB_ERROR_NUM 关闭原因默认主动关闭
+	int StreamProgress(u32 stream_id, VD_BOOL b);//接收回放进度信息
 	//void _CleanStream(int stream_idx);
 
 	//关闭所有数据流连接
-	int ShutdownStreamAll(EM_STREAM_MSG_TYPE stop_reason = EM_STREAM_MSG_STOP);
+	int ShutdownStreamAll(s32 stop_reason = SUCCESS);//GLB_ERROR_NUM
 	
 	//重连部分数据流连接
 	int CheckAndReconnectStream();
@@ -134,6 +157,7 @@ private:
 	int _DevLogin(ifly_loginpara_t *plogin);
 	int _DevLogout(ifly_loginpara_t *plogin);
 	int _DevSetAlarmUpload(u8 upload_enable);
+	int _StreamStop(u32 link_id, s32 stop_reason = SUCCESS);//GLB_ERROR_NUM 关闭原因默认主动关闭
 	//底层数据交互
 	int DevNetDialogue(u16 event, const void *content, int length, void* ackbuf, int ackbuflen);
 	//后期错误检查
@@ -152,7 +176,8 @@ private:
 	//stream					
 	C_Lock *plock4stream;//mutex
 #if 1
-	MAP_ID_PSTREAM map_stream;
+	MAP_SID_LID map_sid_lid;
+	MAP_LID_PSTREAM map_lid_pstream;
 
 #else
 	VD_BOOL bthread_stream_running;
@@ -182,6 +207,9 @@ int BizDeviceSecondInit(void);
 int BizDevSearch(std::vector<SBiz_DeviceInfo_t> *pvnvr_list, 
 							std::vector<SBiz_DeviceInfo_t> *pvpatrol_dec_list, 
 							std::vector<SBiz_DeviceInfo_t> *pvswitch_dec_list);
+
+int BizSendMsg2DevManager(SStreamMsg_t *pmsg, u32 msg_len);
+
 
 int BizAddDev(EM_DEV_TYPE dev_type, u32 dev_ip);
 int BizDelDev(EM_DEV_TYPE dev_type, u32 dev_ip);
@@ -217,9 +245,9 @@ int BizStartNotifyDevInfo();//使能通知。设备层将信息通知给上层
 
 
 //成功返回stearm_rcv[MaxMediaLinks] 下标stream_idx
-int BizReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, ifly_TCP_Stream_Req *preq, u32 *plink_id, s32 *plink_sock);
-int BizReqStreamStop(EM_DEV_TYPE dev_type, u32 dev_ip, s32 link_id, EM_STREAM_MSG_TYPE stop_reason = EM_STREAM_MSG_STOP);
-int BizDevStreamProgress(EM_DEV_TYPE dev_type, u32 dev_ip, s32 link_id, VD_BOOL b);//接收回放进度信息
+int BizReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *psock_stream);
+int BizReqStreamStop(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, s32 stop_reason);//GLB_ERROR_NUM
+int BizDevStreamProgress(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, VD_BOOL b);//接收回放进度信息
 
 
 

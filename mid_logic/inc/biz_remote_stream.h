@@ -12,9 +12,70 @@
 #include "ctrlprotocol.h"
 #include "biz_device.h"
 
-
 #define MAX_FRAME_SIZE (1 << 20) // 1MB
-//流接收头
+
+//流状态
+typedef enum
+{
+	EM_STREAM_STATUS_DISCONNECT,	//未连接，初始状态
+	EM_STREAM_STATUS_CONNECTED,		//已连接，正在运行
+	EM_STREAM_STATUS_OVER,			//结束
+	EM_STREAM_STATUS_WAIT_DEL,		//等待删除
+} EM_STREAM_STATUS_TYPE;
+
+#if 0
+//流错误码
+typedef enum
+{
+	EM_STREAM_ERR_SEND,				//发送出错
+	EM_STREAM_ERR_RECV,				//接收出错
+	EM_STREAM_ERR_TIMEOUT,			//流超时
+	EM_STREAM_ERR_DEV_OFFLINE,		//设备掉线
+} EM_STREAM_ERR_TYPE;
+#endif
+
+//CMediaStreamManager 消息类型
+typedef enum
+{
+	//消息
+	EM_STREAM_MSG_CONNECT_SUCCESS,	//连接成功
+	EM_STREAM_MSG_CONNECT_FALIURE,	//连接失败
+	EM_STREAM_MSG_STREAM_ERR,		//流出错
+	EM_STREAM_MSG_STUTDOWN,			//流关闭
+	EM_STREAM_MSG_PROGRESS,		//文件回放/下载进度
+	EM_STREAM_MSG_FINISH,		//文件下载完成
+	//CMediaStreamManager 内部命令
+	EM_STREAM_CMD_CONNECT,	//连接流
+	EM_STREAM_CMD_DEL,		//删除流
+} EM_STREAM_MSG_TYPE;
+
+
+
+//CMediaStreamManager 消息结构
+
+typedef struct 
+{
+	s32 msg_type;
+	u32 stream_id;//关键，系统唯一
+	
+	union		//72byte
+	{
+		//流错误码
+		s32 stream_errno;//GLB_ERROR_NUM
+		
+		//回放、文件下载进度
+		struct
+		{
+			u32 cur_pos;
+			u32 total_size;
+		} progress;						
+		
+		
+	};
+}SStreamMsg_t;	
+
+
+//帧接收头
 typedef struct
 {
     u8     m_byMediaType; //媒体类型
@@ -38,22 +99,6 @@ typedef struct
     };
 }FRAMEHDR,*PFRAMEHDR;
 
-typedef enum
-{
-	EM_STREAM_MSG_CONNECTED,
-	EM_STREAM_MSG_RCV_ERR,
-	EM_STREAM_MSG_STOP,
-	EM_STREAM_MSG_DEV_OFFLINE,	//设备掉线
-	EM_STREAM_MSG_PROGRESS,		//文件回放/下载进度
-	EM_STREAM_MSG_FINISH,		//文件下载完成
-} EM_STREAM_MSG_TYPE;
-
-typedef enum
-{
-	EM_STREAM_STATUS_DISCONNECT,	//未连接，初始状态
-	EM_STREAM_STATUS_CONNECTED,	//已连接，正在运行
-	EM_STREAM_STATUS_STOP,		//结束
-} EM_STREAM_STATUS_TYPE;
 
 
 //声明流管理者
@@ -68,13 +113,16 @@ class CMediaStreamManager;
 typedef void (CObject:: *PDEAL_FRAME)(u32 stream_id, FRAMEHDR *pframe_hdr);
 
 //流注册的状态处理函数
-typedef void (CObject:: *PDEAL_STATUS)(u32 stream_id, EM_STREAM_MSG_TYPE state, u8 *pdata, u32 len);
+typedef void (CObject:: *PDEAL_STATUS)(u32 stream_id, SStreamMsg_t *pmsg, u32 len);
 
 class CMediaStream : public CObject
 {
 	friend class CMediaStreamManager;
 	
 public:
+	CMediaStream();
+	~CMediaStream();
+	
 	int Init();
 	int Start();
 	int Stop();
@@ -85,14 +133,14 @@ private:
 		
 	}
 	void FreeSrc();//释放资源
-	void threadRcv(uint param);// 1.接收服务器数据
+	void threadRcv(uint param);//接收服务器数据
 
 private:
 	C_Lock *plock4param;//mutex
 	//指向流上层结构
 	CObject *m_obj;
-	PDEAL_FRAME m_deal_frame;//流注册的帧数据处理函数
-	PDEAL_STATUS m_deal_status;//流注册的状态处理函数
+	PDEAL_FRAME m_deal_frame_cb;//流注册的帧数据处理函数
+	PDEAL_STATUS m_deal_status_cb;//流注册的状态处理函数
 
 	//流内部数据
 	EM_DEV_TYPE dev_type;//服务器类型
@@ -105,6 +153,7 @@ private:
 	VD_BOOL b_thread_exit;//接收线程退出标志
 	s32 sock_stream;
 	Threadlet m_threadlet_rcv;
+	CSemaphore sem_exit;//等待threadRcv退出信号量
 };
 
 #if 0
@@ -132,6 +181,7 @@ typedef struct _SDev_StearmRcv_t
 //pstream_id 返回流ID
 int BizReqPlaybackByFile(EM_DEV_TYPE dev_type, u32 dev_ip, char *file_name, u32 offset, u32 *pstream_id);
 
+int BizSendMsg2StreamManager(SStreamMsg_t *pmsg, u32 msg_len);
 
 
 #endif
