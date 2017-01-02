@@ -107,9 +107,9 @@ public:
 	int AddDev(EM_DEV_TYPE dev_type, u32 dev_ip);
 	int DelDev(EM_DEV_TYPE dev_type, u32 dev_ip);	
 	//成功返回stearm_rcv[MaxMediaLinks] 下标stream_idx
-	int ReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *psock_stream);
-	int ReqStreamStopByStreamID(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, s32 stop_reason=SUCCESS);
-	int DevStreamProgress(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, VD_BOOL b);//接收回放进度信息
+	int DevReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *psock_stream);
+	int DevReqStreamStopByStreamID(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, s32 stop_reason=SUCCESS);
+	int DevReqStreamProgress(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, VD_BOOL b);//接收回放进度信息
 	//底层数据交互
 	int NetDialogue(int sock, u16 event, const void *content, int length, void* ackbuf, int ackbuflen, int *realacklen);
 	int FirstInit();
@@ -1339,7 +1339,7 @@ fail:
 }
 
 //成功返回stearm_rcv[MaxMediaLinks] 下标stream_idx
-int CBizDeviceManager::ReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *psock_stream)
+int CBizDeviceManager::DevReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *psock_stream)
 {
 	CBizDevice *pcdev = NULL;
 	int dev_idx = INVALID_VALUE;
@@ -1366,7 +1366,7 @@ int CBizDeviceManager::ReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stre
 		return -EDEV_NOTFOUND;		
 	}	
 
-	ret = pcdev->StreamStart(stream_id, preq, psock_stream);
+	ret = pcdev->ReqStreamStart(stream_id, preq, psock_stream);
 	if (ret < 0)
 	{
 		ERR_PRINT("IP(%s) StreamStart failed: %d\n", inet_ntoa(in), ret);
@@ -1380,7 +1380,7 @@ int CBizDeviceManager::ReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stre
 	return ret;
 }
 
-int CBizDeviceManager::ReqStreamStopByStreamID(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, s32 stop_reason)
+int CBizDeviceManager::DevReqStreamStopByStreamID(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, s32 stop_reason)
 {
 	CBizDevice *pcdev = NULL;
 	int dev_idx = INVALID_VALUE;
@@ -1407,7 +1407,7 @@ int CBizDeviceManager::ReqStreamStopByStreamID(EM_DEV_TYPE dev_type, u32 dev_ip,
 		return -EDEV_NOTFOUND;		
 	}
 
-	ret = pcdev->StreamStopByStreamID(stream_id, stop_reason);
+	ret = pcdev->ReqStreamStopByStreamID(stream_id, stop_reason);
 	if (ret)
 	{
 		ERR_PRINT("IP(%s) StreamStop failed: %d\n", inet_ntoa(in), ret);
@@ -1420,7 +1420,7 @@ int CBizDeviceManager::ReqStreamStopByStreamID(EM_DEV_TYPE dev_type, u32 dev_ip,
 	return SUCCESS;
 }
 
-int CBizDeviceManager::DevStreamProgress(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, VD_BOOL b)//接收回放进度信息
+int CBizDeviceManager::DevReqStreamProgress(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, VD_BOOL b)//接收回放进度信息
 {
 	CBizDevice *pcdev = NULL;
 	int dev_idx = INVALID_VALUE;
@@ -1447,7 +1447,7 @@ int CBizDeviceManager::DevStreamProgress(EM_DEV_TYPE dev_type, u32 dev_ip, u32 s
 		return -EDEV_NOTFOUND;		
 	}
 
-	ret = pcdev->StreamProgress(stream_id, b);
+	ret = pcdev->ReqStreamProgress(stream_id, b);
 	if (ret)
 	{
 		ERR_PRINT("IP(%s) StreamProgress failed: %d\n", inet_ntoa(in), ret);
@@ -3809,7 +3809,7 @@ int CBizDevice::DevDisconnect()
 
 //stream
 //成功返回stearm_rcv[MaxMediaLinks] 下标stream_idx
-int CBizDevice::StreamStart(u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *psock_stream)
+int CBizDevice::ReqStreamStart(u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *psock_stream)
 {
 	int ret = -FAILURE;
 	int fd_tmp = INVALID_SOCKET;
@@ -3944,7 +3944,7 @@ int CBizDevice::StreamStart(u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *psock
 	
 	pstream->link_id = link_id;
 	pstream->stream_id = stream_id;
-	pstream->status = EM_STREAM_STATUS_CONNECTED;
+	pstream->status = EM_STREAM_STATUS_RUNNING;
 	memcpy(&pstream->req, preq, sizeof(ifly_TCP_Stream_Req));
 	
 	plock4stream->Unlock();
@@ -4008,13 +4008,14 @@ fail2:
 		
 		DevNetDialogue(net_cmd, &link_id, sizeof(link_id), NULL, 0);
 	}
+	
 fail:
 	close(fd_tmp);	
 
 	return -FAILURE;
 }
 
-int CBizDevice::StreamStopByStreamID(u32 stream_id, s32 stop_reason)//GLB_ERROR_NUM
+int CBizDevice::ReqStreamStopByStreamID(u32 stream_id, s32 stop_reason)//GLB_ERROR_NUM
 {
 	int ret = -FAILURE;
 	struct in_addr in;
@@ -4029,12 +4030,12 @@ int CBizDevice::StreamStopByStreamID(u32 stream_id, s32 stop_reason)//GLB_ERROR_
 	SDevStream_t* pstream = NULL;
 	MAP_SID_LID::iterator map_sid_lid_iter;
 	MAP_LID_PSTREAM::iterator map_iter;
-	SStreamMsg_t msg;
+	SBizMsg_t msg;
 	
 	plock4stream->Lock();
 
 	map_sid_lid_iter = map_sid_lid.find(stream_id);
-	if (map_sid_lid_iter == map_sid_lid.end())
+	if (map_sid_lid_iter == map_sid_lid.end())//有可能，如果之前连接失败没有insert map，而之后上层关闭流时
 	{
 		ERR_PRINT("svr IP: %s, stream_id(%u) map_sid_lid not find\n", 
 			inet_ntoa(in), stream_id);
@@ -4058,7 +4059,6 @@ int CBizDevice::StreamStopByStreamID(u32 stream_id, s32 stop_reason)//GLB_ERROR_
 	pstream = map_iter->second;
 	
 	map_lid_pstream.erase(map_iter);
-	
 	
 	if (NULL == pstream)
 	{
@@ -4097,7 +4097,7 @@ int CBizDevice::StreamStopByStreamID(u32 stream_id, s32 stop_reason)//GLB_ERROR_
 		return -EPARAM;
 	}
 	
-	if (status != EM_STREAM_STATUS_CONNECTED)
+	if (status != EM_STREAM_STATUS_RUNNING)
 	{
 		ERR_PRINT("svr IP: %s, link_id(%u), stream status(%d) not connected\n", 
 			inet_ntoa(in), link_id, status);
@@ -4146,12 +4146,12 @@ int CBizDevice::StreamStopByStreamID(u32 stream_id, s32 stop_reason)//GLB_ERROR_
 	plock4stream->Unlock();
 
  	//send msg to stream manager
- 	memset(&msg, 0, sizeof(SStreamMsg_t));
-	msg.msg_type = EM_STREAM_MSG_STUTDOWN;
-	msg.stream_id = pstream->stream_id;
-	msg.stream_errno = stream_errno;
+ 	memset(&msg, 0, sizeof(SBizMsg_t));
+	msg.msg_type = EM_STREAM_MSG_STOP;
+	msg.stream_err.stream_id = pstream->stream_id;
+	msg.stream_err.stream_errno = stream_errno;
 	
- 	ret = BizSendMsg2StreamManager(&msg, sizeof(SStreamMsg_t));
+ 	ret = BizSendMsg2StreamManager(&msg, sizeof(SBizMsg_t));
 	if (ret)
 	{
 		ERR_PRINT("svr IP: %s, link_id(%u), msg_type: %d, BizSendMsg2StreamManager failed, ret: %d\n",
@@ -4176,7 +4176,7 @@ int CBizDevice::StreamStopByLinkID(u32 link_id, s32 stop_reason)//GLB_ERROR_NUM
 	char buf[128];
 	SDevStream_t* pstream = NULL;
 	MAP_LID_PSTREAM::iterator map_iter;
-	SStreamMsg_t msg;
+	SBizMsg_t msg;
 	
 	plock4stream->Lock();
 	
@@ -4216,10 +4216,10 @@ int CBizDevice::StreamStopByLinkID(u32 link_id, s32 stop_reason)//GLB_ERROR_NUM
 		stream_errno = stop_reason;
 	}
 
-	delete pstream;//free
+	delete pstream;//释放
 	pstream = NULL;
 
-	map_sid_lid.erase(stream_id);
+	map_sid_lid.erase(stream_id);//移除
 
 	if (link_id != stream_link_id)
 	{
@@ -4230,9 +4230,9 @@ int CBizDevice::StreamStopByLinkID(u32 link_id, s32 stop_reason)//GLB_ERROR_NUM
 		return -EPARAM;
 	}
 	
-	if (status != EM_STREAM_STATUS_CONNECTED)
+	if (EM_STREAM_STATUS_RUNNING != status)
 	{
-		ERR_PRINT("svr IP: %s, link_id(%u), stream status(%d) not connected\n", 
+		ERR_PRINT("svr IP: %s, link_id(%u), EM_STREAM_STATUS_RUNNING != status(%d)\n", 
 			inet_ntoa(in), link_id, status);
 
 		plock4stream->Unlock();
@@ -4279,12 +4279,12 @@ int CBizDevice::StreamStopByLinkID(u32 link_id, s32 stop_reason)//GLB_ERROR_NUM
 	plock4stream->Unlock();
 
  	//send msg to stream manager
- 	memset(&msg, 0, sizeof(SStreamMsg_t));
-	msg.msg_type = EM_STREAM_MSG_STUTDOWN;
-	msg.stream_id = pstream->stream_id;
-	msg.stream_errno = stream_errno;
+ 	memset(&msg, 0, sizeof(SBizMsg_t));
+	msg.msg_type = EM_STREAM_MSG_STOP;
+	msg.stream_err.stream_id = pstream->stream_id;
+	msg.stream_err.stream_errno = stream_errno;
 	
- 	ret = BizSendMsg2StreamManager(&msg, sizeof(SStreamMsg_t));
+ 	ret = BizSendMsg2StreamManager(&msg, sizeof(SBizMsg_t));
 	if (ret)
 	{
 		ERR_PRINT("svr IP: %s, link_id(%u), msg_type: %d, BizSendMsg2StreamManager failed, ret: %d\n",
@@ -4294,7 +4294,7 @@ int CBizDevice::StreamStopByLinkID(u32 link_id, s32 stop_reason)//GLB_ERROR_NUM
 	return SUCCESS;
 }
 
-int CBizDevice::StreamProgress(u32 stream_id, VD_BOOL b) //接收回放进度信息
+int CBizDevice::ReqStreamProgress(u32 stream_id, VD_BOOL b) //接收回放进度信息
 {
 	int ret = -FAILURE;
 	struct in_addr in;
@@ -4931,19 +4931,19 @@ int BizStartNotifyDevInfo(void)	//使能通知。设备层将信息通知给上层
 
 //流控制API
 //返回流ID
-int BizReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *psock_stream)
+int BizDevReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *psock_stream)
 {
-	return g_biz_device_manager.ReqStreamStart(dev_type, dev_ip, stream_id, preq, psock_stream);
+	return g_biz_device_manager.DevReqStreamStart(dev_type, dev_ip, stream_id, preq, psock_stream);
 }
 
-int BizReqStreamStop(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, s32 stop_reason)//GLB_ERROR_NUM
+int BizDevReqStreamStop(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, s32 stop_reason)//GLB_ERROR_NUM
 {
-	return g_biz_device_manager.ReqStreamStopByStreamID(dev_type, dev_ip, stream_id, stop_reason);
+	return g_biz_device_manager.DevReqStreamStopByStreamID(dev_type, dev_ip, stream_id, stop_reason);
 }
 
-int BizDevStreamProgress(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, VD_BOOL b)//接收回放进度信息
+int BizDevReqStreamProgress(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, VD_BOOL b)//接收回放进度信息
 {
-	return g_biz_device_manager.DevStreamProgress(dev_type, dev_ip, stream_id, b);//接收回放进度信息
+	return g_biz_device_manager.DevReqStreamProgress(dev_type, dev_ip, stream_id, b);//接收回放进度信息
 }
 
 

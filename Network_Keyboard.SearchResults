@@ -1,6 +1,4 @@
----- BizSendMsg2StreamManager Matches (5 in 2 files) ----
-biz_device.cpp (mid_logic\src): 	ret = BizSendMsg2StreamManager(&msg, sizeof(SStreamMsg_t));
-biz_device.cpp (mid_logic\src):		ERR_PRINT("svr IP: %s, link_id(%u), msg_type: %d, BizSendMsg2StreamManager failed, ret: %d\n",
-biz_device.cpp (mid_logic\src): 	ret = BizSendMsg2StreamManager(&msg, sizeof(SStreamMsg_t));
-biz_device.cpp (mid_logic\src):		ERR_PRINT("svr IP: %s, link_id(%u), msg_type: %d, BizSendMsg2StreamManager failed, ret: %d\n",
-biz_remote_stream.cpp (mid_logic\src):int BizSendMsg2StreamManager(SStreamMsg_t *pmsg, u32 msg_len)
+---- StreamStopByLinkID Matches (3 in 2 files) ----
+biz_device.cpp (mid_logic\src):int CBizDevice::StreamStopByLinkID(u32 link_id, s32 stop_reason)//GLB_ERROR_NUM
+biz_device.cpp (mid_logic\src):		StreamStopByLinkID(map_iter->first, stop_reason);//里面会erase map iterator
+biz_device.h (mid_logic\inc):	int StreamStopByLinkID(u32 link_id, s32 stop_reason = SUCCESS);//GLB_ERROR_NUM 关闭原因默认主动关闭

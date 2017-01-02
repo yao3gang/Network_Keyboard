@@ -8,7 +8,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-
+#include "biz_msg_type.h"
 #include "types.h"
 #include "C_Lock.h"
 #include "object.h"
@@ -117,10 +117,10 @@ public:
 	int DevDisconnect();
 
 	//stream
-	int StreamStart(u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *psock_stream);
-	int StreamStopByStreamID(u32 stream_id, s32 stop_reason = SUCCESS);//GLB_ERROR_NUM 关闭原因默认主动关闭
+	int ReqStreamStart(u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *psock_stream);
+	int ReqStreamStopByStreamID(u32 stream_id, s32 stop_reason = SUCCESS);//GLB_ERROR_NUM 关闭原因默认主动关闭
 	int StreamStopByLinkID(u32 link_id, s32 stop_reason = SUCCESS);//GLB_ERROR_NUM 关闭原因默认主动关闭
-	int StreamProgress(u32 stream_id, VD_BOOL b);//接收回放进度信息
+	int ReqStreamProgress(u32 stream_id, VD_BOOL b);//接收回放进度信息
 	//void _CleanStream(int stream_idx);
 
 	//关闭所有数据流连接
@@ -208,7 +208,7 @@ int BizDevSearch(std::vector<SBiz_DeviceInfo_t> *pvnvr_list,
 							std::vector<SBiz_DeviceInfo_t> *pvpatrol_dec_list, 
 							std::vector<SBiz_DeviceInfo_t> *pvswitch_dec_list);
 
-int BizSendMsg2DevManager(SStreamMsg_t *pmsg, u32 msg_len);
+int BizSendMsg2DevManager(SBizMsg_t *pmsg, u32 msg_len);
 
 
 int BizAddDev(EM_DEV_TYPE dev_type, u32 dev_ip);
@@ -245,8 +245,8 @@ int BizStartNotifyDevInfo();//使能通知。设备层将信息通知给上层
 
 
 //成功返回stearm_rcv[MaxMediaLinks] 下标stream_idx
-int BizReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *psock_stream);
-int BizReqStreamStop(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, s32 stop_reason);//GLB_ERROR_NUM
+int BizDevReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *psock_stream);
+int BizDevReqStreamStop(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, s32 stop_reason=SUCCESS);//GLB_ERROR_NUM
 int BizDevStreamProgress(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, VD_BOOL b);//接收回放进度信息
 
 

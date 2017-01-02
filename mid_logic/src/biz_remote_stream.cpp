@@ -49,10 +49,11 @@ CMediaStream::CMediaStream()
 , dev_type(EM_DEV_TYPE_NONE)	//服务器类型
 , dev_ip(INADDR_NONE)			//服务器IP
 , stream_id(INVALID_VALUE)		//关键，系统唯一
-, err_code(SUCCESS)				//错误码
+, stream_errno(SUCCESS)				//错误码
 , status(EM_STREAM_STATUS_DISCONNECT) //流状态
 
 //流接收
+, b_thread_running(FALSE)//接收线程运行标志
 , b_thread_exit(FALSE)//接收线程退出标志
 , sock_stream(INVALID_SOCKET)
 , sem_exit(0)
@@ -97,6 +98,19 @@ CMediaStream::~CMediaStream()
 	FreeSrc();
 }
 
+void CMediaStream::threadRcv(uint param)//接收服务器数据
+{
+	
+}
+
+
+
+
+
+
+
+
+
 
 
 
@@ -115,7 +129,6 @@ public:
 	~CMediaStreamManager();
 
 	int Init();
-	
 	int ReqStreamStart(
 			EM_DEV_TYPE dev_type,
 			u32 dev_ip,
@@ -125,8 +138,10 @@ public:
 			PDEAL_STATUS deal_status_cb,
 			u32 *pstream_id );
 
+	int ReqStreamStop(u32 stream_id);
+	
 	// 写消息to stream manager
-	int WriteMsg(SStreamMsg_t *pmsg, u32 msg_len);
+	int WriteMsg(SBizMsg_t *pmsg, u32 msg_len);
 	
 private: //function
 	CMediaStreamManager();
@@ -135,9 +150,10 @@ private: //function
 
 	}
 	void FreeSrc();//释放资源
-	
-	
-	int dealMsg(SStreamMsg_t *pmsg, u32 msg_len);
+	int dealStreamConnect(u32 stream_id);
+	int dealStreamDel(u32 stream_id);
+	int dealStreamMsgStop(u32 stream_id, s32 stream_errno);
+	int dealMsg(SBizMsg_t *pmsg, u32 msg_len);
 	void threadMsg(uint param);//消息线程执行函数
 	//外部加锁
 	u32 _createStreamID();//得到一个新的流ID
@@ -149,7 +165,6 @@ private: //data member
 	MAP_ID_PSTREAM map_pstream;
 	u32 round_stream_no;//[0, MAX_STREAM_NO-1] 轮转
 	u32 stream_cnt;
-	std::list<u32> list_delete;//待删除流的ID 列表
 	
 	//消息队列数据
 	pthread_cond_t mq_cond;		//写flash 的条件变量
@@ -262,7 +277,7 @@ u32 CMediaStreamManager::_createStreamID()//得到一个新的流ID
 	return stream_id;
 }
 
-int CMediaStreamManager::WriteMsg(SStreamMsg_t *pmsg, u32 msg_len)
+int CMediaStreamManager::WriteMsg(SBizMsg_t *pmsg, u32 msg_len)
 {
 	int ret = SUCCESS;
 
@@ -279,10 +294,10 @@ int CMediaStreamManager::WriteMsg(SStreamMsg_t *pmsg, u32 msg_len)
 		return -EPARAM;
 	}
 
-	if (sizeof(SStreamMsg_t) != msg_len)
+	if (sizeof(SBizMsg_t) != msg_len)
 	{
-		ERR_PRINT("sizeof(SStreamMsg_t)(%d) != msg_len(%d)\n",
-			sizeof(SStreamMsg_t), msg_len);
+		ERR_PRINT("sizeof(SBizMsg_t)(%d) != msg_len(%d)\n",
+			sizeof(SBizMsg_t), msg_len);
 		
 		return -EPARAM;
 	}
@@ -328,10 +343,258 @@ fail:
 	return ret;
 }
 
-int CMediaStreamManager::dealMsg(SStreamMsg_t *pmsg, u32 msg_len)
+int CMediaStreamManager::dealStreamConnect(u32 stream_id)
+{
+	int ret = SUCCESS;
+	s32 sock_stream = INVALID_VALUE;
+	struct in_addr in;
+	EM_DEV_TYPE dev_type;//服务器类型
+	u32 dev_ip = INADDR_NONE;//服务器IP
+	ifly_TCP_Stream_Req req;//流请求数据结构
+	CMediaStream *pstream = NULL;
+	MAP_ID_PSTREAM::iterator map_iter;
+	SBizMsg_t msg;
+	
+	memset(&msg, 0, sizeof(SBizMsg_t));
+	msg.msg_type = EM_STREAM_MSG_CONNECT_FALIURE;
+	
+	plock4param->Lock();
+	
+	map_iter = map_pstream.find(stream_id);
+	if (map_iter == map_pstream.end())
+	{
+		ERR_PRINT("stream_id(%d) not found in map\n", stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+	
+	pstream = map_iter->second;
+	if (NULL == pstream)
+	{
+		ERR_PRINT("stream_id(%d) NULL == pstream\n", stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+	
+	pstream->plock4param->Lock();
+
+	dev_type = pstream->dev_type;
+	dev_ip = pstream->dev_ip;
+	memcpy(&req, &pstream->req, sizeof(ifly_TCP_Stream_Req));
+
+	in.s_addr = dev_ip;
+
+	if (EM_STREAM_STATUS_DISCONNECT != pstream->status)
+	{
+		ERR_PRINT("dev ip: %s, EM_STREAM_STATUS_DISCONNECT != pstream->status(%d)",
+			inet_ntoa(in), pstream->status);
+
+		pstream->plock4param->Unlock();
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+	
+	ret = BizDevReqStreamStart(dev_type, dev_ip, stream_id, &req, &sock_stream);
+	if (ret)//failed
+	{				
+		ERR_PRINT("dev ip: %s, stream_id: %d, req cmd: %d, BizReqStreamStart failed, ret: %d\n",
+			inet_ntoa(in), stream_id, req.command, ret);
+
+		//内部数据
+		pstream->stream_errno = ret;
+
+		//发消息
+		msg.stream_err.stream_id = stream_id;
+		msg.stream_err.stream_errno = ret;
+	}
+	else//success
+	{
+		DBG_PRINT("dev ip: %s, stream_id: %d, req cmd: %d, BizReqStreamStart success\n",
+			inet_ntoa(in), stream_id, req.command);
+
+		//内部数据
+		pstream->sock_stream = sock_stream;
+		pstream->status = EM_STREAM_STATUS_RUNNING;
+		pstream->stream_errno = SUCCESS;
+		
+		//启动流读取线程
+		pstream->b_thread_running = TRUE;
+		pstream->m_threadlet_rcv.run("BizStream", pstream, (ASYNPROC)&CMediaStream::threadRcv, 0, 0);
+
+		//发消息
+		msg.msg_type = EM_STREAM_MSG_CONNECT_SUCCESS;
+		msg.stream_id = stream_id;
+	}
+	
+	//状态回调，上层实现建议用消息传递，
+	//否则可能锁死在pstream->plock4param
+	if (pstream->m_obj && pstream->m_deal_status_cb)
+		(pstream->m_obj->*(pstream->m_deal_status_cb))(&msg, sizeof(SBizMsg_t));
+	
+	pstream->plock4param->Unlock();
+	plock4param->Unlock();
+
+	return ret;
+}
+
+int CMediaStreamManager::dealStreamDel(u32 stream_id)
 {
 	int ret = SUCCESS;
 	struct in_addr in;
+	EM_DEV_TYPE dev_type;//服务器类型
+	u32 dev_ip = INADDR_NONE;//服务器IP
+	CMediaStream *pstream = NULL;
+	MAP_ID_PSTREAM::iterator map_iter;
+	u8 req_cmd = INVALID_VALUE;
+	VD_BOOL b_thread_running = FALSE;
+	CObject *obj = NULL;
+	PDEAL_STATUS deal_status_cb = NULL;
+	SBizMsg_t msg;
+	memset(&msg, 0, sizeof(SBizMsg_t));
+	msg.msg_type = EM_STREAM_MSG_DEL_FALIURE;
+	
+	plock4param->Lock();
+	
+	map_iter = map_pstream.find(stream_id);
+	if (map_iter == map_pstream.end())
+	{
+		ERR_PRINT("stream_id(%d) not found in map\n", stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+	
+	pstream = map_iter->second;	
+	if (NULL == pstream)
+	{
+		ERR_PRINT("stream_id(%d) NULL == pstream\n", stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+	
+	pstream->plock4param->Lock();
+
+	dev_type = pstream->dev_type;
+	dev_ip = pstream->dev_ip;
+	req_cmd = pstream->req.command;
+	
+	pstream->b_thread_exit = TRUE;
+	b_thread_running = pstream->b_thread_running;
+	obj = pstream->m_obj;
+	deal_status_cb = pstream->m_deal_status_cb;
+
+	in.s_addr = dev_ip;
+	
+	if (EM_STREAM_STATUS_WAIT_DEL != pstream->status)
+	{
+		ERR_PRINT("dev ip: %s, stream_id: %d, EM_STREAM_STATUS_WAIT_DEL != pstream->status(%d)\n",
+			inet_ntoa(in), stream_id, pstream->status);
+
+		pstream->plock4param->Unlock();
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+
+	pstream->plock4param->Unlock();
+
+	ret = BizDevReqStreamStop(dev_type, dev_ip, stream_id);
+	if (ret)
+	{
+		ERR_PRINT("dev ip: %s, stream_id: %d, BizDevReqStreamStop failed, ret: %d\n",
+			inet_ntoa(in), ret, stream_id);
+
+		//发消息
+		msg.stream_err.stream_id = stream_id;
+		msg.stream_err.stream_errno = ret;
+
+		if (obj && deal_status_cb)
+			(obj->*deal_status_cb)(&msg, sizeof(SBizMsg_t));
+
+		plock4param->Unlock();
+		return ret;
+	}
+	
+	DBG_PRINT("dev ip: %s, stream_id: %d, BizDevReqStreamStop success\n", inet_ntoa(in), stream_id);
+
+	//发消息
+	msg.msg_type = EM_STREAM_MSG_DEL_SUCCESS;
+	msg.stream_id = stream_id;
+
+	if (b_thread_running)
+	{
+		pstream->sem_exit.TimedPend(5);
+		
+		DBG_PRINT("dev ip: %s, stream_id: %d, req cmd: %d, stream thread exit!!!\n",
+			inet_ntoa(in), stream_id, req_cmd);
+	}
+
+	//安全了
+	map_pstream.erase(stream_id);//移除
+	
+	delete pstream;//释放
+	pstream = NULL;
+
+
+	if (obj && deal_status_cb)
+		(obj->*deal_status_cb)(&msg, sizeof(SBizMsg_t));
+
+	plock4param->Unlock();
+
+	return SUCCESS;
+}
+
+//下层传递上来的流关闭，可能是设备掉线，也可能是层的正常关闭
+//所以在map find的时候找不到是可能的，因为上层已经erase
+int CMediaStreamManager::dealStreamMsgStop(u32 stream_id, s32 stream_errno)
+{	
+	CMediaStream *pstream = NULL;
+	MAP_ID_PSTREAM::iterator map_iter;
+	SBizMsg_t msg;
+	memset(&msg, 0, sizeof(SBizMsg_t));
+	msg.msg_type = EM_STREAM_MSG_ERR;
+
+	plock4param->Lock();
+	
+	map_iter = map_pstream.find(stream_id);
+	if (map_iter == map_pstream.end())
+	{
+		ERR_PRINT("stream_id(%d) not found in map\n", stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM; 
+	}
+	
+	pstream = map_iter->second;
+	if (NULL == pstream)
+	{
+		ERR_PRINT("stream_id(%d) NULL == pstream\n", stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+
+	pstream->plock4param->Lock();
+	
+	//状态回调，上层实现建议用消息传递，
+	//否则可能锁死在pstream->plock4param
+	msg.stream_err.stream_id = stream_id;
+	msg.stream_err.stream_errno = stream_errno;
+	
+	if (pstream->m_obj && pstream->m_deal_status_cb)
+		(pstream->m_obj->*(pstream->m_deal_status_cb))(&msg, sizeof(SBizMsg_t));
+	
+	pstream->plock4param->Unlock();
+	plock4param->Unlock();
+
+	return SUCCESS;
+}
+
+int CMediaStreamManager::dealMsg(SBizMsg_t *pmsg, u32 msg_len)
+{
+	int ret = SUCCESS;
 
 	if (!b_inited)
 	{
@@ -346,36 +609,22 @@ int CMediaStreamManager::dealMsg(SStreamMsg_t *pmsg, u32 msg_len)
 		return -EPARAM;
 	}
 
-	if (sizeof(SStreamMsg_t) != msg_len)
+	DBG_PRINT("msg type: %d\n", pmsg->msg_type);
+
+	if (sizeof(SBizMsg_t) != msg_len)
 	{
-		ERR_PRINT("sizeof(SStreamMsg_t)(%d) != msg_len(%d)\n",
-			sizeof(SStreamMsg_t), msg_len);
+		ERR_PRINT("sizeof(SBizMsg_t)(%d) != msg_len(%d)\n",
+			sizeof(SBizMsg_t), msg_len);
 		
 		return -EPARAM;
 	}
 	
 	s32 msg_type = pmsg->msg_type;
-	u32 stream_id = pmsg->stream_id;
-	MAP_ID_PSTREAM::iterator map_iter;
-	CMediaStream *pstream = NULL;
-
-	plock4param->Lock();
-	
-	map_iter = map_pstream.find(stream_id);
-	if (map_iter == map_pstream.end())
-	{
-		ERR_PRINT("stream_id(%d) not found in map\n", stream_id);
-
-		plock4param->Unlock();
-		return -FAILURE;
-	}
-	pstream = map_iter->second;
-	
-	plock4param->Unlock();
 	
 	switch (msg_type)
 	{
 		//消息
+	#if 0 //阻塞调用，返回值便知成功与否
 		case EM_STREAM_MSG_CONNECT_SUCCESS:	//连接成功
 		{
 		} break;
@@ -383,13 +632,18 @@ int CMediaStreamManager::dealMsg(SStreamMsg_t *pmsg, u32 msg_len)
 		case EM_STREAM_MSG_CONNECT_FALIURE:	//连接失败
 		{
 		} break;
-		
-		case EM_STREAM_MSG_STREAM_ERR:		//流出错
+	#endif
+		case EM_STREAM_MSG_ERR:		//流出错
 		{
 		} break;
 		
-		case EM_STREAM_MSG_STUTDOWN:			//流关闭
+		case EM_STREAM_MSG_STOP:			//biz_dev 层上传的流关闭，可能设备掉线
 		{
+			u32 stream_id = pmsg->stream_err.stream_id;
+			s32 stream_errno = pmsg->stream_err.stream_errno;
+
+			ret = dealStreamMsgStop(stream_id, stream_errno);
+			
 		} break;
 		
 		case EM_STREAM_MSG_PROGRESS:		//文件回放/下载进度
@@ -404,78 +658,33 @@ int CMediaStreamManager::dealMsg(SStreamMsg_t *pmsg, u32 msg_len)
 		//CMediaStreamManager 内部命令
 		case EM_STREAM_CMD_CONNECT:	//连接流
 		{
-			EM_DEV_TYPE dev_type;//服务器类型
-			u32 dev_ip;//服务器IP
-			ifly_TCP_Stream_Req req;//流请求数据结构
+			ret = dealStreamConnect(pmsg->stream_id);
 			
-			pstream->plock4param->Lock();
-
-			if (pstream->status != EM_STREAM_STATUS_DISCONNECT)
-			{
-				ERR_PRINT("pstream->status(%d) != EM_STREAM_STATUS_DISCONNECT(%d)",
-					pstream->status, EM_STREAM_STATUS_DISCONNECT);
-
-				pstream->plock4param->Unlock();
-				return -EPARAM;
-			}
-
-			dev_type = pstream->dev_type;
-			dev_ip = pstream->dev_ip;
-			memcpy(&req, &pstream->req, sizeof(ifly_TCP_Stream_Req));
-
-			in.s_addr = dev_ip;
-			SStreamMsg_t msg;
-			memset(&msg, 0, sizeof(SStreamMsg_t));
-
-			s32 sock_stream = INVALID_VALUE;
-			
-			ret = BizReqStreamStart(dev_type, dev_ip, stream_id, &req, &sock_stream);
-			if (ret)
-			{				
-				ERR_PRINT("dev ip: %s, cmd: %d, BizReqStreamStart failed, ret: %d\n",
-					inet_ntoa(in), req.command, ret);
-
-				msg.msg_type = EM_STREAM_MSG_CONNECT_FALIURE;
-				msg.stream_id = stream_id;
-				msg.stream_errno = ret;
-			}
-			else
-			{
-				DBG_PRINT("dev ip: %s, cmd: %d, BizReqStreamStart success\n",
-					inet_ntoa(in), req.command);
-				//内部数据
-				pstream->sock_stream = sock_stream;
-				
-				msg.msg_type = EM_STREAM_MSG_CONNECT_SUCCESS;
-				msg.stream_id = stream_id;
-			}
-			//状态回调
-			(pstream->m_obj->*(pstream->m_deal_status_cb))(stream_id, pmsg, sizeof(SStreamMsg_t));
-			
-			pstream->plock4param->Unlock();
 		} break;
 
 		case EM_STREAM_CMD_DEL:	//删除流
 		{
+			ret = dealStreamDel(pmsg->stream_id);
+			
 		} break;
 
 		default:
 			ERR_PRINT("msg_type: %d, not support\n", msg_type);
 	}
 
-	return SUCCESS;
+	return ret;
 }
 
 void CMediaStreamManager::threadMsg(uint param)//读消息
 {
 	VD_BOOL b_process = FALSE;
 	int ret = SUCCESS;
-	SStreamMsg_t msg;
+	SBizMsg_t msg;
 	
 	while (1)
 	{
 		ret = SUCCESS;
-		memset(&msg, 0, sizeof(SStreamMsg_t));
+		memset(&msg, 0, sizeof(SBizMsg_t));
 		b_process = FALSE;
 		
 		ret = pthread_mutex_lock(&mq_mutex);
@@ -488,7 +697,7 @@ void CMediaStreamManager::threadMsg(uint param)//读消息
 		
 		if (mq_msg_count)	//有消息
 		{
-			ret = pmq_ccbuf->Get((u8 *)&msg, sizeof(SStreamMsg_t));
+			ret = pmq_ccbuf->Get((u8 *)&msg, sizeof(SBizMsg_t));
 			if (ret)
 			{
 				ERR_PRINT("msg_queue get msg fail(%d), reset it\n", ret);
@@ -524,7 +733,7 @@ void CMediaStreamManager::threadMsg(uint param)//读消息
 		
 		if (b_process)
 		{
-			dealMsg(&msg, sizeof(SStreamMsg_t));
+			dealMsg(&msg, sizeof(SBizMsg_t));
 		}
 	}
 
@@ -579,6 +788,7 @@ int CMediaStreamManager::ReqStreamStart(
 	plock4param->Lock();
 
 	pstream->stream_id = _createStreamID();
+	*pstream_id = pstream->stream_id;
 	
 	//insert map
 	if (!map_pstream.insert(std::make_pair(pstream->stream_id, pstream)).second)
@@ -592,20 +802,27 @@ int CMediaStreamManager::ReqStreamStart(
 	plock4param->Unlock();
 	
 	//write msg to threadmsg, in threadmsg connect
-	SStreamMsg_t msg;
-	memset(&msg, 0, sizeof(SStreamMsg_t));
+	SBizMsg_t msg;
+	memset(&msg, 0, sizeof(SBizMsg_t));
 	msg.msg_type = EM_STREAM_CMD_CONNECT;
-	msg.stream_id = pstream->stream_id;
+	msg.stream_id = *pstream_id;
 
-	ret = WriteMsg(&msg, sizeof(SStreamMsg_t));
+	ret = WriteMsg(&msg, sizeof(SBizMsg_t));
 	if (ret)
 	{
-		ERR_PRINT("dev ip: %s, cmd: %d, WriteMsg failed, ret: %d\n", inet_ntoa(in), preq->command, ret);
+		ERR_PRINT("dev ip: %s, stream req cmd: %d, WriteMsg failed, ret: %d\n", inet_ntoa(in), preq->command, ret);
 
-		goto fail;
-	}
+		goto fail2;
+	}	
 
 	return SUCCESS;
+
+fail2:
+	plock4param->Lock();
+
+	map_pstream.erase(*pstream_id);
+		
+	plock4param->Unlock();
 
 fail:
 	if (pstream)
@@ -614,9 +831,70 @@ fail:
 		pstream = NULL;
 	}
 
-	return -FAILURE;		
+	*pstream_id = INVALID_VALUE;
+	
+	return -FAILURE;
 }
 
+int CMediaStreamManager::ReqStreamStop(u32 stream_id)
+{
+	int ret = SUCCESS;
+	CMediaStream *pstream = NULL;
+	MAP_ID_PSTREAM::iterator map_iter;
+	struct in_addr in;
+	
+	if (!b_inited)
+	{
+		ERR_PRINT("module not init\n");
+		return -FAILURE;
+	}
+	
+	plock4param->Lock();
+	
+	map_iter = map_pstream.find(stream_id);
+	if (map_iter == map_pstream.end())
+	{
+		ERR_PRINT("stream_id(%d) not found in map\n", stream_id);
+		
+		plock4param->Unlock();
+		return -EPARAM; 
+	}
+	
+	pstream = map_iter->second;
+	if (NULL == pstream)
+	{
+		ERR_PRINT("stream_id(%d) NULL == pstream\n", stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+
+	pstream->plock4param->Lock();
+
+	in.s_addr = pstream->dev_ip;
+	pstream->status = EM_STREAM_STATUS_WAIT_DEL;
+	
+	//write msg to threadmsg, in threadmsg delete
+	SBizMsg_t msg;
+	memset(&msg, 0, sizeof(SBizMsg_t));
+	msg.msg_type = EM_STREAM_CMD_DEL;
+	msg.stream_id = pstream->stream_id;
+
+	ret = WriteMsg(&msg, sizeof(SBizMsg_t));
+	if (ret)
+	{
+		ERR_PRINT("dev ip: %s, msg type: %d, WriteMsg failed, ret: %d\n", inet_ntoa(in), msg.msg_type, ret);
+
+		pstream->plock4param->Unlock();
+		plock4param->Unlock();
+		return -FAILURE;
+	}
+
+	pstream->plock4param->Unlock();
+	plock4param->Unlock();
+	
+	return SUCCESS;
+}
 
 
 
@@ -635,7 +913,7 @@ fail:
 //extern API
 //流控制API
 //pstream_id 返回流ID
-int BizReqPlaybackByFile (
+int BizStreamReqPlaybackByFile (
 	EM_DEV_TYPE dev_type,
 	u32 dev_ip,
 	char *file_name,
@@ -670,7 +948,14 @@ int BizReqPlaybackByFile (
 	return g_biz_stream_manager.ReqStreamStart(dev_type, dev_ip, &req, obj, deal_frame_cb, deal_status_cb, pstream_id);
 }
 
-int BizSendMsg2StreamManager(SStreamMsg_t *pmsg, u32 msg_len)
+//流只能由上层删除
+int BizStreamReqStop(u32 stream_id)
+{
+	return g_biz_stream_manager.ReqStreamStop(stream_id);
+}
+
+
+int BizSendMsg2StreamManager(SBizMsg_t *pmsg, u32 msg_len)
 {
 	return g_biz_stream_manager.WriteMsg(pmsg, msg_len);
 }

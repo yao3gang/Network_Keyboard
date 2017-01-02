@@ -11,6 +11,8 @@
 #include "types.h"
 #include "ctrlprotocol.h"
 #include "biz_device.h"
+#include "biz_msg_type.h"
+
 
 #define MAX_FRAME_SIZE (1 << 20) // 1MB
 
@@ -18,8 +20,8 @@
 typedef enum
 {
 	EM_STREAM_STATUS_DISCONNECT,	//未连接，初始状态
-	EM_STREAM_STATUS_CONNECTED,		//已连接，正在运行
-	EM_STREAM_STATUS_OVER,			//结束
+	EM_STREAM_STATUS_RUNNING,		//已连接，正在运行
+	EM_STREAM_STATUS_STOP,			//停止，stream_errno 指示是否出错
 	EM_STREAM_STATUS_WAIT_DEL,		//等待删除
 } EM_STREAM_STATUS_TYPE;
 
@@ -33,46 +35,6 @@ typedef enum
 	EM_STREAM_ERR_DEV_OFFLINE,		//设备掉线
 } EM_STREAM_ERR_TYPE;
 #endif
-
-//CMediaStreamManager 消息类型
-typedef enum
-{
-	//消息
-	EM_STREAM_MSG_CONNECT_SUCCESS,	//连接成功
-	EM_STREAM_MSG_CONNECT_FALIURE,	//连接失败
-	EM_STREAM_MSG_STREAM_ERR,		//流出错
-	EM_STREAM_MSG_STUTDOWN,			//流关闭
-	EM_STREAM_MSG_PROGRESS,		//文件回放/下载进度
-	EM_STREAM_MSG_FINISH,		//文件下载完成
-	//CMediaStreamManager 内部命令
-	EM_STREAM_CMD_CONNECT,	//连接流
-	EM_STREAM_CMD_DEL,		//删除流
-} EM_STREAM_MSG_TYPE;
-
-
-
-//CMediaStreamManager 消息结构
-
-typedef struct 
-{
-	s32 msg_type;
-	u32 stream_id;//关键，系统唯一
-	
-	union		//72byte
-	{
-		//流错误码
-		s32 stream_errno;//GLB_ERROR_NUM
-		
-		//回放、文件下载进度
-		struct
-		{
-			u32 cur_pos;
-			u32 total_size;
-		} progress;						
-		
-		
-	};
-}SStreamMsg_t;	
 
 
 //帧接收头
@@ -99,8 +61,6 @@ typedef struct
     };
 }FRAMEHDR,*PFRAMEHDR;
 
-
-
 //声明流管理者
 class CMediaStreamManager;
 
@@ -113,7 +73,7 @@ class CMediaStreamManager;
 typedef void (CObject:: *PDEAL_FRAME)(u32 stream_id, FRAMEHDR *pframe_hdr);
 
 //流注册的状态处理函数
-typedef void (CObject:: *PDEAL_STATUS)(u32 stream_id, SStreamMsg_t *pmsg, u32 len);
+typedef void (CObject:: *PDEAL_STATUS)(SBizMsg_t *pmsg, u32 len);
 
 class CMediaStream : public CObject
 {
@@ -124,8 +84,6 @@ public:
 	~CMediaStream();
 	
 	int Init();
-	int Start();
-	int Stop();
 	
 private:
     CMediaStream(CMediaStream &)
@@ -146,10 +104,11 @@ private:
 	EM_DEV_TYPE dev_type;//服务器类型
 	u32 dev_ip;//服务器IP
 	u32 stream_id;//关键，系统唯一
-	s32 err_code;//错误码
+	s32 stream_errno;//错误码
 	EM_STREAM_STATUS_TYPE status;//流状态
 	ifly_TCP_Stream_Req req;//流请求数据结构
 	//流接收
+	VD_BOOL b_thread_running;//接收线程运行标志
 	VD_BOOL b_thread_exit;//接收线程退出标志
 	s32 sock_stream;
 	Threadlet m_threadlet_rcv;
@@ -177,11 +136,22 @@ typedef struct _SDev_StearmRcv_t
 #endif
 
 
-//流控制API
-//pstream_id 返回流ID
-int BizReqPlaybackByFile(EM_DEV_TYPE dev_type, u32 dev_ip, char *file_name, u32 offset, u32 *pstream_id);
+//extern  API
+int BizSendMsg2StreamManager(SBizMsg_t *pmsg, u32 msg_len);
 
-int BizSendMsg2StreamManager(SStreamMsg_t *pmsg, u32 msg_len);
+//pstream_id 返回流ID
+int BizStreamReqPlaybackByFile (
+	EM_DEV_TYPE dev_type,
+	u32 dev_ip,
+	char *file_name,
+	u32 offset,
+	CObject *obj,
+	PDEAL_FRAME deal_frame_cb,
+	PDEAL_STATUS deal_status_cb,
+	u32 *pstream_id );
+
+int BizStreamReqStop(u32 stream_id);
+
 
 
 #endif
