@@ -137,6 +137,8 @@ typedef struct _SDev_StearmRcv_t
 
 
 //extern  API
+int BizStreamInit(void);
+
 int BizSendMsg2StreamManager(SBizMsg_t *pmsg, u32 msg_len);
 
 //pstream_id ·µ»ØÁ÷ID

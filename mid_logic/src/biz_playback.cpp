@@ -43,13 +43,13 @@
 #include <algorithm>
 #include <utility>
 
-#define g_biz_playback (*CBizPlayback::instance())
+#define g_biz_pb_manager (*CBizPlaybackManager::instance())
 
-class CBizPlayback : public CMediaStream
+class CBizPlaybackManager : public CObject
 {	
 public:
-	PATTERN_SINGLETON_DECLARE(CBizPlayback);
-	~CBizPlayback();
+	PATTERN_SINGLETON_DECLARE(CBizPlaybackManager);
+	~CBizPlaybackManager();
 	
 	int Init(void);
 	int PlaybackStartByFile(u32 _dev_ip, ifly_recfileinfo_t *pfile_info);
@@ -64,8 +64,8 @@ protected:
 	int _StreamProgress(VD_BOOL b);//接收进度信息
 	
 private:
-	CBizPlayback();
-	CBizPlayback(CBizPlayback &)
+	CBizPlaybackManager();
+	CBizPlaybackManager(CBizPlaybackManager &)
 	{
 
 	}
@@ -81,9 +81,9 @@ private:
 	
 };
 
-PATTERN_SINGLETON_IMPLEMENT(CBizPlayback);
+PATTERN_SINGLETON_IMPLEMENT(CBizPlaybackManager);
 
-CBizPlayback::CBizPlayback()
+CBizPlaybackManager::CBizPlaybackManager()
 : b_inited(FALSE)
 , plock4param(NULL)
 , playback_type(EM_PLAYBACK_NONOE)
@@ -92,12 +92,12 @@ CBizPlayback::CBizPlayback()
 	memset(&time_info, 0, sizeof(SPlayback_Time_Info_t));
 }
 
-CBizPlayback::~CBizPlayback()
+CBizPlaybackManager::~CBizPlaybackManager()
 {
 	FreeSrc();
 }
 
-int CBizPlayback::Init(void)
+int CBizPlaybackManager::Init(void)
 {
 	plock4param = new CMutex;
 	if (NULL == plock4param)
@@ -121,7 +121,7 @@ fail:
 	return -FAILURE;
 }
 
-void CBizPlayback::FreeSrc()
+void CBizPlaybackManager::FreeSrc()
 {
 	if (plock4param)
 	{
@@ -132,7 +132,7 @@ void CBizPlayback::FreeSrc()
 	b_inited = FALSE;
 }
 
-int CBizPlayback::PlaybackStartByFile(u32 _dev_ip, ifly_recfileinfo_t *pfile_info)
+int CBizPlaybackManager::PlaybackStartByFile(u32 _dev_ip, ifly_recfileinfo_t *pfile_info)
 {
 	if (!b_inited)
 	{
@@ -200,7 +200,7 @@ int CBizPlayback::PlaybackStartByFile(u32 _dev_ip, ifly_recfileinfo_t *pfile_inf
 	return SUCCESS;
 }
 
-int CBizPlayback::PlaybackStartByTime(u32 _dev_ip, u8 chn, u32 start_time, u32 end_time)
+int CBizPlaybackManager::PlaybackStartByTime(u32 _dev_ip, u8 chn, u32 start_time, u32 end_time)
 {
 	if (!b_inited)
 	{
@@ -260,7 +260,7 @@ int CBizPlayback::PlaybackStartByTime(u32 _dev_ip, u8 chn, u32 start_time, u32 e
 
 
 //是否已经处于进行中
-VD_BOOL CBizPlayback::PlaybackIsStarted()
+VD_BOOL CBizPlaybackManager::PlaybackIsStarted()
 {	
 	if (!b_inited)
 	{
@@ -277,7 +277,7 @@ VD_BOOL CBizPlayback::PlaybackIsStarted()
 	return b;
 }
 
-int CBizPlayback::PlaybackStop()
+int CBizPlaybackManager::PlaybackStop()
 {
 	if (!b_inited)
 	{
@@ -312,13 +312,13 @@ int CBizPlayback::PlaybackStop()
 	return SUCCESS;
 }
 
-int CBizPlayback::_StreamProgress(VD_BOOL b)//接收进度信息
+int CBizPlaybackManager::_StreamProgress(VD_BOOL b)//接收进度信息
 {
 	return BizDevStreamProgress(dev_type, dev_ip, stream_idx, b);
 }
 
 
-int CBizPlayback::dealFrameFunc(FRAMEHDR *pframe_hdr)
+int CBizPlaybackManager::dealFrameFunc(FRAMEHDR *pframe_hdr)
 {
 	if (!b_inited)
 	{
@@ -352,7 +352,7 @@ int CBizPlayback::dealFrameFunc(FRAMEHDR *pframe_hdr)
 }
 
 //外部获得plock4stream
-int CBizPlayback::dealStateFunc(EM_STREAM_STATE_TYPE status, u32 param)//param: 文件下载进度
+int CBizPlaybackManager::dealStateFunc(EM_STREAM_STATE_TYPE status, u32 param)//param: 文件下载进度
 {
 	if (!b_inited)
 	{
@@ -401,28 +401,28 @@ int CBizPlayback::dealStateFunc(EM_STREAM_STATE_TYPE status, u32 param)//param: 
 *****************************************************/
 int BizPlaybackInit(void)
 {
-	return g_biz_playback.Init();
+	return g_biz_pb_manager.Init();
 }
 
 int BizPlaybackStartByFile(u32 _dev_ip, ifly_recfileinfo_t *pfile_info)
 {
-	return g_biz_playback.PlaybackStartByFile(_dev_ip, pfile_info);
+	return g_biz_pb_manager.PlaybackStartByFile(_dev_ip, pfile_info);
 }
 
 int BizPlaybackStartByTime(u32 _dev_ip, u8 chn, u32 start_time, u32 end_time)
 {
-	return g_biz_playback.PlaybackStartByTime(_dev_ip, chn, start_time, end_time);
+	return g_biz_pb_manager.PlaybackStartByTime(_dev_ip, chn, start_time, end_time);
 }
 
 //是否已经处于进行中
 VD_BOOL BizPlaybackIsStarted()
 {
-	return g_biz_playback.PlaybackIsStarted();
+	return g_biz_pb_manager.PlaybackIsStarted();
 }
 
 int BizPlaybackStop()
 {
-	return g_biz_playback.PlaybackStop();
+	return g_biz_pb_manager.PlaybackStop();
 }
 
 

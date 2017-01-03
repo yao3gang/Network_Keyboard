@@ -23,6 +23,7 @@
 #include "biz_config.h"
 #include "biz_net.h"
 #include "biz_device.h"
+#include "biz_remote_stream.h"
 #include "biz_preview.h"
 #include "biz_playback.h"
 
@@ -94,6 +95,7 @@ int BizFirstInit(void)
         ERR_PRINT("HisiSysInit failed\n");
         return -FAILURE;
     }
+	DBG_PRINT("HisiSysInit success\n");
 	
 	g_ThreadManager.RegisterMainThread(ThreadGetID());
 	g_TimerManager.Start();
@@ -101,17 +103,23 @@ int BizFirstInit(void)
 	if (BizConfigInit())
 	{
 		ERR_PRINT("BizConfigInit failed\n");
+		return -FAILURE;
 	}
+	DBG_PRINT("BizConfigInit success\n");
 
 	if (BizNetInit())
 	{
 		ERR_PRINT("BizNetInit failed\n");
+		return -FAILURE;
 	}
+	DBG_PRINT("BizNetInit success\n");
 	
 	if (BizDeviceFirstInit())
 	{
 		ERR_PRINT("BizDeviceFirstInit failed\n");
+		return -FAILURE;
 	}
+	DBG_PRINT("BizDeviceFirstInit success\n");
 	
 	return SUCCESS;
 }
@@ -121,22 +129,37 @@ int BizSecondInit(void)
 	if (BizDeviceSecondInit())
 	{
 		ERR_PRINT("BizDeviceSecondInit failed\n");
+		return -FAILURE;
 	}
+	DBG_PRINT("BizDeviceSecondInit success\n");
+
+	if (BizStreamInit())
+	{
+		ERR_PRINT("BizStreamInit failed\n");
+		return -FAILURE;
+	}
+	DBG_PRINT("BizStreamInit success\n");
 	
 	if (BizPreviewInit())
 	{
-		ERR_PRINT("BizDeviceInit failed\n");
+		ERR_PRINT("BizPreviewInit failed\n");
+		return -FAILURE;
 	}
+	DBG_PRINT("BizPreviewInit success\n");
 
 	if (BizPlaybackInit())
 	{
-		ERR_PRINT("BizDeviceInit failed\n");
+		ERR_PRINT("BizPlaybackInit failed\n");
+		return -FAILURE;
 	}
+	DBG_PRINT("BizPlaybackInit success\n");
 	
 	if (BizSystemComplexInit())
 	{
 		ERR_PRINT("BizSystemComplexInit failed\n");
+		return -FAILURE;
 	}
+	DBG_PRINT("BizSystemComplexInit success\n");
 
 	biz_inited = 1;
 	

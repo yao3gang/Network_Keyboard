@@ -1,4 +1,8 @@
----- StreamStopByLinkID Matches (3 in 2 files) ----
-biz_device.cpp (mid_logic\src):int CBizDevice::StreamStopByLinkID(u32 link_id, s32 stop_reason)//GLB_ERROR_NUM
-biz_device.cpp (mid_logic\src):		StreamStopByLinkID(map_iter->first, stop_reason);//里面会erase map iterator
-biz_device.h (mid_logic\inc):	int StreamStopByLinkID(u32 link_id, s32 stop_reason = SUCCESS);//GLB_ERROR_NUM 关闭原因默认主动关闭
+---- MAX_FRAME_SIZE Matches (7 in 3 files) ----
+biz_device.cpp (mid_logic\src):	pframe_data = new char[MAX_FRAME_SIZE];
+biz_device.cpp (mid_logic\src):					if (hdr.m_dwDataSize > MAX_FRAME_SIZE)
+biz_device.cpp (mid_logic\src):						ERR_PRINT("svr IP: %s, recv DataSize(%d) > MAX_FRAME_SIZE(%d) failed\n",
+biz_device.cpp (mid_logic\src):							inet_ntoa(in), hdr.m_dwDataSize, MAX_FRAME_SIZE);
+biz_device.cpp (mid_logic\src):					ret = recv(fd_tmp, pframe_data, MAX_FRAME_SIZE, 0);
+biz_remote_stream.cpp (mid_logic\src):	pframe_data = new char[MAX_FRAME_SIZE];
+biz_remote_stream.h (mid_logic\inc):#define MAX_FRAME_SIZE (1 << 20) // 1MB
