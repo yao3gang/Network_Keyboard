@@ -1,1 +1,5 @@
----- H264 Matches (0 in 0 files) ----
+---- EM_STREAM_CMD_DEL Matches (4 in 3 files) ----
+Biz_msg_type.h (mid_logic\inc):	EM_STREAM_CMD_DEL,		//É¾³ýÁ÷
+Biz_playback.cpp (mid_logic\src):				case EM_STREAM_CMD_DEL:	//É¾³ýÁ÷
+Biz_remote_stream.cpp (mid_logic\src):				case EM_STREAM_CMD_DEL:	//É¾³ýÁ÷
+Biz_remote_stream.cpp (mid_logic\src):	msg.msg_type = EM_STREAM_CMD_DEL;

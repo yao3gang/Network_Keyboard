@@ -3810,6 +3810,8 @@ int CBizDevice::DevDisconnect()
 //stream
 //成功返回stearm_rcv[MaxMediaLinks] 下标stream_idx
 // ifly_TCP_Stream_Req  在此变换成网络字节序
+//biz_remote_stream 阻塞调用，返回值便知成功与否
+//无需上传消息到biz_stream_manager
 int CBizDevice::ReqStreamStart(u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *psock_stream)
 {
 	int ret = -FAILURE;
@@ -3841,22 +3843,22 @@ int CBizDevice::ReqStreamStart(u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *ps
 	memset(&send_req, 0, sizeof(ifly_TCP_Stream_Req));
 	send_req = *preq;
 
-	//send_req  htons htonl
-	if (req_cmd == 0)//0：预览
+	//send_req 结构转换为网络字节序
+	if (req_cmd == 0)// 0：预览
 	{
 		
 	}
-	else if (req_cmd == 1)//1：文件回放
+	else if (req_cmd == 1)// 1：文件回放
 	{
 		send_req.FilePlayBack_t.offset = htonl(send_req.FilePlayBack_t.offset);
 	}
-	else if (req_cmd == 2)//2：时间回放
+	else if (req_cmd == 2)// 2：时间回放
 	{
 		send_req.TimePlayBack_t.type = htons(send_req.TimePlayBack_t.type);
 		send_req.TimePlayBack_t.start_time = htonl(send_req.TimePlayBack_t.start_time);
 		send_req.TimePlayBack_t.end_time = htonl(send_req.TimePlayBack_t.end_time);
 	}
-	else if (req_cmd == 3)//3：文件下载
+	else if (req_cmd == 3)// 3：文件下载
 	{
 		send_req.FileDownLoad_t.offset = htonl(send_req.FileDownLoad_t.offset);
 		send_req.FileDownLoad_t.size = htonl(send_req.FileDownLoad_t.size);
@@ -4050,6 +4052,7 @@ fail:
 	return -FAILURE;
 }
 
+//上层调用关闭，无须再上传消息
 int CBizDevice::ReqStreamStopByStreamID(u32 stream_id, s32 stop_reason)//GLB_ERROR_NUM
 {
 	int ret = -FAILURE;
@@ -4059,7 +4062,7 @@ int CBizDevice::ReqStreamStopByStreamID(u32 stream_id, s32 stop_reason)//GLB_ERR
 	u16 net_cmd = INVALID_VALUE;
 	u32 stream_link_id = INVALID_VALUE;
 	u32 link_id = INVALID_VALUE;
-	s32 stream_errno = SUCCESS;
+	//s32 stream_errno = SUCCESS;
 	EM_STREAM_STATUS_TYPE status;
 	char buf[128];
 	SDevStream_t* pstream = NULL;
@@ -4108,14 +4111,15 @@ int CBizDevice::ReqStreamStopByStreamID(u32 stream_id, s32 stop_reason)//GLB_ERR
 	stream_id = pstream->stream_id;
 	status = pstream->status;
 	req_cmd = pstream->req.command;
-	stream_errno = pstream->stream_errno;
+	//stream_errno = pstream->stream_errno;
 
 	DBG_PRINT("svr IP: %s, link_id(%u), stream errno: %d, stop_reason: %d\n",
-		inet_ntoa(in), link_id, stream_errno, stop_reason);
+		inet_ntoa(in), link_id, pstream->stream_errno, stop_reason);
 
-	if (SUCCESS != stop_reason)
+	if ( SUCCESS == pstream->stream_errno
+		&& SUCCESS != stop_reason)
 	{
-		stream_errno = stop_reason;
+		pstream->stream_errno = stop_reason;
 	}
 
 	delete pstream;//free
@@ -4180,6 +4184,7 @@ int CBizDevice::ReqStreamStopByStreamID(u32 stream_id, s32 stop_reason)//GLB_ERR
 
 	plock4stream->Unlock();
 
+#if 0 
  	//send msg to stream manager
  	memset(&msg, 0, sizeof(SBizMsg_t));
 	msg.msg_type = EM_STREAM_MSG_STOP;
@@ -4192,11 +4197,14 @@ int CBizDevice::ReqStreamStopByStreamID(u32 stream_id, s32 stop_reason)//GLB_ERR
 		ERR_PRINT("svr IP: %s, link_id(%u), msg_type: %d, BizSendMsg2StreamManager failed, ret: %d\n",
 			inet_ntoa(in), link_id, msg.msg_type, ret);
  	}
-
+#endif
 	return SUCCESS;
 }
 
-
+//模块内部调用的关闭，调用场景:
+// 1、设备掉线或网络通信出错调用，
+// 2、上层删除设备调用
+//需要上传消息到biz_stream_manager
 int CBizDevice::StreamStopByLinkID(u32 link_id, s32 stop_reason)//GLB_ERROR_NUM
 {
 	int ret = -FAILURE;
@@ -4241,15 +4249,17 @@ int CBizDevice::StreamStopByLinkID(u32 link_id, s32 stop_reason)//GLB_ERROR_NUM
 	stream_id = pstream->stream_id;
 	status = pstream->status;
 	req_cmd = pstream->req.command;
-	stream_errno = pstream->stream_errno;
 
 	DBG_PRINT("svr IP: %s, link_id(%u), stream errno: %d, stop_reason: %d\n",
-		inet_ntoa(in), link_id, stream_errno, stop_reason);
+			inet_ntoa(in), link_id, pstream->stream_errno, stop_reason);
 
-	if (SUCCESS != stop_reason)
+	if ( SUCCESS == pstream->stream_errno
+		&& SUCCESS != stop_reason)
 	{
-		stream_errno = stop_reason;
+		pstream->stream_errno = stop_reason;
 	}
+	
+	stream_errno = pstream->stream_errno;
 
 	delete pstream;//释放
 	pstream = NULL;
@@ -4426,7 +4436,10 @@ void CBizDevice::_CleanStream(int stream_idx)
 	//plock4stream->Unlock();
 }
 #endif
-//关闭所有数据流连接
+
+//模块内部调用的关闭，
+// 1、设备掉线或网络通信出错调用
+// 2、上层删除设备调用
 int CBizDevice::ShutdownStreamAll(s32 stop_reason)
 {
 	MAP_LID_PSTREAM::iterator map_iter;

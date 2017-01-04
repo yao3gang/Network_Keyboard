@@ -98,7 +98,7 @@ int BizStreamReqPlaybackByTime (
 	u32 *pstream_id );
 
 
-int BizStreamReqStop(u32 stream_id);
+int BizStreamReqStop(u32 stream_id, s32 stop_reason=SUCCESS);
 
 #ifdef __cplusplus
 }

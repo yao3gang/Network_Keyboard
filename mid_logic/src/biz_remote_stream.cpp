@@ -158,7 +158,7 @@ CMediaStream::~CMediaStream()
 void CMediaStream::threadRcv(uint param)//接收服务器数据
 {
 	int ret = SUCCESS;
-	
+	int sock_fd = INVALID_SOCKET;
 	FRAMEHDR frame_hdr;
 	ifly_MediaFRAMEHDR_t hdr;
 	char *pframe_data = NULL;
@@ -177,12 +177,22 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 
 	obj = m_obj;
 	deal_frame_cb = m_deal_frame_cb;
-	
+
+	sock_fd = sock_stream;
 	in.s_addr = dev_ip;
 	req_cmd = req.command;
 	_stream_id = stream_id;
 	
-	plock4param->Unlock();	
+	plock4param->Unlock();
+
+	if (INVALID_SOCKET == sock_fd)
+	{
+		ERR_PRINT("dev IP: %s, stream_id: %d, req_cmd: %d, INVALID_SOCKET == sock_stream\n",
+			inet_ntoa(in), _stream_id, req_cmd);
+
+		_stream_errno = -EPARAM;
+		goto done;
+	}
 	
 	pframe_data = new char[MAX_FRAME_SIZE];
 	if (NULL == pframe_data)
@@ -361,9 +371,12 @@ done:
 	plock4param->Lock();
 
 	b_thread_running = FALSE;
-	
-	close(sock_stream);
-	sock_stream = INVALID_SOCKET;
+
+	if (INVALID_SOCKET != sock_stream)
+	{
+		close(sock_stream);
+		sock_stream = INVALID_SOCKET;
+	}
 
 	plock4param->Unlock();
 
@@ -420,8 +433,9 @@ public:
 			PDEAL_FRAME deal_frame_cb,
 			PDEAL_STATUS deal_status_cb,
 			u32 *pstream_id );
-
-	int ReqStreamStop(u32 stream_id);
+	//上层调用的流关闭，可能是正常关闭，也可能是上层出错后关闭
+	//之后在内部threadMsg  线程中删除流
+	int ReqStreamStop(u32 stream_id, s32 stop_reason=SUCCESS);
 	
 	// 写消息to stream manager
 	int WriteMsg(SBizMsg_t *pmsg, u32 msg_len);
@@ -434,7 +448,7 @@ private: //function
 	}
 	void FreeSrc();//释放资源
 	int dealStreamConnect(u32 stream_id);
-	int dealStreamDel(u32 stream_id);
+	int dealStreamDel(u32 stream_idu32 stop_reason=SUCCESS);
 	int dealStreamMsgStop(u32 stream_id, s32 stream_errno);
 	int dealStreamMsgProgess(u32 stream_id, u32 cur_pos, u32 total_size);
 	int dealStreamMsgFinish(u32 stream_id);
@@ -726,7 +740,8 @@ int CMediaStreamManager::dealStreamConnect(u32 stream_id)
 	return ret;
 }
 
-int CMediaStreamManager::dealStreamDel(u32 stream_id)
+//上层调用的流关闭，可能是正常关闭，也可能是上层出错后关闭
+int CMediaStreamManager::dealStreamDel(u32 stream_id, u32 stop_reason)
 {
 	int ret = SUCCESS;
 	struct in_addr in;
@@ -780,7 +795,7 @@ int CMediaStreamManager::dealStreamDel(u32 stream_id)
 
 	pstream->plock4param->Unlock();
 
-	ret = BizDevReqStreamStop(dev_type, dev_ip, stream_id);
+	ret = BizDevReqStreamStop(dev_type, dev_ip, stream_id, stop_reason);
 	if (ret)
 	{
 		ERR_PRINT("dev ip: %s, stream_id: %d, req cmd: %d, BizDevReqStreamStop failed, ret: %d\n",
@@ -812,8 +827,10 @@ int CMediaStreamManager::dealStreamDel(u32 stream_id)
 	return SUCCESS;
 }
 
-//下层传递上来的流关闭，可能是设备掉线，也可能是层的正常关闭
-//所以在map find的时候找不到是可能的，因为上层已经erase
+//biz_dev 层上传的流关闭
+// 1、设备掉线或网络通信出错调用，
+// 2、GUI层删除设备调用
+//需要在本层继续上报
 int CMediaStreamManager::dealStreamMsgStop(u32 stream_id, s32 stream_errno)
 {	
 	int ret = SUCCESS;
@@ -829,7 +846,7 @@ int CMediaStreamManager::dealStreamMsgStop(u32 stream_id, s32 stream_errno)
 	PDEAL_STATUS deal_status_cb = NULL;
 	SBizMsg_t msg;
 	memset(&msg, 0, sizeof(SBizMsg_t));
-	msg.msg_type = EM_STREAM_MSG_ERR;
+	msg.msg_type = EM_STREAM_MSG_STOP;
 
 	
 
@@ -1090,8 +1107,11 @@ void CMediaStreamManager::threadMsg(uint param)//读消息
 				{
 				} break;
 			#endif
-				case EM_STREAM_MSG_ERR:		//流接收线程上传出错				
-				case EM_STREAM_MSG_STOP:	//biz_dev 层上传的流关闭，可能设备掉线
+				case EM_STREAM_MSG_ERR:		//流接收线程CMediaStream::threadRcv 上传出错
+				//biz_dev 层上传的流关闭
+				// 1、设备掉线或网络通信出错调用，
+				// 2、上层删除设备调用
+				case EM_STREAM_MSG_STOP:
 				{
 					u32 stream_id = msg.stream_err.stream_id;
 					s32 stream_errno = msg.stream_err.stream_errno;
@@ -1100,14 +1120,14 @@ void CMediaStreamManager::threadMsg(uint param)//读消息
 					
 				} break;
 				
-				case EM_STREAM_MSG_PROGRESS:		//文件回放/下载进度
+				case EM_STREAM_MSG_PROGRESS:		//文件回放/下载进度，biz_dev 层上传
 				{
 					ret = dealStreamMsgProgess(msg.stream_progress.stream_id,
 												msg.stream_progress.cur_pos,
 												msg.stream_progress.total_size);
 				} break;
 				
-				case EM_STREAM_MSG_FINISH:		//文件下载完成
+				case EM_STREAM_MSG_FINISH:		//文件下载完成，上层传递下来
 				{
 					ret = dealStreamMsgFinish(msg.stream_progress.stream_id);
 				} break;
@@ -1120,9 +1140,12 @@ void CMediaStreamManager::threadMsg(uint param)//读消息
 					
 				} break;
 
+				//上层调用的流关闭，可能是正常关闭，也可能是上层出错后关闭
 				case EM_STREAM_CMD_DEL:	//删除流
 				{
-					ret = dealStreamDel(msg.stream_id);
+					u32 stream_id = msg.stream_err.stream_id;
+					s32 stream_errno = msg.stream_err.stream_errno;
+					ret = dealStreamDel(stream_id, stream_errno);
 					
 				} break;
 
@@ -1195,11 +1218,8 @@ int CMediaStreamManager::ReqStreamStart(
 	{
 		ERR_PRINT("dev ip: %s, cmd: %d, map insert failed\n", inet_ntoa(in), preq->command);
 
-		plock4param->Unlock();
 		goto fail;
 	}
-
-	plock4param->Unlock();
 	
 	//write msg to threadmsg, in threadmsg connect
 	SBizMsg_t msg;
@@ -1215,16 +1235,17 @@ int CMediaStreamManager::ReqStreamStart(
 		goto fail2;
 	}	
 
+	plock4param->Unlock();
 	return SUCCESS;
 
 fail2:
-	plock4param->Lock();
 
 	map_pstream.erase(*pstream_id);
-		
-	plock4param->Unlock();
 
 fail:
+
+	plock4param->Unlock();
+	
 	if (pstream)
 	{
 		delete pstream;
@@ -1236,8 +1257,9 @@ fail:
 	return -FAILURE;
 }
 
-//上层调用的流关闭，之后内部删除流
-int CMediaStreamManager::ReqStreamStop(u32 stream_id)
+//上层调用的流关闭，可能是正常关闭，也可能是上层出错后关闭
+//之后在内部threadMsg  线程中删除流
+int CMediaStreamManager::ReqStreamStop(u32 stream_id, s32 stop_reason)
 {
 	int ret = SUCCESS;
 	CMediaStream *pstream = NULL;
@@ -1279,7 +1301,8 @@ int CMediaStreamManager::ReqStreamStop(u32 stream_id)
 	SBizMsg_t msg;
 	memset(&msg, 0, sizeof(SBizMsg_t));
 	msg.msg_type = EM_STREAM_CMD_DEL;
-	msg.stream_id = pstream->stream_id;
+	msg.stream_err.stream_id = pstream->stream_id;
+	msg.stream_err.stream_errno = stop_reason;
 
 	ret = WriteMsg(&msg, sizeof(SBizMsg_t));
 	if (ret)
@@ -1390,9 +1413,9 @@ int BizStreamReqPlaybackByTime (
 }
 
 //流只能由上层删除
-int BizStreamReqStop(u32 stream_id)
+int BizStreamReqStop(u32 stream_id, s32 stop_reason)
 {
-	return g_biz_stream_manager.ReqStreamStop(stream_id);
+	return g_biz_stream_manager.ReqStreamStop(stream_id, stop_reason);
 }
 
 

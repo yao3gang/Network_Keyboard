@@ -116,14 +116,23 @@ public:
 	//断开命令连接
 	int DevDisconnect();
 
-	//stream
+	//stream******************************************
+	//biz_remote_stream 阻塞调用，返回值便知成功与否
+	//无需上传消息到biz_stream_manager
 	int ReqStreamStart(u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *psock_stream);
+	//上层调用关闭，无须再上传消息
 	int ReqStreamStopByStreamID(u32 stream_id, s32 stop_reason = SUCCESS);//GLB_ERROR_NUM 关闭原因默认主动关闭
+	//模块内部调用的关闭，
+	// 1、设备掉线或网络通信出错调用
+	// 2、上层删除设备调用
+	//需要上传消息到biz_stream_manager
 	int StreamStopByLinkID(u32 link_id, s32 stop_reason = SUCCESS);//GLB_ERROR_NUM 关闭原因默认主动关闭
 	int ReqStreamProgress(u32 stream_id, VD_BOOL b);//接收回放进度信息
 	//void _CleanStream(int stream_idx);
 
-	//关闭所有数据流连接
+	//模块内部调用的关闭，
+	// 1、设备掉线或网络通信出错调用
+	// 2、上层删除设备调用
 	int ShutdownStreamAll(s32 stop_reason = SUCCESS);//GLB_ERROR_NUM
 	
 	//重连部分数据流连接

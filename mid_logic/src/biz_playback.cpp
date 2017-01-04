@@ -636,10 +636,12 @@ void CBizPlaybackManager::threadMsg(uint param)//读消息
 				//消息
 				case EM_STREAM_MSG_CONNECT_SUCCESS:	//连接成功
 				{
+					//biz_remote_stream 上传
 				} break;
 				
 				case EM_STREAM_MSG_CONNECT_FALIURE:	//连接失败
 				{
+					//biz_remote_stream 上传
 				} break;
 				case EM_STREAM_MSG_ERR:		//流接收线程上传出错				
 				case EM_STREAM_MSG_STOP:	//biz_dev 层上传的流关闭，可能设备掉线
