@@ -47,7 +47,7 @@
 
 //本模块::playback_id 就是来自biz_remote_stream::stream_id
 
-class CBizPlaybackManager；
+class CBizPlaybackManager;
 
 
 /*******************************************************************
@@ -58,6 +58,7 @@ class CBizPlayback : public CObject
 	friend class CBizPlaybackManager;
 	
 public:
+	CBizPlayback();
 	~CBizPlayback();
 	
 	int Init(void);
@@ -73,7 +74,7 @@ public:
 	
 	
 private:
-	CBizPlayback();
+	
 	CBizPlayback(CBizPlayback &)
 	{
 
@@ -83,89 +84,75 @@ private:
 	
 private:
 	VD_BOOL b_inited;
-	C_Lock *plock4param;//mutex
+	C_Lock *plock4param;	//mutex
 	int playback_type;
-	u32 stream_id;//来自biz_remote_stream
 	ifly_recfileinfo_t file_info;
 	SPlayback_Time_Info_t time_info;
-	
+
+	u32 playback_chn;	//回放通道
+	u32 stream_id;	//来自biz_remote_stream //关键，系统唯一
+	EM_STREAM_STATUS_TYPE status;	//流状态
+	s32 stream_errno;	//错误码
 };
 
 
 /*******************************************************************
 CBizPlayback 定义
 *******************************************************************/
-
-int CBizPlayback::dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr)
+CBizPlayback::CBizPlayback()
+: b_inited(FALSE)
+, plock4param(NULL)
+, playback_type(EM_PLAYBACK_NONOE)
+, playback_chn(INVALID_VALUE)	//回放通道
+, stream_id(INVALID_VALUE)	//关键，系统唯一
+, status(EM_STREAM_STATUS_DISCONNECT) //流状态
+, stream_errno(SUCCESS) 	//错误码
 {
-	if (!b_inited)
-	{
-		ERR_PRINT("module not inited\n");
-		return -FAILURE;
-	}
-	
-	int rtn = 0;
-	vdec_stream_s in_stream;
-	in_stream.rsv = 0;
-	in_stream.pts = pframe_hdr->m_dwTimeStamp;
-	in_stream.pts *= 1000;
-	in_stream.data = pframe_hdr->m_pData;
-	in_stream.len = pframe_hdr->m_dwDataSize;
-
-#if 0	
-	if (pframe_hdr->m_tVideoParam.m_bKeyFrame)
-	{
-		DBG_PRINT("m_dwFrameID: %d\n", pframe_hdr->m_dwFrameID);
-	}
-#endif
-
-	rtn = nvr_preview_vdec_write(0, &in_stream);
-	if (rtn < 0)
-	{
-		DBG_PRINT("nvr_preview_vdec_write failed\n");
-		return FAILURE;
-	}
-	
-	return SUCCESS;
+	memset(&file_info, 0, sizeof(ifly_recfileinfo_t));
+	memset(&time_info, 0, sizeof(SPlayback_Time_Info_t));
 }
 
-int CBizPlayback::dealStateFunc(SBizMsg_t *pmsg, u32 len)
+int CBizPlayback::Init(void)
 {
-	if (!b_inited)
+	plock4param = new CMutex;
+	if (NULL == plock4param)
 	{
-		ERR_PRINT("module not inited\n");
-		return -FAILURE;
+		ERR_PRINT("new plock4param failed\n");
+		goto fail;
 	}
 	
-	DBG_PRINT("status: %d\n", status);
-
-	SBizEventPara para;
-
-	if (EM_STREAM_CONNECTED == status)
+	if (plock4param->Create())//FALSE
 	{
-		para.emType = EM_BIZ_EVENT_PLAYBACK_START; //回放开始
-		para.playback_para.dev_ip = dev_ip;
-	}
-	else if (EM_STREAM_RCV_ERR == status)
-	{
-		para.emType = EM_BIZ_EVENT_PLAYBACK_NETWORK_ERR; //回放时发生网络错误
-		para.playback_para.dev_ip = dev_ip;
-	}
-	else if (EM_STREAM_STOP == status)
-	{
-		para.emType = EM_BIZ_EVENT_PLAYBACK_DONE; //回放结束
-		para.playback_para.dev_ip = dev_ip;
-	}
-	else
-	{
-		ERR_PRINT("status: %d not support\n", status);
-		return -EPARAM;
+		ERR_PRINT("create plock4param failed\n");
+		goto fail;
 	}
 
-	BizEventCB(&para);
+	b_inited = TRUE;
 	
 	return SUCCESS;
+	
+fail:
+
+	FreeSrc();
+	return -FAILURE;
 }
+
+void CBizPlayback::FreeSrc()//释放资源
+{
+	b_inited = FALSE;
+	
+	if (plock4param)
+	{
+		delete plock4param;
+		plock4param = NULL;
+	}
+}
+
+CBizPlayback::~CBizPlayback()
+{
+	FreeSrc();
+}
+
 
 int CBizPlayback::StartByFile(u32 dev_ip, ifly_recfileinfo_t *pfile_info, u32 *pstream_id)
 {
@@ -388,6 +375,8 @@ public:
 	int Init(void);
 	// 写消息to stream manager
 	int WriteMsg(SBizMsg_t *pmsg, u32 msg_len);
+	void dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr);
+	void dealStateFunc(SBizMsg_t *pmsg, u32 len);
 	int PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfile_info);
 	int PlaybackStartByTime(u32 playback_chn, u32 dev_ip, u8 chn, u32 start_time, u32 end_time);
 	//预览是否已经处于进行中
@@ -699,147 +688,354 @@ thread_exit:
 	ERR_PRINT("CMediaStreamManager::threadMsg exit, inconceivable\n");
 }
 
+void CBizPlaybackManager::dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr)
+{
+	if (!b_inited)
+	{
+		ERR_PRINT("module not inited\n");
+		return -FAILURE;
+	}
+	
+	int rtn = 0;
+	vdec_stream_s in_stream;
+	in_stream.rsv = 0;
+	in_stream.pts = pframe_hdr->m_dwTimeStamp;
+	in_stream.pts *= 1000;
+	in_stream.data = pframe_hdr->m_pData;
+	in_stream.len = pframe_hdr->m_dwDataSize;
+
+#if 0	
+	if (pframe_hdr->m_tVideoParam.m_bKeyFrame)
+	{
+		DBG_PRINT("m_dwFrameID: %d\n", pframe_hdr->m_dwFrameID);
+	}
+#endif
+
+	rtn = nvr_preview_vdec_write(0, &in_stream);
+	if (rtn < 0)
+	{
+		DBG_PRINT("nvr_preview_vdec_write failed\n");
+		return FAILURE;
+	}
+	
+	return SUCCESS;
+}
+
+void CBizPlaybackManager::dealStateFunc(SBizMsg_t *pmsg, u32 len)
+{
+	if (!b_inited)
+	{
+		ERR_PRINT("module not inited\n");
+		return -FAILURE;
+	}
+	
+	DBG_PRINT("status: %d\n", status);
+
+	SBizEventPara para;
+
+	if (EM_STREAM_CONNECTED == status)
+	{
+		para.emType = EM_BIZ_EVENT_PLAYBACK_START; //回放开始
+		para.playback_para.dev_ip = dev_ip;
+	}
+	else if (EM_STREAM_RCV_ERR == status)
+	{
+		para.emType = EM_BIZ_EVENT_PLAYBACK_NETWORK_ERR; //回放时发生网络错误
+		para.playback_para.dev_ip = dev_ip;
+	}
+	else if (EM_STREAM_STOP == status)
+	{
+		para.emType = EM_BIZ_EVENT_PLAYBACK_DONE; //回放结束
+		para.playback_para.dev_ip = dev_ip;
+	}
+	else
+	{
+		ERR_PRINT("status: %d not support\n", status);
+		return -EPARAM;
+	}
+
+	BizEventCB(&para);
+	
+	return SUCCESS;
+}
+
+
 
 int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfile_info)
 {
 	int ret = SUCCESS;
 	u32 stream_id = INVALID_VALUE;
+	struct in_addr in;
+	in.s_addr = dev_ip;
+	
+	if (NULL == pfile_info)
+	{
+		ERR_PRINT("NULL == pfile_info\n");
+		return -EPARAM;
+	}
 	
 	if (!b_inited)
 	{
 		ERR_PRINT("module not inited\n");
 		return -FAILURE;
 	}
-		
-	plock4param->Lock();
 
-	if (b_connect)//已经开启预览
+	if (PlaybackIsStarted(playback_chn))
 	{
-		DBG_PRINT("module has been started, stop before\n");
+		DBG_PRINT("dev_ip: %s, playback_chn: %d has been started, first stop it\n", inet_ntoa(in), playback_chn);
 		
-		ret = Stop();
+		ret = PlaybackStop(playback_chn);
 		if (ret)
 		{
-			ERR_PRINT("Stop failed, ret: %d\n", ret);
-			
-			plock4param->Unlock();
+			ERR_PRINT("dev_ip: %s, PlaybackStop playback_chn: %d failed, ret: %d\n", inet_ntoa(in), playback_chn, ret);
+
 			return ret;
 		}
 	}
 
-	playback_type = EM_PLAYBACK_FILE;
-	file_info = *pfile_info;
+	u32 stream_id = INVALID_VALUE;
+	CBizPlayback *pcplayback = NULL;
 
-	//base class
-	dev_type = EM_NVR;
-	dev_ip = dev_ip;
-	memset(&req, 0, sizeof(ifly_TCP_Stream_Req));
-	//0：预览 1：文件回放 2：时间回放 3：文件下载 4：升级 
-	//5 VOIP 6 文件按帧下载 7 时间按帧下载 8 透明通道
-	//9 远程格式化硬盘 10 主机端抓图 11 多路按时间回放 12 按时间下载文件
-	req.command = 1;
-	strcpy(req.FilePlayBack_t.filename, pfile_info->filename);
-	req.FilePlayBack_t.offset = htonl(pfile_info->offset);
-	
-	ret = Start();
-	if (ret)
+	pcplayback = new CBizPlayback;
+	if (NULL == pcplayback)
 	{
-		ERR_PRINT("Start failed, ret: %d\n", ret);
-		plock4param->Unlock();
-		return ret;
-	}
-
-	//进度
-	ret = _StreamProgress(TRUE);//接收进度信息
-	if (ret)
-	{
-		ERR_PRINT("BizDevStreamProgress failed, ret: %d\n", ret);
-
-		if (Stop())
-		{
-			ERR_PRINT("Stop failed\n");
-		}
+		ERR_PRINT("dev_ip: %s, playback_chn: %d, new CBizPlayback failed\n", inet_ntoa(in), playback_chn);
 		
-		plock4param->Unlock();
-		return ret;
+		return -ESPACE;
 	}
+
+	ret = pcplayback->Init();
+	if (ret)
+	{
+		ERR_PRINT("dev_ip: %s, playback_chn: %d, CBizPlayback init failed, ret: %d\n", inet_ntoa(in), playback_chn, ret);
+		
+		ret = -ESPACE;
+		goto fail;
+	}	
+
+	//成功返回并不表示连接成功，只是写入了消息列表，之后在消息线程连接
+	//连接成功后会有消息上传，那时接收进度信息
+	ret = BizStreamReqPlaybackByFile (
+			EM_NVR,
+			dev_ip,
+			pfile_info.filename,
+			pfile_info.offset,
+			this,
+			(PDEAL_FRAME)&dealFrameFunc,
+			(PDEAL_STATUS)&dealStateFunc,
+			&stream_id);
+	if (ret)
+	{
+		ERR_PRINT("dev_ip: %s, playback_chn: %d, BizStreamReqPlaybackByFile failed, ret: %d\n", inet_ntoa(in), playback_chn, ret);
+		
+		goto fail;
+	}
+	
+	plock4param->Lock();
+	
+	if (!map_pbchn_sid.insert(std::make_pair(playback_chn, stream_id)).second)
+	{
+		ERR_PRINT("dev_ip: %s, playback_chn: %d, MAP_PBChn_SID insert failed\n", inet_ntoa(in), playback_chn);
+
+		ret = -FAILURE;
+		goto fail2;
+	}
+
+	if (!map_pcplayback.insert(std::make_pair(stream_id, pcplayback)).second)
+	{
+		ERR_PRINT("dev_ip: %s, playback_chn: %d, MAP_ID_PCPLAYBACK insert failed\n", inet_ntoa(in), playback_chn);
+
+		
+		ret = -FAILURE;
+		goto fail3;
+	}
+	
+	pcplayback->plock4param->Lock();
+
+	pcplayback.playback_type = EM_PLAYBACK_FILE;
+	pcplayback.file_info = *pfile_info;
+	pcplayback.playback_chn = playback_chn;
+	pcplayback.stream_id = stream_id;
+	pcplayback.status = EM_STREAM_STATUS_DISCONNECT;
+	pcplayback.stream_errno = SUCCESS;	
+
+	pcplayback->plock4param->Unlock();
 	
 	plock4param->Unlock();
 	
 	return SUCCESS;
+
+fail3:
+
+	map_pbchn_sid.erase(playback_chn);
+	
+fail2:
+	
+	plock4param->Unlock();
+	
+	BizStreamReqStop(stream_id);
+	
+fail:
+	if (pcplayback)
+	{
+		delete pcplayback;
+		pcplayback = NULL;
+	}
+
+	return ret;
 }
 
 int CBizPlaybackManager::PlaybackStartByTime(u32 playback_chn, u32 dev_ip, u8 chn, u32 start_time, u32 end_time)
 {
+	int ret = SUCCESS;
+	u32 stream_id = INVALID_VALUE;
+	struct in_addr in;
+	in.s_addr = dev_ip;
+	
+	if (NULL == pfile_info)
+	{
+		ERR_PRINT("NULL == pfile_info\n");
+		return -EPARAM;
+	}
+	
 	if (!b_inited)
 	{
 		ERR_PRINT("module not inited\n");
 		return -FAILURE;
 	}
-	
-	int ret = SUCCESS;
-	
-	plock4param->Lock();
 
-	if (b_connect)//已经开启预览
+	if (PlaybackIsStarted(playback_chn))
 	{
-		DBG_PRINT("module has been started, stop before\n");
+		DBG_PRINT("dev_ip: %s, playback_chn: %d has been started, first stop it\n", inet_ntoa(in), playback_chn);
 		
-		ret = Stop();
+		ret = PlaybackStop(playback_chn);
 		if (ret)
 		{
-			ERR_PRINT("Stop failed, ret: %d\n", ret);
-			
-			plock4param->Unlock();
+			ERR_PRINT("dev_ip: %s, PlaybackStop playback_chn: %d failed, ret: %d\n", inet_ntoa(in), playback_chn, ret);
+
 			return ret;
 		}
 	}
-	
-	playback_type = EM_PLAYBACK_TIME;
-	time_info.chn = chn;
-	time_info.type = 0xff;//所有文件类型
-	time_info.start_time = start_time;
-	time_info.end_time = end_time;
 
-	//base class
-	dev_type = EM_NVR;
-	dev_ip = dev_ip;
-	memset(&req, 0, sizeof(ifly_TCP_Stream_Req));
-	//0：预览 1：文件回放 2：时间回放 3：文件下载 4：升级 
-	//5 VOIP 6 文件按帧下载 7 时间按帧下载 8 透明通道
-	//9 远程格式化硬盘 10 主机端抓图 11 多路按时间回放 12 按时间下载文件
-	req.command = 2;
-	req.TimePlayBack_t.channel = time_info.chn;
-	req.TimePlayBack_t.type = htons(time_info.type);
-	req.TimePlayBack_t.start_time = htonl(time_info.start_time);
-	req.TimePlayBack_t.end_time = htonl(time_info.end_time);	
-	
-	ret = Start();
+	u32 stream_id = INVALID_VALUE;
+	CBizPlayback *pcplayback = NULL;
+
+	pcplayback = new CBizPlayback;
+	if (NULL == pcplayback)
+	{
+		ERR_PRINT("dev_ip: %s, playback_chn: %d, new CBizPlayback failed\n", inet_ntoa(in), playback_chn);
+		
+		return -ESPACE;
+	}
+
+	ret = pcplayback->Init();
 	if (ret)
 	{
-		ERR_PRINT("Start failed, ret: %d\n", ret);
-		plock4param->Unlock();
-		return ret;
+		ERR_PRINT("dev_ip: %s, playback_chn: %d, CBizPlayback init failed, ret: %d\n", inet_ntoa(in), playback_chn, ret);
+		
+		ret = -ESPACE;
+		goto fail;
+	}	
+
+	//成功返回并不表示连接成功，只是写入了消息列表，之后在消息线程连接
+	//连接成功后会有消息上传，那时接收进度信息
+	ret = BizStreamReqPlaybackByTime (
+			EM_NVR,
+			dev_ip,
+			chn,
+			start_time,
+			end_time,
+			this,
+			(PDEAL_FRAME)&dealFrameFunc,
+			(PDEAL_STATUS)&dealStateFunc,
+			&stream_id);
+	if (ret)
+	{
+		ERR_PRINT("dev_ip: %s, playback_chn: %d, BizStreamReqPlaybackByTime failed, ret: %d\n", inet_ntoa(in), playback_chn, ret);
+		
+		goto fail;
 	}
+	
+	plock4param->Lock();
+	
+	if (!map_pbchn_sid.insert(std::make_pair(playback_chn, stream_id)).second)
+	{
+		ERR_PRINT("dev_ip: %s, playback_chn: %d, MAP_PBChn_SID insert failed\n", inet_ntoa(in), playback_chn);
+
+		ret = -FAILURE;
+		goto fail2;
+	}
+
+	if (!map_pcplayback.insert(std::make_pair(stream_id, pcplayback)).second)
+	{
+		ERR_PRINT("dev_ip: %s, playback_chn: %d, MAP_ID_PCPLAYBACK insert failed\n", inet_ntoa(in), playback_chn);
+
+		
+		ret = -FAILURE;
+		goto fail3;
+	}
+	
+	pcplayback->plock4param->Lock();
+
+	pcplayback.playback_type = EM_PLAYBACK_TIME;
+	pcplayback.time_info.chn = chn;
+	pcplayback.time_info.type = 0xff;
+	pcplayback.time_info.start_time = start_time;
+	pcplayback.time_info.end_time = end_time;
+	
+	pcplayback.playback_chn = playback_chn;
+	pcplayback.stream_id = stream_id;
+	pcplayback.status = EM_STREAM_STATUS_DISCONNECT;
+	pcplayback.stream_errno = SUCCESS;	
+
+	pcplayback->plock4param->Unlock();
 	
 	plock4param->Unlock();
 	
 	return SUCCESS;
+
+fail3:
+
+	map_pbchn_sid.erase(playback_chn);
+	
+fail2:
+	
+	plock4param->Unlock();
+	
+	BizStreamReqStop(stream_id);
+	
+fail:
+	if (pcplayback)
+	{
+		delete pcplayback;
+		pcplayback = NULL;
+	}
+
+	return ret;
 }
 
 
 //是否已经处于进行中
 VD_BOOL CBizPlaybackManager::PlaybackIsStarted(u32 playback_chn)
 {	
+	VD_BOOL b = FALSE;
+	
 	if (!b_inited)
 	{
 		ERR_PRINT("module not inited\n");
-		return -FAILURE;
+		return FALSE;
 	}
 	
 	plock4param->Lock();
 
-	VD_BOOL b = b_connect;
+	if (map_pbchn_sid.end() != map_pbchn_sid.find(playback_chn))//存在
+	{
+		b = TRUE;
+	}
+	else
+	{
+		b = FALSE;
+	}
 		
 	plock4param->Unlock();
 
@@ -855,30 +1051,53 @@ int CBizPlaybackManager::PlaybackStop(u32 playback_chn)
 	}
 	
 	int ret = SUCCESS;
+	u32 stream_id = INVALID_VALUE;
+	CBizPlayback *pcplayback = NULL;
+	MAP_PBChn_SID::iterator map_id_iter;
+	MAP_ID_PCPLAYBACK::iterator map_ppb_iter;
 	
 	plock4param->Lock();
 
-	if (b_connect)
+	map_id_iter = map_pbchn_sid.find(playback_chn);
+	if (map_id_iter != map_pbchn_sid.end())//存在，则关闭
 	{
-		ret = Stop();
-		if (ret)
+		stream_id = map_id_iter.second;
+		map_ppb_iter = map_pcplayback.find(stream_id);
+		if (map_ppb_iter != map_pcplayback.end())
 		{
-			ERR_PRINT("PlaybackStop failed, ret: %d\n", ret);
-			
-			plock4param->Unlock();
-			return ret;
-		}
+			pcplayback = map_ppb_iter.second;
 
-		b_connect = FALSE;
-		dev_type = EM_DEV_TYPE_NONE;
-		dev_ip = INADDR_NONE;
-		stream_idx = INVALID_VALUE;
-		memset(&req, 0, sizeof(ifly_TCP_Stream_Req));
-	}	
+			ret = BizStreamReqStop(stream_id);
+			if (ret)
+			{
+				ERR_PRINT("BizStreamReqStop failed, ret: %d, playback_chn: %d, stream_id: %d\n",
+					ret, playback_chn, stream_id);
+			}
+
+			map_pcplayback.erase(map_ppb_iter);
+			map_pbchn_sid.erase(map_id_iter);
+
+			delete pcplayback;
+			pcplayback = NULL;
+		}
+		else
+		{
+			ERR_PRINT("MAP_PBChn_SID find success, but MAP_ID_PCPLAYBACK find failed, playback_chn: %d, stream_id: %d\n",
+				playback_chn, stream_id);
+
+			ret = -EPARAM;
+		}
+	}
+	else
+	{
+		DBG_PRINT("MAP_PBChn_SID find failed, playback_chn: %d\n", playback_chn);
+
+		ret = -EPARAM;
+	}
 	
 	plock4param->Unlock();
 	
-	return SUCCESS;
+	return ret;
 }
 
 int CBizPlaybackManager::PlaybackCtrl(u32 playback_chn, SPlayback_Ctrl_t *pb_ctl)

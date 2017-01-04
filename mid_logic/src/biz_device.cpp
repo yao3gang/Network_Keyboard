@@ -3809,6 +3809,7 @@ int CBizDevice::DevDisconnect()
 
 //stream
 //成功返回stearm_rcv[MaxMediaLinks] 下标stream_idx
+// ifly_TCP_Stream_Req  在此变换成网络字节序
 int CBizDevice::ReqStreamStart(u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *psock_stream)
 {
 	int ret = -FAILURE;
@@ -3817,6 +3818,7 @@ int CBizDevice::ReqStreamStart(u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *ps
 	u8 req_cmd = INVALID_VALUE;
 	u16 net_cmd = INVALID_VALUE;
 	SDevStream_t *pstream = NULL;
+	ifly_TCP_Stream_Req send_req;//需要变换成网络字节序
 	ifly_TCP_Stream_Ack stream_ack;
 	struct sockaddr_in server;
 	struct in_addr in;
@@ -3831,7 +3833,40 @@ int CBizDevice::ReqStreamStart(u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *ps
 		return -EPARAM;
 	}
 
+	//0：预览 1：文件回放 2：时间回放 3：文件下载 4：升级 
+	//5 VOIP 6 文件按帧下载 7 时间按帧下载 8 透明通道
+	//9 远程格式化硬盘 10 主机端抓图 11 多路按时间回放 12 按时间下载文件
+
 	req_cmd = preq->command;
+	memset(&send_req, 0, sizeof(ifly_TCP_Stream_Req));
+	send_req = *preq;
+
+	//send_req  htons htonl
+	if (req_cmd == 0)//0：预览
+	{
+		
+	}
+	else if (req_cmd == 1)//1：文件回放
+	{
+		send_req.FilePlayBack_t.offset = htonl(send_req.FilePlayBack_t.offset);
+	}
+	else if (req_cmd == 2)//2：时间回放
+	{
+		send_req.TimePlayBack_t.type = htons(send_req.TimePlayBack_t.type);
+		send_req.TimePlayBack_t.start_time = htonl(send_req.TimePlayBack_t.start_time);
+		send_req.TimePlayBack_t.end_time = htonl(send_req.TimePlayBack_t.end_time);
+	}
+	else if (req_cmd == 3)//3：文件下载
+	{
+		send_req.FileDownLoad_t.offset = htonl(send_req.FileDownLoad_t.offset);
+		send_req.FileDownLoad_t.size = htonl(send_req.FileDownLoad_t.size);
+	}
+	else
+	{
+		ERR_PRINT("stream req cmd: %d not support, svr IP: %s\n", req_cmd, inet_ntoa(in));
+
+		return -EPARAM;
+	}
 	
 	if (!b_alive || INVALID_SOCKET == sock_cmd)
 	{
@@ -3945,7 +3980,7 @@ int CBizDevice::ReqStreamStart(u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *ps
 	pstream->link_id = link_id;
 	pstream->stream_id = stream_id;
 	pstream->status = EM_STREAM_STATUS_RUNNING;
-	memcpy(&pstream->req, preq, sizeof(ifly_TCP_Stream_Req));
+	pstream->req = *preq;//本地字节序
 	
 	plock4stream->Unlock();
 

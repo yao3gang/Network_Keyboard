@@ -73,6 +73,7 @@ int BizStreamInit(void);
 int BizSendMsg2StreamManager(SBizMsg_t *pmsg, u32 msg_len);
 
 //pstream_id 返回流ID
+//成功返回并不表示连接成功，只是写入了消息列表，之后在消息线程连接
 int BizStreamReqPlaybackByFile (
 	EM_DEV_TYPE dev_type,
 	u32 dev_ip,
@@ -82,6 +83,20 @@ int BizStreamReqPlaybackByFile (
 	PDEAL_FRAME deal_frame_cb,
 	PDEAL_STATUS deal_status_cb,
 	u32 *pstream_id );
+
+//pstream_id 返回流ID
+//成功返回并不表示连接成功，只是写入了消息列表，之后在消息线程连接
+int BizStreamReqPlaybackByTime (
+	EM_DEV_TYPE dev_type,
+	u32 dev_ip,
+	u8 chn, 
+	u32 start_time, 
+	u32 end_time,
+	CObject *obj,
+	PDEAL_FRAME deal_frame_cb,
+	PDEAL_STATUS deal_status_cb,
+	u32 *pstream_id );
+
 
 int BizStreamReqStop(u32 stream_id);
 

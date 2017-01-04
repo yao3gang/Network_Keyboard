@@ -1,11 +1,1 @@
----- FRAMEHDR Matches (10 in 5 files) ----
-Biz_device.cpp (mid_logic\src):	FRAMEHDR frame_hdr;
-Biz_device.cpp (mid_logic\src):				memset(&frame_hdr, 0, sizeof(FRAMEHDR));
-Biz_playback.cpp (mid_logic\src):	void dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr);
-Biz_playback.cpp (mid_logic\src):int CBizPlaybackManager::dealFrameFunc(FRAMEHDR *pframe_hdr)
-Biz_preview.cpp (mid_logic\src):	virtual int dealFrameFunc(FRAMEHDR *pframe_hdr);
-Biz_preview.cpp (mid_logic\src):int CBizPreview::dealFrameFunc(FRAMEHDR *pframe_hdr)
-Biz_remote_stream.cpp (mid_logic\src):	FRAMEHDR frame_hdr;
-Biz_remote_stream.cpp (mid_logic\src):			memset(&frame_hdr, 0, sizeof(FRAMEHDR));
-Biz_remote_stream.h (mid_logic\inc):}FRAMEHDR,*PFRAMEHDR;
-Biz_remote_stream.h (mid_logic\inc):typedef void (CObject:: *PDEAL_FRAME)(u32 stream_id, FRAMEHDR *pframe_hdr);
+---- H264 Matches (0 in 0 files) ----

@@ -668,7 +668,7 @@ int CMediaStreamManager::dealStreamConnect(u32 stream_id)
 
 	dev_type = pstream->dev_type;
 	dev_ip = pstream->dev_ip;
-	memcpy(&req, &pstream->req, sizeof(ifly_TCP_Stream_Req));
+	req = pstream->req;
 
 	in.s_addr = dev_ip;
 
@@ -1152,9 +1152,14 @@ int CMediaStreamManager::ReqStreamStart(
 	struct in_addr in;
 	in.s_addr = dev_ip;
 
-	if (NULL == preq || NULL == pstream_id)
+	if (NULL == preq 		
+		|| NULL == obj
+		|| NULL == deal_frame_cb
+		|| NULL == deal_status_cb
+		|| NULL == pstream_id)
 	{
 		ERR_PRINT("param invalid\n");
+		
 		return -EPARAM;
 	}
 	
@@ -1175,7 +1180,7 @@ int CMediaStreamManager::ReqStreamStart(
 
 	pstream->dev_type = dev_type;
 	pstream->dev_ip = dev_ip;
-	memcpy(&pstream->req, preq, sizeof(ifly_TCP_Stream_Req));
+	pstream->req = *preq;
 	pstream->m_obj = obj;
 	pstream->m_deal_frame_cb = deal_frame_cb;//流注册的帧数据处理函数
 	pstream->m_deal_status_cb = deal_status_cb;//流注册的状态处理函数
@@ -1319,6 +1324,7 @@ int BizStreamInit(void)
 
 //流控制API
 //pstream_id 返回流ID
+//成功返回并不表示连接成功，只是写入了消息列表，之后在消息线程连接
 int BizStreamReqPlaybackByFile (
 	EM_DEV_TYPE dev_type,
 	u32 dev_ip,
@@ -1350,6 +1356,35 @@ int BizStreamReqPlaybackByFile (
 	req.command = 1;
 	strcpy(req.FilePlayBack_t.filename, file_name);
 	req.FilePlayBack_t.offset = offset;
+	
+	return g_biz_stream_manager.ReqStreamStart(dev_type, dev_ip, &req, obj, deal_frame_cb, deal_status_cb, pstream_id);
+}
+
+//pstream_id 返回流ID
+//成功返回并不表示连接成功，只是写入了消息列表，之后在消息线程连接
+int BizStreamReqPlaybackByTime (
+	EM_DEV_TYPE dev_type,
+	u32 dev_ip,
+	u8 chn, 
+	u32 start_time, 
+	u32 end_time,
+	CObject *obj,
+	PDEAL_FRAME deal_frame_cb,
+	PDEAL_STATUS deal_status_cb,
+	u32 *pstream_id )
+{
+	ifly_TCP_Stream_Req req;
+
+	memset(&req, 0, sizeof(ifly_TCP_Stream_Req));
+
+	//0：预览 1：文件回放 2：时间回放 3：文件下载 4：升级 
+	//5 VOIP 6 文件按帧下载 7 时间按帧下载 8 透明通道
+	//9 远程格式化硬盘 10 主机端抓图 11 多路按时间回放 12 按时间下载文件
+	req.command = 2;
+	req.TimePlayBack_t.channel = chn;
+	req.TimePlayBack_t.type = 0xff;//全部类型
+	req.TimePlayBack_t.start_time = start_time;
+	req.TimePlayBack_t.end_time = end_time;
 	
 	return g_biz_stream_manager.ReqStreamStart(dev_type, dev_ip, &req, obj, deal_frame_cb, deal_status_cb, pstream_id);
 }

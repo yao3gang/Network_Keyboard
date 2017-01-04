@@ -27,7 +27,7 @@ OBJS :=	$(OBJ_DIR)/biz			\
 		$(OBJ_DIR)/biz_device	\
 		$(OBJ_DIR)/biz_system_complex	\
 		$(OBJ_DIR)/biz_remote_stream	\
-#		$(OBJ_DIR)/biz_playback	\
+		$(OBJ_DIR)/biz_playback	\
 #		$(OBJ_DIR)/biz_preview	\
 
 
