@@ -19,6 +19,12 @@ typedef struct
 	u32		end_time;			//终止时间
 } SPlayback_Time_Info_t;
 
+typedef struct
+{
+	
+} SPlayback_Ctrl_t;
+
+
 //外部接口
 #ifdef __cplusplus
 extern "C" {
@@ -26,19 +32,22 @@ extern "C" {
 
 //模块初始化
 int BizPlaybackInit(void);
+int BizSendMsg2PlaybackManager(SBizMsg_t *pmsg, u32 msg_len);
 
-int BizPlaybackStartByFile(u32 _dev_ip, ifly_recfileinfo_t *pfile_info);
-int BizPlaybackStartByTime(u32 _dev_ip, u8 chn, u32 start_time, u32 end_time);
+
+//启动时获取一个playback_id，后面操作都通过此ID
+int BizModulePlaybackStartByFile(u32 playback_chn, u32 _dev_ip, ifly_recfileinfo_t *pfile_info);
+int BizModulePlaybackStartByTime(u32 playback_chn, u32 _dev_ip, u8 chn, u32 start_time, u32 end_time);
 
 
 //是否已经处于进行中
-VD_BOOL BizPlaybackIsStarted();
+VD_BOOL BizModulePlaybackIsStarted(u32 playback_chn);
 
-int BizPlaybackStop();
+int BizModulePlaybackStop(u32 playback_chn);
 
 
 //播放控制
-int BizPlaybackCtl();
+int BizModulePlaybackCtl(u32 playback_chn, SPlayback_Ctrl_t *pb_ctl);
 
 
 #ifdef __cplusplus

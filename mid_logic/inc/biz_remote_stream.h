@@ -25,17 +25,6 @@ typedef enum
 	EM_STREAM_STATUS_WAIT_DEL,		//等待删除
 } EM_STREAM_STATUS_TYPE;
 
-#if 0
-//流错误码
-typedef enum
-{
-	EM_STREAM_ERR_SEND,				//发送出错
-	EM_STREAM_ERR_RECV,				//接收出错
-	EM_STREAM_ERR_TIMEOUT,			//流超时
-	EM_STREAM_ERR_DEV_OFFLINE,		//设备掉线
-} EM_STREAM_ERR_TYPE;
-#endif
-
 
 //帧接收头
 typedef struct
@@ -61,9 +50,6 @@ typedef struct
     };
 }FRAMEHDR,*PFRAMEHDR;
 
-//声明流管理者
-class CMediaStreamManager;
-
 
 /************************************************************
 媒体数据请求类
@@ -75,66 +61,11 @@ typedef void (CObject:: *PDEAL_FRAME)(u32 stream_id, FRAMEHDR *pframe_hdr);
 //流注册的状态处理函数
 typedef void (CObject:: *PDEAL_STATUS)(SBizMsg_t *pmsg, u32 len);
 
-class CMediaStream : public CObject
-{
-	friend class CMediaStreamManager;
-	
-public:
-	CMediaStream();
-	~CMediaStream();
-	
-	int Init();
-	
-private:
-    CMediaStream(CMediaStream &)
-	{
-		
-	}
-	void FreeSrc();//释放资源
-	void threadRcv(uint param);//接收服务器数据
 
-private:
-	C_Lock *plock4param;//mutex
-	//指向流上层结构
-	CObject *m_obj;
-	PDEAL_FRAME m_deal_frame_cb;//流注册的帧数据处理函数
-	PDEAL_STATUS m_deal_status_cb;//流注册的状态处理函数
-
-	//流内部数据
-	EM_DEV_TYPE dev_type;//服务器类型
-	u32 dev_ip;//服务器IP
-	u32 stream_id;//关键，系统唯一
-	s32 stream_errno;//错误码
-	EM_STREAM_STATUS_TYPE status;//流状态
-	ifly_TCP_Stream_Req req;//流请求数据结构
-	//流接收
-	VD_BOOL b_thread_running;//接收线程运行标志
-	VD_BOOL b_thread_exit;//接收线程退出标志
-	s32 sock_stream;
-	Threadlet m_threadlet_rcv;
-	CSemaphore sem_exit;//等待threadRcv退出信号量
-};
-
-#if 0
-typedef struct _SDev_StearmRcv_t
-{
-	VD_BOOL b_connect;
-	int	sock_fd;	
-	u32 link_id;
-	ifly_TCP_Stream_Req req;
-	CMediaStream* pstream; //指向具体的流结构，预览、回放、文件备份
-
-	_SDev_StearmRcv_t()
-	: b_connect(FALSE)
-	, sock_fd(INVALID_SOCKET)
-	, link_id(INVALID_VALUE)
-	, pstream(NULL)
-	{
-		memset(&req, 0, sizeof(ifly_TCP_Stream_Req));
-	}
-} SDev_StearmRcv_t;
+//外部接口
+#ifdef __cplusplus
+extern "C" {
 #endif
-
 
 //extern  API
 int BizStreamInit(void);
@@ -154,6 +85,9 @@ int BizStreamReqPlaybackByFile (
 
 int BizStreamReqStop(u32 stream_id);
 
+#ifdef __cplusplus
+}
+#endif
 
 
 #endif

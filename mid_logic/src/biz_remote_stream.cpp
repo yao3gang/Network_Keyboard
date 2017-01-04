@@ -37,14 +37,64 @@
 #include "ctrlprotocol.h"
 #include "net.h"
 
-//CMediaStream **************************************************************
-/*
-CMediaStream 结构
+//声明流管理者
+class CMediaStreamManager;
+
+
+/*******************************************************************
+CMediaStream 声明
+*******************************************************************/
+
+class CMediaStream : public CObject
+{
+	friend class CMediaStreamManager;
+	
+public:
+	CMediaStream();
+	~CMediaStream();
+	
+	int Init();
+	
+private:
+    CMediaStream(CMediaStream &)
+	{
+		
+	}
+	void FreeSrc();//释放资源
+	void threadRcv(uint param);//接收服务器数据
+
+private:
+	C_Lock *plock4param;//mutex
+	//指向流上层结构
+	CObject *m_obj;
+	PDEAL_FRAME m_deal_frame_cb;//流注册的帧数据处理函数
+	PDEAL_STATUS m_deal_status_cb;//流注册的状态处理函数
+
+	//流内部数据
+	EM_DEV_TYPE dev_type;//服务器类型
+	u32 dev_ip;//服务器IP
+	u32 stream_id;//关键，系统唯一
+	s32 stream_errno;//错误码
+	EM_STREAM_STATUS_TYPE status;//流状态
+	ifly_TCP_Stream_Req req;//流请求数据结构
+	//流接收
+	VD_BOOL b_thread_running;//接收线程运行标志
+	VD_BOOL b_thread_exit;//接收线程退出标志
+	s32 sock_stream;
+	Threadlet m_threadlet_rcv;
+	CSemaphore sem_exit;//等待threadRcv退出信号量
+};
+
+/**************************************************************/
+
+
+/**************************************************************
+CMediaStream 定义
 创建: 上层BizStreamReqxxxx 调用
 销毁: 上层BizStreamReqStop 后
 		下层出错上层传递EM_STREAM_MSG_STOP 消息
 		自身threadRcv 出错传递EM_STREAM_MSG_STOP 消息
-*/
+*******************************************************************/
 CMediaStream::CMediaStream()
 : plock4param(NULL)
 //指向流上层结构
@@ -342,19 +392,16 @@ done:
 
 
 
+/*******************************************************************
+CMediaStreamManager 声明
+*******************************************************************/
 
-
-
-
-
-
-
-
-//CMediaStreamManager *******************************************************
-//u32:stream_id
-typedef std::map<u32, CMediaStream*> MAP_ID_PSTREAM;
 #define g_biz_stream_manager (*CMediaStreamManager::instance())
 #define MAX_STREAM_NO (1<<20)//注意必须是2的次幂
+
+//u32:stream_id
+typedef std::map<u32, CMediaStream*> MAP_ID_PSTREAM;
+
 
 class CMediaStreamManager : public CObject
 {
@@ -414,6 +461,10 @@ private: //data member
 
 PATTERN_SINGLETON_IMPLEMENT(CMediaStreamManager);
 
+
+/*******************************************************************
+CMediaStreamManager 声明
+*******************************************************************/
 CMediaStreamManager::CMediaStreamManager()
 : plock4param(NULL)
 , b_inited(FALSE)

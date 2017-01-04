@@ -1,8 +1,11 @@
----- MAX_FRAME_SIZE Matches (7 in 3 files) ----
-biz_device.cpp (mid_logic\src):	pframe_data = new char[MAX_FRAME_SIZE];
-biz_device.cpp (mid_logic\src):					if (hdr.m_dwDataSize > MAX_FRAME_SIZE)
-biz_device.cpp (mid_logic\src):						ERR_PRINT("svr IP: %s, recv DataSize(%d) > MAX_FRAME_SIZE(%d) failed\n",
-biz_device.cpp (mid_logic\src):							inet_ntoa(in), hdr.m_dwDataSize, MAX_FRAME_SIZE);
-biz_device.cpp (mid_logic\src):					ret = recv(fd_tmp, pframe_data, MAX_FRAME_SIZE, 0);
-biz_remote_stream.cpp (mid_logic\src):	pframe_data = new char[MAX_FRAME_SIZE];
-biz_remote_stream.h (mid_logic\inc):#define MAX_FRAME_SIZE (1 << 20) // 1MB
+---- FRAMEHDR Matches (10 in 5 files) ----
+Biz_device.cpp (mid_logic\src):	FRAMEHDR frame_hdr;
+Biz_device.cpp (mid_logic\src):				memset(&frame_hdr, 0, sizeof(FRAMEHDR));
+Biz_playback.cpp (mid_logic\src):	void dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr);
+Biz_playback.cpp (mid_logic\src):int CBizPlaybackManager::dealFrameFunc(FRAMEHDR *pframe_hdr)
+Biz_preview.cpp (mid_logic\src):	virtual int dealFrameFunc(FRAMEHDR *pframe_hdr);
+Biz_preview.cpp (mid_logic\src):int CBizPreview::dealFrameFunc(FRAMEHDR *pframe_hdr)
+Biz_remote_stream.cpp (mid_logic\src):	FRAMEHDR frame_hdr;
+Biz_remote_stream.cpp (mid_logic\src):			memset(&frame_hdr, 0, sizeof(FRAMEHDR));
+Biz_remote_stream.h (mid_logic\inc):}FRAMEHDR,*PFRAMEHDR;
+Biz_remote_stream.h (mid_logic\inc):typedef void (CObject:: *PDEAL_FRAME)(u32 stream_id, FRAMEHDR *pframe_hdr);
