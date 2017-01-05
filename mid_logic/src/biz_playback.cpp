@@ -69,8 +69,8 @@ public:
 	int Stop();
 	int PlaybackCtrl(SPlayback_Ctrl_t *pb_ctl);
 	
-	void dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr);
-	void dealStateFunc(SBizMsg_t *pmsg, u32 len);
+	int dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr);
+	int dealStateFunc(SBizMsg_t *pmsg, u32 len);
 	
 	
 private:
@@ -93,6 +93,9 @@ private:
 	u32 stream_id;	//来自biz_remote_stream //关键，系统唯一
 	EM_STREAM_STATUS_TYPE status;	//流状态
 	s32 stream_errno;	//错误码
+	s32 rate;		//当前播放速度[-8 -4 -2 1 2 4 8]  <==   1<<[-3, 3]
+	u32 cur_pos;	//当前播放时间
+	u32 total_size;	//总时间长度
 };
 
 
@@ -107,6 +110,10 @@ CBizPlayback::CBizPlayback()
 , stream_id(INVALID_VALUE)	//关键，系统唯一
 , status(EM_STREAM_STATUS_DISCONNECT) //流状态
 , stream_errno(SUCCESS) 	//错误码
+, rate(1)					//正常播放
+, cur_pos(INVALID_VALUE);	//当前播放时间
+, total_size(INVALID_VALUE); //总时间长度
+
 {
 	memset(&file_info, 0, sizeof(ifly_recfileinfo_t));
 	memset(&time_info, 0, sizeof(SPlayback_Time_Info_t));
@@ -375,8 +382,8 @@ public:
 	int Init(void);
 	// 写消息to stream manager
 	int WriteMsg(SBizMsg_t *pmsg, u32 msg_len);
-	void dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr);
-	void dealStateFunc(SBizMsg_t *pmsg, u32 len);
+	int dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr);
+	int dealStateFunc(SBizMsg_t *pmsg, u32 len);
 	int PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfile_info);
 	int PlaybackStartByTime(u32 playback_chn, u32 dev_ip, u8 chn, u32 start_time, u32 end_time);
 	//预览是否已经处于进行中
@@ -392,6 +399,11 @@ private:
 	}
 	void FreeSrc();//释放资源
 	void threadMsg(uint param);//消息线程执行函数
+	int dealStreamMsgConnectSuccess(u32 stream_id);
+	int dealStreamMsgConnectFail(u32 stream_id, s32 stream_errno);
+	int dealStreamMsgStop(u32 stream_id, s32 stream_errno);
+	int dealStreamMsgProgess(u32 stream_id,u32 cur_pos, u32 total_size);
+	int dealStreamMsgFinish(u32 stream_id);
 	
 private:
 	VD_BOOL b_inited;
@@ -569,6 +581,57 @@ fail:
 	return ret;
 }
 
+int CBizPlaybackManager::dealStreamMsgConnectSuccess(u32 stream_id)
+{
+	int ret = SUCCESS;
+	u32 playback_chn = INVALID_VALUE;
+	u32 stream_id = INVALID_VALUE;
+	CBizPlayback *pcplayback = NULL;
+	MAP_ID_PCPLAYBACK::iterator map_ppb_iter;
+	SBizMsg_t msg;
+	
+	plock4param->Lock();
+
+	map_ppb_iter = map_pcplayback.find(stream_id);
+	if (map_ppb_iter == map_pcplayback.end())
+	{
+		ERR_PRINT("MAP_PBChn_SID find success, but MAP_ID_PCPLAYBACK find failed, playback_chn: %d, stream_id: %d\n",
+			playback_chn, stream_id);
+
+		ret = -EPARAM;
+	}
+	
+	pcplayback = map_ppb_iter.second;
+
+	pcplayback->plock4param->Lock();
+
+	playback_chn = pcplayback->playback_chn;
+	pcplayback->status = EM_STREAM_STATUS_RUNNING;
+	pcplayback->stream_errno = SUCCESS;
+	pcplayback->rate = 1;
+	pcplayback->cur_pos = 0;
+
+	
+	plock4param->Unlock();
+}
+
+int CBizPlaybackManager::dealStreamMsgConnectFail(u32 stream_id, s32 stream_errno)
+{
+}
+
+int CBizPlaybackManager::dealStreamMsgStop(u32 stream_id, s32 stream_errno)
+{
+}
+
+int CBizPlaybackManager::dealStreamMsgProgess(u32 stream_id,u32 cur_pos, u32 total_size)
+{
+}
+
+int CBizPlaybackManager::dealStreamMsgFinish(u32 stream_id)
+{
+}
+
+
 void CBizPlaybackManager::threadMsg(uint param)//读消息
 {
 	VD_BOOL b_process = FALSE;
@@ -637,13 +700,20 @@ void CBizPlaybackManager::threadMsg(uint param)//读消息
 				case EM_STREAM_MSG_CONNECT_SUCCESS:	//连接成功
 				{
 					//biz_remote_stream 上传
+					u32 stream_id = msg.stream_id;
+					
+					ret = dealStreamMsgConnectSuccess(stream_id);
 				} break;
 				
 				case EM_STREAM_MSG_CONNECT_FALIURE:	//连接失败
 				{
 					//biz_remote_stream 上传
+					u32 stream_id = msg.stream_err.stream_id;
+					s32 stream_errno = msg.stream_err.stream_errno;
+					
+					ret = dealStreamMsgConnectFail(stream_id, stream_errno);
 				} break;
-				case EM_STREAM_MSG_ERR:		//流接收线程上传出错				
+				
 				case EM_STREAM_MSG_STOP:	//biz_dev 层上传的流关闭，可能设备掉线
 				{
 					u32 stream_id = msg.stream_err.stream_id;
@@ -663,20 +733,6 @@ void CBizPlaybackManager::threadMsg(uint param)//读消息
 				case EM_STREAM_MSG_FINISH:		//文件下载完成
 				{
 					ret = dealStreamMsgFinish(msg.stream_progress.stream_id);
-				} break;
-				
-				
-				//CMediaStreamManager 内部命令
-				case EM_STREAM_CMD_CONNECT:	//连接流
-				{
-					ret = dealStreamConnect(msg.stream_id);
-					
-				} break;
-
-				case EM_STREAM_CMD_DEL:	//删除流
-				{
-					ret = dealStreamDel(msg.stream_id);
-					
 				} break;
 
 				default:

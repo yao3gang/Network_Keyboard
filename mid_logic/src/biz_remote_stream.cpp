@@ -164,7 +164,7 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 	char *pframe_data = NULL;
 	u8 req_cmd = INVALID_VALUE;
 	u32 _stream_id = INVALID_VALUE;
-	int _stream_errno = SUCCESS;
+	int inside_err = SUCCESS;//标识线程内部是否出错
 	CObject *obj = NULL;
 	PDEAL_FRAME deal_frame_cb = NULL;
 	
@@ -190,7 +190,7 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 		ERR_PRINT("dev IP: %s, stream_id: %d, req_cmd: %d, INVALID_SOCKET == sock_stream\n",
 			inet_ntoa(in), _stream_id, req_cmd);
 
-		_stream_errno = -EPARAM;
+		inside_err = -EPARAM;
 		goto done;
 	}
 	
@@ -200,10 +200,9 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 		ERR_PRINT("dev IP: %s, stream_id: %d, req_cmd: %d, malloc frame buffer failed\n",
 			inet_ntoa(in), _stream_id, req_cmd);
 
-		_stream_errno = -ESPACE;
+		inside_err = -ESPACE;
 		goto done;
 	}
-	
 
 	DBG_PRINT("dev IP: %s, stream_id: %d, req_cmd: %d, threadRcv running\n",
 			inet_ntoa(in), _stream_id, req_cmd);
@@ -214,7 +213,9 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 
 		if (EM_STREAM_STATUS_WAIT_DEL == status)//设为待删除状态
 		{
-			_stream_errno = SUCCESS;//请求退出，无错误发生
+			//此时inside_err 肯定= SUCCESS，否则上次循环已经退出了
+			//线程退出时用以标识是外部请求退出还是内部出错退出
+			//内部退出则发消息
 			
 			if (b_thread_exit)//等待外部请求退出
 			{	
@@ -243,7 +244,7 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 			ERR_PRINT("dev IP: %s, stream_id: %d, req_cmd: %d, select failed, ret: %d, %s\n",
 				inet_ntoa(in), _stream_id, req_cmd, ret, strerror(ret));
 			
-			_stream_errno = -ERECV;
+			inside_err = -ERECV;
 			break;
 		}
 		else if (ret == 0)//timeout
@@ -267,7 +268,7 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 					ERR_PRINT("dev IP: %s, stream_id: %d, req_cmd: %d, recv ifly_MediaFRAMEHDR_t failed\n",
 						inet_ntoa(in), _stream_id, req_cmd);
 
-					_stream_errno = -ERECV;
+					inside_err = -ERECV;
 					break;
 				}
 				
@@ -282,7 +283,7 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 					ERR_PRINT("dev IP: %s, stream_id: %d, req_cmd: %d, recv DataSize(%d) > MAX_FRAME_SIZE(%d) failed\n",
 						inet_ntoa(in), _stream_id, req_cmd, hdr.m_dwDataSize, MAX_FRAME_SIZE);
 
-					_stream_errno = -ERECV;
+					inside_err = -ERECV;
 					break;
 				}
 				
@@ -292,7 +293,7 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 					ERR_PRINT("dev IP: %s, stream_id: %d, req_cmd: %d, recv one frame failed\n",
 						inet_ntoa(in), _stream_id, req_cmd);
 
-					_stream_errno = -ERECV;
+					inside_err = -ERECV;
 					break;
 				}
 				
@@ -328,7 +329,7 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 					ERR_PRINT("dev IP: %s, stream_id: %d, req_cmd: %d, recv failed\n",
 						inet_ntoa(in), _stream_id, req_cmd);					
 					
-					_stream_errno = -ERECV;
+					inside_err = -ERECV;
 					break;
 				}
 				//仅仅一个数据包，与帧无关，只是借用frame_hdr 传递数据
@@ -347,7 +348,7 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 					ERR_PRINT("dev IP: %s, stream_id: %d, req_cmd: %d, recv failed\n",
 						inet_ntoa(in), _stream_id, req_cmd);					
 					
-					_stream_errno = -ERECV;
+					inside_err = -ERECV;
 					break;
 				}
 				//仅仅一个数据包，与帧无关，只是借用frame_hdr 传递数据
@@ -377,6 +378,12 @@ done:
 		close(sock_stream);
 		sock_stream = INVALID_SOCKET;
 	}
+	
+	if (SUCCESS == stream_errno
+			&& SUCCESS != inside_err)
+	{
+		 stream_errno = inside_err;
+	}
 
 	plock4param->Unlock();
 
@@ -386,14 +393,20 @@ done:
 		pframe_data = NULL;
 	}
 
-	if (_stream_errno) //出错退出就发消息
+	//只在模块内部出错退出时发消息
+	if (inside_err) 
 	{
 	 	memset(&msg, 0, sizeof(SBizMsg_t));
-		msg.msg_type = EM_STREAM_MSG_ERR;
+		msg.msg_type = EM_STREAM_MSG_STOP;
 		msg.stream_err.stream_id = _stream_id;
-		msg.stream_err.stream_errno = _stream_errno;
+		msg.stream_err.stream_errno = inside_err;
 
-		BizSendMsg2StreamManager(&msg, sizeof(SBizMsg_t));
+		ret = BizSendMsg2StreamManager(&msg, sizeof(SBizMsg_t));
+		if (ret)
+		{
+			ERR_PRINT("BizSendMsg2StreamManager failed, ret: %d, stream_id: %d, msg_type: %d\n",
+				ret, msg.stream_err.stream_id, msg.msg_type);
+		}		
 	}
 	
 	DBG_PRINT("dev IP: %s, req_cmd: %d, threadRcv exit\n",
@@ -448,7 +461,7 @@ private: //function
 	}
 	void FreeSrc();//释放资源
 	int dealStreamConnect(u32 stream_id);
-	int dealStreamDel(u32 stream_idu32 stop_reason=SUCCESS);
+	int dealStreamDel(u32 stream_id, u32 stop_reason=SUCCESS);
 	int dealStreamMsgStop(u32 stream_id, s32 stream_errno);
 	int dealStreamMsgProgess(u32 stream_id, u32 cur_pos, u32 total_size);
 	int dealStreamMsgFinish(u32 stream_id);
@@ -653,10 +666,11 @@ int CMediaStreamManager::dealStreamConnect(u32 stream_id)
 	ifly_TCP_Stream_Req req;//流请求数据结构
 	CMediaStream *pstream = NULL;
 	MAP_ID_PSTREAM::iterator map_iter;
+	CObject *obj = NULL;
+	PDEAL_STATUS deal_status_cb = NULL;
 	SBizMsg_t msg;
-	
 	memset(&msg, 0, sizeof(SBizMsg_t));
-	msg.msg_type = EM_STREAM_MSG_CONNECT_FALIURE;
+	
 	
 	plock4param->Lock();
 	
@@ -680,6 +694,9 @@ int CMediaStreamManager::dealStreamConnect(u32 stream_id)
 	
 	pstream->plock4param->Lock();
 
+	obj = pstream->m_obj;
+	deal_status_cb = pstream->m_deal_status_cb;
+	
 	dev_type = pstream->dev_type;
 	dev_ip = pstream->dev_ip;
 	req = pstream->req;
@@ -696,16 +713,36 @@ int CMediaStreamManager::dealStreamConnect(u32 stream_id)
 		return -EPARAM;
 	}
 	
+	pstream->plock4param->Unlock();
+	plock4param->Unlock();
+	
 	ret = BizDevReqStreamStart(dev_type, dev_ip, stream_id, &req, &sock_stream);
+	if (SUCCESS == ret)
+	{
+		ret = BizDevStreamProgress(dev_type, dev_ip, stream_id, TRUE);//接收回放进度信息
+		if (ret)
+		{
+			BizDevReqStreamStop(dev_type, dev_ip, stream_id, ret);
+		}
+	}
+	
 	if (ret)//failed
 	{				
 		ERR_PRINT("dev ip: %s, stream_id: %d, req cmd: %d, BizReqStreamStart failed, ret: %d\n",
 			inet_ntoa(in), stream_id, req.command, ret);
 
-		//内部数据
-		pstream->stream_errno = ret;
+		plock4param->Lock();
 
+		//删除
+		map_pstream.erase(stream_id);//移除
+		
+		delete pstream;//释放
+		pstream = NULL;
+
+		plock4param->Unlock();
+		
 		//发消息
+		msg.msg_type = EM_STREAM_MSG_CONNECT_FALIURE;
 		msg.stream_err.stream_id = stream_id;
 		msg.stream_err.stream_errno = ret;
 	}
@@ -713,6 +750,9 @@ int CMediaStreamManager::dealStreamConnect(u32 stream_id)
 	{
 		DBG_PRINT("dev ip: %s, stream_id: %d, req cmd: %d, BizReqStreamStart success\n",
 			inet_ntoa(in), stream_id, req.command);
+		
+		plock4param->Lock();
+		pstream->plock4param->Lock();
 
 		//内部数据
 		pstream->sock_stream = sock_stream;
@@ -724,23 +764,37 @@ int CMediaStreamManager::dealStreamConnect(u32 stream_id)
 		pstream->b_thread_exit = FALSE;
 		pstream->m_threadlet_rcv.run("BizStream", pstream, (ASYNPROC)&CMediaStream::threadRcv, 0, 0);
 
+		pstream->plock4param->Unlock();
+		plock4param->Unlock();
+		
 		//发消息
 		msg.msg_type = EM_STREAM_MSG_CONNECT_SUCCESS;
-		msg.stream_id = stream_id;
+		msg.stream_id = stream_id;		
 	}
 	
-	//状态回调，上层实现建议用消息传递，
-	//否则可能锁死在pstream->plock4param
-	if (pstream->m_obj && pstream->m_deal_status_cb)
-		(pstream->m_obj->*(pstream->m_deal_status_cb))(&msg, sizeof(SBizMsg_t));
+	if (obj && deal_status_cb)
+	{
+		ret = (obj->*deal_status_cb)(&msg, sizeof(SBizMsg_t));
+		if (ret)
+		{
+			ERR_PRINT("deal_status_cb failed, ret: %d, stream_id: %d, msg_type: %d\n",
+				ret, stream_id, msg.msg_type);
+		}
+	}
 	
-	pstream->plock4param->Unlock();
-	plock4param->Unlock();
-
+	
+#if 0
+	ret = BizSendMsg2StreamManager(&msg, sizeof(SBizMsg_t));//发给自己，后续处理
+	if (ret)
+	{
+		ERR_PRINT("BizSendMsg2StreamManager failed, ret: %d, stream_id: %d, msg_type: %d\n",
+			ret, stream_id, msg.msg_type);
+	}
+	
+#endif
 	return ret;
 }
 
-//上层调用的流关闭，可能是正常关闭，也可能是上层出错后关闭
 int CMediaStreamManager::dealStreamDel(u32 stream_id, u32 stop_reason)
 {
 	int ret = SUCCESS;
@@ -794,20 +848,7 @@ int CMediaStreamManager::dealStreamDel(u32 stream_id, u32 stop_reason)
 	}
 
 	pstream->plock4param->Unlock();
-
-	ret = BizDevReqStreamStop(dev_type, dev_ip, stream_id, stop_reason);
-	if (ret)
-	{
-		ERR_PRINT("dev ip: %s, stream_id: %d, req cmd: %d, BizDevReqStreamStop failed, ret: %d\n",
-			inet_ntoa(in), stream_id, req_cmd, ret);
-
-		plock4param->Unlock();
-		return ret;
-	}
 	
-	DBG_PRINT("dev ip: %s, stream_id: %d, req cmd: %d, BizDevReqStreamStop success\n",
-		inet_ntoa(in), stream_id, req_cmd);
-
 	if (b_thread_running)
 	{
 		ret = pstream->sem_exit.TimedPend(5);
@@ -824,6 +865,19 @@ int CMediaStreamManager::dealStreamDel(u32 stream_id, u32 stop_reason)
 
 	plock4param->Unlock();
 
+
+	ret = BizDevReqStreamStop(dev_type, dev_ip, stream_id, stop_reason);
+	if (ret)
+	{
+		ERR_PRINT("dev ip: %s, stream_id: %d, req cmd: %d, BizDevReqStreamStop failed, ret: %d\n",
+			inet_ntoa(in), stream_id, req_cmd, ret);
+
+		return ret;
+	}
+	
+	DBG_PRINT("dev ip: %s, stream_id: %d, req cmd: %d, BizDevReqStreamStop success\n",
+		inet_ntoa(in), stream_id, req_cmd);
+
 	return SUCCESS;
 }
 
@@ -833,6 +887,92 @@ int CMediaStreamManager::dealStreamDel(u32 stream_id, u32 stop_reason)
 //需要在本层继续上报
 int CMediaStreamManager::dealStreamMsgStop(u32 stream_id, s32 stream_errno)
 {	
+	// 1、如果出错关闭，就上报
+	// 2、发消息EM_STREAM_CMD_DEL，延后删除流
+	int ret = SUCCESS;
+	CMediaStream *pstream = NULL;
+	MAP_ID_PSTREAM::iterator map_iter;
+	
+	CObject *obj = NULL;
+	PDEAL_STATUS deal_status_cb = NULL;
+	s32 stop_reason = SUCCESS;
+	SBizMsg_t msg;
+	
+
+	plock4param->Lock();
+	
+	map_iter = map_pstream.find(stream_id);
+	if (map_iter == map_pstream.end())
+	{
+		ERR_PRINT("stream_id(%d) not found in map\n", stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM; 
+	}
+	
+	pstream = map_iter->second;
+	if (NULL == pstream)
+	{
+		ERR_PRINT("stream_id(%d) NULL == pstream\n", stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+
+	pstream->plock4param->Lock();
+
+	obj = pstream->m_obj;
+	deal_status_cb = pstream->m_deal_status_cb;
+	
+	if (SUCCESS == pstream->stream_errno
+			&& SUCCESS != stream_errno)
+	{
+		 pstream->stream_errno = stream_errno;
+	}
+
+	stop_reason = pstream->stream_errno;
+		
+	pstream->b_thread_exit = TRUE;
+	pstream->status = EM_STREAM_STATUS_WAIT_DEL;//设为待删除状态
+
+	pstream->plock4param->Unlock();
+	plock4param->Unlock();
+
+	//给自己发消息，延后删除流
+	memset(&msg, 0, sizeof(SBizMsg_t));
+	msg.msg_type = EM_STREAM_CMD_DEL;//删除流
+	msg.stream_err.stream_id = stream_id;
+	msg.stream_err.stream_errno = stop_reason;
+	ret = BizSendMsg2StreamManager(&msg, sizeof(SBizMsg_t));
+	if (ret)
+	{
+		ERR_PRINT("BizSendMsg2StreamManager failed, ret: %d, stream_id: %d, msg_type: %d\n",
+			ret, msg.stream_err.stream_id, msg.msg_type);
+	}
+	
+	//上报
+	//状态回调，上层实现建议用消息传递，
+	//否则可能锁死在pstream->plock4param
+	memset(&msg, 0, sizeof(SBizMsg_t));
+	msg.msg_type = EM_STREAM_MSG_STOP;
+	msg.stream_err.stream_id = stream_id;
+	msg.stream_err.stream_errno = stop_reason;
+	
+	if (obj && deal_status_cb)
+	{
+		ret = (obj->*deal_status_cb)(&msg, sizeof(SBizMsg_t));
+		if (ret)
+		{
+			ERR_PRINT("deal_status_cb failed, ret: %d, stream_id: %d, msg_type: %d\n",
+				ret, stream_id, msg.msg_type);
+		}
+	}	
+
+	return SUCCESS;
+}
+
+int CMediaStreamManager::dealStreamMsgProgess(u32 stream_id, u32 cur_pos, u32 total_size)
+{
 	int ret = SUCCESS;
 	struct in_addr in;
 	CMediaStream *pstream = NULL;
@@ -840,14 +980,9 @@ int CMediaStreamManager::dealStreamMsgStop(u32 stream_id, s32 stream_errno)
 	EM_DEV_TYPE dev_type;//服务器类型
 	u32 dev_ip = INADDR_NONE;//服务器IP
 	u8 req_cmd = INVALID_VALUE;
-	VD_BOOL b_thread_running = FALSE;
-	
 	CObject *obj = NULL;
 	PDEAL_STATUS deal_status_cb = NULL;
 	SBizMsg_t msg;
-	memset(&msg, 0, sizeof(SBizMsg_t));
-	msg.msg_type = EM_STREAM_MSG_STOP;
-
 	
 
 	plock4param->Lock();
@@ -871,90 +1006,17 @@ int CMediaStreamManager::dealStreamMsgStop(u32 stream_id, s32 stream_errno)
 	}
 
 	pstream->plock4param->Lock();
+	plock4param->Unlock();
 
-	dev_type = pstream->dev_type;
-	dev_ip = pstream->dev_ip;
-	req_cmd = pstream->req.command;
 	obj = pstream->m_obj;
 	deal_status_cb = pstream->m_deal_status_cb;
 		
-	pstream->b_thread_exit = TRUE;
-	pstream->status = EM_STREAM_STATUS_WAIT_DEL;
-	b_thread_running = pstream->b_thread_running;
-
+	dev_type = pstream->dev_type;
+	dev_ip = pstream->dev_ip;
+	req_cmd = pstream->req.command;
 	in.s_addr = dev_ip;
 
 	pstream->plock4param->Unlock();
-
-	ret = BizDevReqStreamStop(dev_type, dev_ip, stream_id);
-	if (ret)
-	{
-		ERR_PRINT("dev ip: %s, stream_id: %d, req cmd: %d, BizDevReqStreamStop failed, ret: %d\n",
-			inet_ntoa(in), stream_id, req_cmd, ret);
-	}
-	
-	DBG_PRINT("dev ip: %s, stream_id: %d, req cmd: %d, BizDevReqStreamStop success\n",
-		inet_ntoa(in), stream_id, req_cmd);
-
-	if (b_thread_running)
-	{
-		ret = pstream->sem_exit.TimedPend(5);
-		
-		DBG_PRINT("dev ip: %s, stream_id: %d, req cmd: %d, stream thread exit!!!, sem_exit pend ret: %d\n",
-			inet_ntoa(in), stream_id, req_cmd, ret);
-	}
-
-	//安全了
-	map_pstream.erase(stream_id);//移除
-	
-	delete pstream;//释放
-	pstream = NULL;	
-	
-	//状态回调，上层实现建议用消息传递，
-	//否则可能锁死在pstream->plock4param
-	msg.stream_err.stream_id = stream_id;
-	msg.stream_err.stream_errno = stream_errno;
-	
-	if (obj && deal_status_cb)
-		(obj->*deal_status_cb)(&msg, sizeof(SBizMsg_t));
-	
-	plock4param->Unlock();
-
-	return SUCCESS;
-}
-
-int CMediaStreamManager::dealStreamMsgProgess(u32 stream_id, u32 cur_pos, u32 total_size)
-{
-	struct in_addr in;
-	CMediaStream *pstream = NULL;
-	MAP_ID_PSTREAM::iterator map_iter;
-	EM_DEV_TYPE dev_type;//服务器类型
-	u32 dev_ip = INADDR_NONE;//服务器IP
-	u8 req_cmd = INVALID_VALUE;
-	SBizMsg_t msg;
-	
-
-	plock4param->Lock();
-	
-	map_iter = map_pstream.find(stream_id);
-	if (map_iter == map_pstream.end())
-	{
-		ERR_PRINT("stream_id(%d) not found in map\n", stream_id);
-
-		plock4param->Unlock();
-		return -EPARAM; 
-	}
-	
-	pstream = map_iter->second;
-	if (NULL == pstream)
-	{
-		ERR_PRINT("stream_id(%d) NULL == pstream\n", stream_id);
-
-		plock4param->Unlock();
-		return -EPARAM;
-	}
-
-	pstream->plock4param->Lock();
 
 	memset(&msg, 0, sizeof(SBizMsg_t));
 	msg.msg_type = EM_STREAM_MSG_PROGRESS;
@@ -962,31 +1024,34 @@ int CMediaStreamManager::dealStreamMsgProgess(u32 stream_id, u32 cur_pos, u32 to
 	msg.stream_progress.cur_pos = cur_pos;
 	msg.stream_progress.total_size = total_size;
 
-	if(pstream->m_obj && pstream->m_deal_status_cb)
-		(pstream->m_obj->*(pstream->m_deal_status_cb))(&msg, sizeof(SBizMsg_t));
-		
-	dev_type = pstream->dev_type;
-	dev_ip = pstream->dev_ip;
-	req_cmd = pstream->req.command;
-	in.s_addr = dev_ip;
-
-	pstream->plock4param->Unlock();
-	plock4param->Unlock();
+	if (obj && deal_status_cb)
+	{
+		ret = (obj->*deal_status_cb)(&msg, sizeof(SBizMsg_t));
+		if (ret)
+		{
+			ERR_PRINT("deal_status_cb failed, ret: %d, stream_id: %d, msg_type: %d\n",
+				ret, stream_id, msg.msg_type);
+		}
+	}
 
 	DBG_PRINT("dev ip: %s, stream_id: %d, req cmd: %d, cur_pos: %u, total_size: %u\n",
 			inet_ntoa(in), stream_id, req_cmd, cur_pos, total_size);
+	
 	
 	return SUCCESS;
 }
 
 int CMediaStreamManager::dealStreamMsgFinish(u32 stream_id)
 {
+	int ret = SUCCESS;
 	struct in_addr in;
 	CMediaStream *pstream = NULL;
 	MAP_ID_PSTREAM::iterator map_iter;
 	EM_DEV_TYPE dev_type;//服务器类型
 	u32 dev_ip = INADDR_NONE;//服务器IP
 	u8 req_cmd = INVALID_VALUE;
+	CObject *obj = NULL;
+	PDEAL_STATUS deal_status_cb = NULL;
 	SBizMsg_t msg;
 	
 
@@ -1011,13 +1076,10 @@ int CMediaStreamManager::dealStreamMsgFinish(u32 stream_id)
 	}
 
 	pstream->plock4param->Lock();
-
-	memset(&msg, 0, sizeof(SBizMsg_t));
-	msg.msg_type = EM_STREAM_MSG_FINISH;
-	msg.stream_id = stream_id;
-
-	if(pstream->m_obj && pstream->m_deal_status_cb)
-		(pstream->m_obj->*(pstream->m_deal_status_cb))(&msg, sizeof(SBizMsg_t));
+	plock4param->Unlock();
+	
+	obj = pstream->m_obj;
+	deal_status_cb = pstream->m_deal_status_cb;
 		
 	dev_type = pstream->dev_type;
 	dev_ip = pstream->dev_ip;
@@ -1025,7 +1087,21 @@ int CMediaStreamManager::dealStreamMsgFinish(u32 stream_id)
 	in.s_addr = dev_ip;
 
 	pstream->plock4param->Unlock();
-	plock4param->Unlock();
+
+	memset(&msg, 0, sizeof(SBizMsg_t));
+	msg.msg_type = EM_STREAM_MSG_FINISH;
+	msg.stream_id = stream_id;
+	if (obj && deal_status_cb)
+	{
+		ret = (obj->*deal_status_cb)(&msg, sizeof(SBizMsg_t));
+		if (ret)
+		{
+			ERR_PRINT("deal_status_cb failed, ret: %d, stream_id: %d, msg_type: %d\n",
+				ret, stream_id, msg.msg_type);
+		}
+	}
+	
+	
 
 	DBG_PRINT("dev ip: %s, stream_id: %d, req cmd: %d\n",
 			inet_ntoa(in), stream_id, req_cmd);
@@ -1101,13 +1177,20 @@ void CMediaStreamManager::threadMsg(uint param)//读消息
 			#if 0 //阻塞调用，返回值便知成功与否
 				case EM_STREAM_MSG_CONNECT_SUCCESS:	//连接成功
 				{
+					u32 stream_id = msg.stream_id;
+
+					ret = dealStreamMsgConnectSuccess(stream_id);
 				} break;
 				
 				case EM_STREAM_MSG_CONNECT_FALIURE:	//连接失败
 				{
+					u32 stream_id = msg.stream_err.stream_id;
+					s32 stream_errno = msg.stream_err.stream_errno;
+
+					ret = dealStreamMsgConnectFail(stream_id, stream_errno);
 				} break;
 			#endif
-				case EM_STREAM_MSG_ERR:		//流接收线程CMediaStream::threadRcv 上传出错
+
 				//biz_dev 层上传的流关闭
 				// 1、设备掉线或网络通信出错调用，
 				// 2、上层删除设备调用
@@ -1262,16 +1345,19 @@ fail:
 int CMediaStreamManager::ReqStreamStop(u32 stream_id, s32 stop_reason)
 {
 	int ret = SUCCESS;
+	struct in_addr in;
 	CMediaStream *pstream = NULL;
 	MAP_ID_PSTREAM::iterator map_iter;
-	struct in_addr in;
+	SBizMsg_t msg;
 	
+		
 	if (!b_inited)
 	{
 		ERR_PRINT("module not init\n");
 		return -FAILURE;
 	}
-	
+
+#if 1	
 	plock4param->Lock();
 	
 	map_iter = map_pstream.find(stream_id);
@@ -1296,32 +1382,50 @@ int CMediaStreamManager::ReqStreamStop(u32 stream_id, s32 stop_reason)
 
 	in.s_addr = pstream->dev_ip;
 	pstream->status = EM_STREAM_STATUS_WAIT_DEL;//设为待删除状态
-	
+	if (SUCCESS == pstream->stream_errno
+		&& SUCCESS != stop_reason)
+	{
+		 pstream->stream_errno = stop_reason;
+	}
+
+	pstream->plock4param->Unlock();
+	plock4param->Unlock();
+
+
 	//write msg to threadmsg, in threadmsg delete
-	SBizMsg_t msg;
 	memset(&msg, 0, sizeof(SBizMsg_t));
-	msg.msg_type = EM_STREAM_CMD_DEL;
+	msg.msg_type = EM_STREAM_CMD_DEL;//删除流
 	msg.stream_err.stream_id = pstream->stream_id;
 	msg.stream_err.stream_errno = stop_reason;
-
-	ret = WriteMsg(&msg, sizeof(SBizMsg_t));
+	ret = BizSendMsg2StreamManager(&msg, sizeof(SBizMsg_t));
 	if (ret)
 	{
-		ERR_PRINT("dev ip: %s, msg type: %d, WriteMsg failed, ret: %d\n",
-			inet_ntoa(in), msg.msg_type, ret);
-
-		pstream->plock4param->Unlock();
-		plock4param->Unlock();
+		ERR_PRINT("BizSendMsg2StreamManager failed, ret: %d, stream_id: %d, msg_type: %d\n",
+			ret, msg.stream_err.stream_id, msg.msg_type);
+		
 		return -FAILURE;
 	}
 
 	DBG_PRINT("dev ip: %s, stream id: %d, req cmd: %d\n",
 		inet_ntoa(in), pstream->stream_id, pstream->req.command);
 
-	pstream->plock4param->Unlock();
-	plock4param->Unlock();
-	
-	return SUCCESS;
+#else
+	//write msg to threadmsg, in threadmsg delete
+	SBizMsg_t msg;
+	memset(&msg, 0, sizeof(SBizMsg_t));
+	msg.msg_type = EM_STREAM_MSG_STOP;
+	msg.stream_err.stream_id = stream_id;
+	msg.stream_err.stream_errno = stop_reason;
+
+	ret = BizSendMsg2StreamManager(&msg, sizeof(SBizMsg_t));
+	if (ret)
+	{
+		ERR_PRINT("BizSendMsg2StreamManager failed, ret: %d, stream_id: %d, msg_type: %d\n",
+			ret, msg.stream_err.stream_id, msg.msg_type);
+	}
+#endif
+
+	return ret;
 }
 
 
@@ -1346,6 +1450,11 @@ int BizStreamInit(void)
 
 
 //流控制API
+int BizSendMsg2StreamManager(SBizMsg_t *pmsg, u32 msg_len)
+{
+	return g_biz_stream_manager.WriteMsg(pmsg, msg_len);
+}
+
 //pstream_id 返回流ID
 //成功返回并不表示连接成功，只是写入了消息列表，之后在消息线程连接
 int BizStreamReqPlaybackByFile (
@@ -1418,9 +1527,4 @@ int BizStreamReqStop(u32 stream_id, s32 stop_reason)
 	return g_biz_stream_manager.ReqStreamStop(stream_id, stop_reason);
 }
 
-
-int BizSendMsg2StreamManager(SBizMsg_t *pmsg, u32 msg_len)
-{
-	return g_biz_stream_manager.WriteMsg(pmsg, msg_len);
-}
 

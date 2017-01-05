@@ -19,6 +19,7 @@ int BizFirstInit(void);
 int BizSecondInit(void);
 
 
+int BizSendMsg2BizManager(SBizMsg_t *pmsg, u32 msg_len);
 
 //…Ë÷√≤Œ ˝
 int BizSetNetParam(SConfigNetParam &snet_param);

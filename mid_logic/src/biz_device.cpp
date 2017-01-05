@@ -4068,7 +4068,6 @@ int CBizDevice::ReqStreamStopByStreamID(u32 stream_id, s32 stop_reason)//GLB_ERR
 	SDevStream_t* pstream = NULL;
 	MAP_SID_LID::iterator map_sid_lid_iter;
 	MAP_LID_PSTREAM::iterator map_iter;
-	SBizMsg_t msg;
 	
 	plock4stream->Lock();
 
@@ -4253,7 +4252,7 @@ int CBizDevice::StreamStopByLinkID(u32 link_id, s32 stop_reason)//GLB_ERROR_NUM
 	DBG_PRINT("svr IP: %s, link_id(%u), stream errno: %d, stop_reason: %d\n",
 			inet_ntoa(in), link_id, pstream->stream_errno, stop_reason);
 
-	if ( SUCCESS == pstream->stream_errno
+	if (SUCCESS == pstream->stream_errno
 		&& SUCCESS != stop_reason)
 	{
 		pstream->stream_errno = stop_reason;

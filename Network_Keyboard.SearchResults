@@ -1,5 +1,2 @@
----- EM_STREAM_CMD_DEL Matches (4 in 3 files) ----
-Biz_msg_type.h (mid_logic\inc):	EM_STREAM_CMD_DEL,		//删除流
-Biz_playback.cpp (mid_logic\src):				case EM_STREAM_CMD_DEL:	//删除流
-Biz_remote_stream.cpp (mid_logic\src):				case EM_STREAM_CMD_DEL:	//删除流
-Biz_remote_stream.cpp (mid_logic\src):	msg.msg_type = EM_STREAM_CMD_DEL;
+---- EM_STREAM_MSG_DEL_SUCCESS Matches (1 in 1 files) ----
+biz_msg_type.h (mid_logic\inc):	EM_STREAM_MSG_DEL_SUCCESS,		//删除流成功
