@@ -2,8 +2,10 @@
 #define __BIZ_H__
 
 #include "types.h"
+#include "biz_msg_type.h"
 #include "biz_types.h"
 #include "biz_config.h"
+
 #include "ctrlprotocol.h"
 
 

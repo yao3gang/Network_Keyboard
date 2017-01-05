@@ -398,14 +398,14 @@ done:
 	{
 	 	memset(&msg, 0, sizeof(SBizMsg_t));
 		msg.msg_type = EM_STREAM_MSG_STOP;
-		msg.stream_err.stream_id = _stream_id;
-		msg.stream_err.stream_errno = inside_err;
+		msg.un_part_chn.stream_id = _stream_id;
+		msg.un_part_data.stream_errno = inside_err;
 
 		ret = BizSendMsg2StreamManager(&msg, sizeof(SBizMsg_t));
 		if (ret)
 		{
 			ERR_PRINT("BizSendMsg2StreamManager failed, ret: %d, stream_id: %d, msg_type: %d\n",
-				ret, msg.stream_err.stream_id, msg.msg_type);
+				ret, msg.un_part_chn.stream_id, msg.msg_type);
 		}		
 	}
 	
@@ -743,8 +743,8 @@ int CMediaStreamManager::dealStreamConnect(u32 stream_id)
 		
 		//发消息
 		msg.msg_type = EM_STREAM_MSG_CONNECT_FALIURE;
-		msg.stream_err.stream_id = stream_id;
-		msg.stream_err.stream_errno = ret;
+		msg.un_part_chn.stream_id = stream_id;
+		msg.un_part_data.stream_errno = ret;
 	}
 	else//success
 	{
@@ -769,7 +769,7 @@ int CMediaStreamManager::dealStreamConnect(u32 stream_id)
 		
 		//发消息
 		msg.msg_type = EM_STREAM_MSG_CONNECT_SUCCESS;
-		msg.stream_id = stream_id;		
+		msg.un_part_chn.stream_id = stream_id;		
 	}
 	
 	if (obj && deal_status_cb)
@@ -941,13 +941,13 @@ int CMediaStreamManager::dealStreamMsgStop(u32 stream_id, s32 stream_errno)
 	//给自己发消息，延后删除流
 	memset(&msg, 0, sizeof(SBizMsg_t));
 	msg.msg_type = EM_STREAM_CMD_DEL;//删除流
-	msg.stream_err.stream_id = stream_id;
-	msg.stream_err.stream_errno = stop_reason;
+	msg.un_part_chn.stream_id = stream_id;
+	msg.un_part_data.stream_errno = stop_reason;
 	ret = BizSendMsg2StreamManager(&msg, sizeof(SBizMsg_t));
 	if (ret)
 	{
 		ERR_PRINT("BizSendMsg2StreamManager failed, ret: %d, stream_id: %d, msg_type: %d\n",
-			ret, msg.stream_err.stream_id, msg.msg_type);
+			ret, msg.un_part_chn.stream_id, msg.msg_type);
 	}
 	
 	//上报
@@ -955,8 +955,8 @@ int CMediaStreamManager::dealStreamMsgStop(u32 stream_id, s32 stream_errno)
 	//否则可能锁死在pstream->plock4param
 	memset(&msg, 0, sizeof(SBizMsg_t));
 	msg.msg_type = EM_STREAM_MSG_STOP;
-	msg.stream_err.stream_id = stream_id;
-	msg.stream_err.stream_errno = stop_reason;
+	msg.un_part_chn.stream_id = stream_id;
+	msg.un_part_data.stream_errno = stop_reason;
 	
 	if (obj && deal_status_cb)
 	{
@@ -1020,9 +1020,9 @@ int CMediaStreamManager::dealStreamMsgProgess(u32 stream_id, u32 cur_pos, u32 to
 
 	memset(&msg, 0, sizeof(SBizMsg_t));
 	msg.msg_type = EM_STREAM_MSG_PROGRESS;
-	msg.stream_progress.stream_id = stream_id;
-	msg.stream_progress.cur_pos = cur_pos;
-	msg.stream_progress.total_size = total_size;
+	msg.un_part_chn.stream_id = stream_id;
+	msg.un_part_data.stream_progress.cur_pos = cur_pos;
+	msg.un_part_data.stream_progress.total_size = total_size;
 
 	if (obj && deal_status_cb)
 	{
@@ -1090,7 +1090,7 @@ int CMediaStreamManager::dealStreamMsgFinish(u32 stream_id)
 
 	memset(&msg, 0, sizeof(SBizMsg_t));
 	msg.msg_type = EM_STREAM_MSG_FINISH;
-	msg.stream_id = stream_id;
+	msg.un_part_chn.stream_id = stream_id;
 	if (obj && deal_status_cb)
 	{
 		ret = (obj->*deal_status_cb)(&msg, sizeof(SBizMsg_t));
@@ -1118,7 +1118,6 @@ void CMediaStreamManager::threadMsg(uint param)//读消息
 	while (1)
 	{
 		ret = SUCCESS;
-		memset(&msg, 0, sizeof(SBizMsg_t));
 		b_process = FALSE;
 		
 		ret = pthread_mutex_lock(&mq_mutex);
@@ -1131,6 +1130,7 @@ void CMediaStreamManager::threadMsg(uint param)//读消息
 		
 		if (mq_msg_count)	//有消息
 		{
+			memset(&msg, 0, sizeof(SBizMsg_t));
 			ret = pmq_ccbuf->Get((u8 *)&msg, sizeof(SBizMsg_t));
 			if (ret)
 			{
@@ -1196,8 +1196,8 @@ void CMediaStreamManager::threadMsg(uint param)//读消息
 				// 2、上层删除设备调用
 				case EM_STREAM_MSG_STOP:
 				{
-					u32 stream_id = msg.stream_err.stream_id;
-					s32 stream_errno = msg.stream_err.stream_errno;
+					u32 stream_id = msg.un_part_chn.stream_id;
+					s32 stream_errno = msg.un_part_data.stream_errno;
 
 					ret = dealStreamMsgStop(stream_id, stream_errno);
 					
@@ -1205,29 +1205,29 @@ void CMediaStreamManager::threadMsg(uint param)//读消息
 				
 				case EM_STREAM_MSG_PROGRESS:		//文件回放/下载进度，biz_dev 层上传
 				{
-					ret = dealStreamMsgProgess(msg.stream_progress.stream_id,
-												msg.stream_progress.cur_pos,
-												msg.stream_progress.total_size);
+					ret = dealStreamMsgProgess(msg.un_part_chn.stream_id,
+												msg.un_part_data.stream_progress.cur_pos,
+												msg.un_part_data.stream_progress.total_size);
 				} break;
 				
 				case EM_STREAM_MSG_FINISH:		//文件下载完成，上层传递下来
 				{
-					ret = dealStreamMsgFinish(msg.stream_progress.stream_id);
+					ret = dealStreamMsgFinish(msg.un_part_chn.stream_id);
 				} break;
 				
 				
 				//CMediaStreamManager 内部命令
 				case EM_STREAM_CMD_CONNECT:	//连接流
 				{
-					ret = dealStreamConnect(msg.stream_id);
+					ret = dealStreamConnect(msg.un_part_chn.stream_id);
 					
 				} break;
 
 				//上层调用的流关闭，可能是正常关闭，也可能是上层出错后关闭
 				case EM_STREAM_CMD_DEL:	//删除流
 				{
-					u32 stream_id = msg.stream_err.stream_id;
-					s32 stream_errno = msg.stream_err.stream_errno;
+					u32 stream_id = msg.un_part_chn.stream_id;
+					s32 stream_errno = msg.un_part_data.stream_errno;
 					ret = dealStreamDel(stream_id, stream_errno);
 					
 				} break;
@@ -1308,7 +1308,7 @@ int CMediaStreamManager::ReqStreamStart(
 	SBizMsg_t msg;
 	memset(&msg, 0, sizeof(SBizMsg_t));
 	msg.msg_type = EM_STREAM_CMD_CONNECT;
-	msg.stream_id = *pstream_id;
+	msg.un_part_chn.stream_id = *pstream_id;
 
 	ret = WriteMsg(&msg, sizeof(SBizMsg_t));
 	if (ret)
@@ -1395,13 +1395,13 @@ int CMediaStreamManager::ReqStreamStop(u32 stream_id, s32 stop_reason)
 	//write msg to threadmsg, in threadmsg delete
 	memset(&msg, 0, sizeof(SBizMsg_t));
 	msg.msg_type = EM_STREAM_CMD_DEL;//删除流
-	msg.stream_err.stream_id = pstream->stream_id;
-	msg.stream_err.stream_errno = stop_reason;
-	ret = BizSendMsg2StreamManager(&msg, sizeof(SBizMsg_t));
+	msg.un_part_chn.stream_id = pstream->stream_id;
+	msg.un_part_data.stream_errno = stop_reason;
+	ret = WriteMsg(&msg, sizeof(SBizMsg_t));
 	if (ret)
 	{
-		ERR_PRINT("BizSendMsg2StreamManager failed, ret: %d, stream_id: %d, msg_type: %d\n",
-			ret, msg.stream_err.stream_id, msg.msg_type);
+		ERR_PRINT("WriteMsg failed, ret: %d, stream_id: %d, msg_type: %d\n",
+			ret, msg.un_part_chn.stream_id, msg.msg_type);
 		
 		return -FAILURE;
 	}

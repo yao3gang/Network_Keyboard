@@ -4325,8 +4325,8 @@ int CBizDevice::StreamStopByLinkID(u32 link_id, s32 stop_reason)//GLB_ERROR_NUM
  	//send msg to stream manager
  	memset(&msg, 0, sizeof(SBizMsg_t));
 	msg.msg_type = EM_STREAM_MSG_STOP;
-	msg.stream_err.stream_id = pstream->stream_id;
-	msg.stream_err.stream_errno = stream_errno;
+	msg.un_part_chn.stream_id = pstream->stream_id;
+	msg.un_part_data.stream_errno = stream_errno;
 	
  	ret = BizSendMsg2StreamManager(&msg, sizeof(SBizMsg_t));
 	if (ret)
