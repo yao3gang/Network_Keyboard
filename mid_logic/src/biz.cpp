@@ -13,8 +13,6 @@
 #include <sys/types.h>
 #include <signal.h>
 
-#include "bond.h"
-
 #include "ctimer.h"
 #include "cthread.h"
 
@@ -33,29 +31,325 @@
 #include "ctrlprotocol.h"
 #include "net.h"
 
-
-static VD_BOOL biz_inited = 0;
-
-
-
-
-/*******************************************
-bond 层接口声明，用以改变gui 控件
-*******************************************/
 #include "bond.h"
 
-/*
-gui起来之后要设置显示窗口信息
 
-typedef struct hiRECT_S 
-{ 
-	 HI_S32 s32X; 
-	 HI_S32 s32Y; 
-	 HI_U32 u32Width; 
-	 HI_U32 u32Height; 
-}RECT_S;
-*/
 
+static VD_BOOL b_inited = FALSE;
+static C_Lock *plock4param = NULL;//mutex
+static VD_BOOL b_preview = FALSE;
+static u32 preview_chn_mask = 0;
+static VD_BOOL b_playback = FALSE;
+static u32 playback_chn_mask = 0;
+static VD_BOOL b_upgrade = FALSE;
+
+
+//internal API ***********************************************************************
+int BizManagerInit()
+{
+	plock4param = new CMutex(MUTEX_RECURSIVE);
+	if (NULL == plock4param)
+	{
+		ERR_PRINT("new plock4param failed\n");
+		goto fail;
+	}
+	
+	if (plock4param->Create())//FALSE
+	{
+		ERR_PRINT("create plock4param failed\n");
+		goto fail;
+	}
+	
+	return SUCCESS;
+
+fail:
+	if (plock4param)
+	{
+		delete plock4param;
+		plock4param = NULL;
+	}
+
+	return -FAILURE;
+}
+
+
+
+
+
+//extern other biz module API ***********************************************************
+
+//查询gui 是否准备好接收通知消息
+VD_BOOL BizGuiIsReady()
+{
+	return notifyIsReady();
+}
+
+int _checkPlayback(u32 playback_chn)
+{
+	plock4param->Lock();
+
+	if (!b_playback)
+	{
+		ERR_PRINT("b_playback FALSE\n");
+
+		plock4param->Unlock();
+		return -ESYS_MODE;
+	}
+	
+	if ( (playback_chn_mask & (1<<playback_chn)) == FALSE)
+	{
+		ERR_PRINT("playback_chn(%d) unused\n", playback_chn);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+	
+	plock4param->Unlock();
+
+	return SUCCESS;
+}
+
+int BizEventCB(SBizEventPara* pSBizEventPara)
+{
+	EMBIZEVENT type = pSBizEventPara->type;
+
+	DBG_PRINT("type: %d\n", type);
+
+	switch (type)
+	{
+		case EM_BIZ_EVENT_PLAYBACK_START: //回放开始
+		{
+			u32 playback_chn = pSBizEventPara->un_part_chn.playback_chn;
+
+			s32 ret = _checkPlayback(playback_chn);
+			if (ret)
+			{
+				DBG_PRINT("_checkPlayback(%d) failed, event type: %d, ret: %d\n", playback_chn, type, ret);
+
+				return ret;
+			}
+
+			//hisi process
+			hisi_chn_start(playback_chn);
+			
+		} break;
+
+		case EM_BIZ_EVENT_PLAYBACK_RUN: //回放中，进度信息
+		{
+			u32 playback_chn = pSBizEventPara->un_part_chn.playback_chn;
+			u32 cur_pos = pSBizEventPara->un_part_data.stream_progress.cur_pos;
+			u32 total_size = pSBizEventPara->un_part_data.stream_progress.total_size;
+			
+			s32 ret = _checkPlayback(playback_chn);
+			if (ret)
+			{
+				DBG_PRINT("_checkPlayback(%d) failed, event type: %d, ret: %d\n", playback_chn, type, ret);
+
+				return ret;
+			}
+			
+			//notify gui
+			SPlaybackNotify_t para;
+			memset(&para, 0, sizeof(SPlaybackNotify_t));
+			
+			para.type = EM_BIZ_EVENT_PLAYBACK_RUN;
+			para.playback_chn = playback_chn;
+			para.stream_progress.cur_pos = cur_pos;
+			para.stream_progress.total_size = total_size;
+			
+			notifyPlaybackInfo(&para);
+			
+		} break;
+		
+		case EM_BIZ_EVENT_PLAYBACK_DONE: //回放结束
+		{
+			u32 playback_chn = pSBizEventPara->un_part_chn.playback_chn;
+			
+			plock4param->Lock();
+
+			if (!b_playback)
+			{
+				ERR_PRINT("b_playback FALSE\n");
+
+				plock4param->Unlock();
+				return -ESYS_MODE;
+			}
+			
+			if ( (playback_chn_mask & (1<<playback_chn)) == FALSE)
+			{
+				ERR_PRINT("playback_chn(%d) unused\n", playback_chn);
+
+				plock4param->Unlock();
+				return -EPARAM;
+			}
+			
+			playback_chn_mask &= ~(1<<playback_chn);
+			
+			plock4param->Unlock();
+
+			//hisi process
+			hisi_chn_stop(playback_chn);
+			
+			//notify gui
+			SPlaybackNotify_t para;
+			memset(&para, 0, sizeof(SPlaybackNotify_t));
+
+			para.type = EM_BIZ_EVENT_PLAYBACK_DONE;
+			para.playback_chn = playback_chn;
+			
+			notifyPlaybackInfo(&para);			
+
+		} break;
+		
+		case EM_BIZ_EVENT_PLAYBACK_NETWORK_ERR: //回放时发生网络错误
+		{
+			u32 playback_chn = pSBizEventPara->un_part_chn.playback_chn;
+			u32 stream_errno = pSBizEventPara->un_part_data.stream_errno;
+			
+			plock4param->Lock();
+
+			if (!b_playback)
+			{
+				ERR_PRINT("b_playback FALSE\n");
+
+				plock4param->Unlock();
+				return -ESYS_MODE;
+			}
+			
+			if ( (playback_chn_mask & (1<<playback_chn)) == FALSE)
+			{
+				ERR_PRINT("playback_chn(%d) unused\n", playback_chn);
+
+				plock4param->Unlock();
+				return -EPARAM;
+			}
+
+			playback_chn_mask &= ~(1<<playback_chn);
+
+			plock4param->Unlock();
+
+			//hisi process
+			hisi_chn_stop(playback_chn);
+			
+			//notify gui
+			SPlaybackNotify_t para;
+			memset(&para, 0, sizeof(SPlaybackNotify_t));
+
+			para.type = EM_BIZ_EVENT_PLAYBACK_NETWORK_ERR;
+			para.playback_chn = playback_chn;
+			para.stream_errno = stream_errno;
+			
+			notifyPlaybackInfo(&para);
+			
+		} break;	
+
+		default:
+			ERR_PRINT("type: %d not support\n", type);
+			break;
+	}
+	
+	return SUCCESS;
+}
+
+int BizDataCB(SBizDataPara* SBizDataPara)
+{
+	int rtn = 0;
+	vdec_stream_s in_stream;
+	in_stream.rsv = 0;
+	in_stream.pts = SBizDataPara->un_part_data.pframe_hdr->m_dwTimeStamp;
+	in_stream.pts *= 1000;
+	in_stream.data = SBizDataPara->un_part_data.pframe_hdr->m_pData;
+	in_stream.len = SBizDataPara->un_part_data.pframe_hdr->m_dwDataSize;
+
+#if 0	
+	if (pframe_hdr->m_tVideoParam.m_bKeyFrame)
+	{
+		DBG_PRINT("m_dwFrameID: %d\n", pframe_hdr->m_dwFrameID);
+	}
+#endif
+
+	rtn = nvr_preview_vdec_write(0, &in_stream);
+	if (rtn < 0)
+	{
+		DBG_PRINT("nvr_preview_vdec_write failed\n");
+		return FAILURE;
+	}
+
+	return SUCCESS;
+}
+
+
+//处理网络客户机命令(回应客户机命令)
+u16 BizDealClientCmd(
+	CPHandle 	cph,
+	u16 		event,
+	char*		pbyMsgBuf,
+	int 		msgLen,
+	char*		pbyAckBuf,
+	int*		pAckLen )
+{
+	DBG_PRINT("client cmd: %d\n", event);
+
+	if(pAckLen)
+	{
+		*pAckLen = 0;
+	}
+	
+	switch (event)
+	{
+		case CTRL_CMD_GETDEVICEINFO:
+			ifly_DeviceInfo_t dev_info;
+					
+			if (BizConfigGetDevInfo(&dev_info))
+			{
+				ERR_PRINT("BizConfigGetDevInfo failed\n");
+				return CTRL_FAILED_RESOURCE;
+			}
+			else
+			{
+				if(pAckLen)
+				{
+					*pAckLen = sizeof(ifly_DeviceInfo_t);
+				}
+
+				dev_info.devicePort = htons(dev_info.devicePort);
+				memcpy(pbyAckBuf, &dev_info, sizeof(ifly_DeviceInfo_t));
+			}
+			
+			break;
+		default:
+			ERR_PRINT("client cmd: %d nonsupport\n", event);
+			return CTRL_FAILED_COMMAND;
+			
+	}
+	
+	
+	return CTRL_SUCCESS;
+}
+
+//处理网络客户机数据连接
+int BizDealClientDataLink(
+	int sock, 
+	ifly_TCP_Stream_Req *preq_hdr, 
+	struct sockaddr_in *pcli_addr_in)
+{
+	
+	return SUCCESS;
+}
+
+#if 0 //暂时未使用，使用的是BizEventCB
+//处理网络服务器事件通知
+void BizDealSvrNotify(u32 dev_ip, u16 event, s8 *pbyMsgBuf, int msgLen)
+{
+	struct in_addr in;
+	in.s_addr = dev_ip;
+		
+	DBG_PRINT("svr IP: %s, event: %d\n", inet_ntoa(in), event);
+}
+#endif
+
+
+//extern Gui API ************************************************************************
 void term_exit(int signo)
 {
 	time_t cur;
@@ -82,7 +376,7 @@ void term_exit(int signo)
 
 int BizFirstInit(void)
 {
-	biz_inited = 0;
+	b_inited = 0;
 
 	if(signal(SIGPIPE, term_exit) == SIG_ERR)
 	{
@@ -99,6 +393,13 @@ int BizFirstInit(void)
 	
 	g_ThreadManager.RegisterMainThread(ThreadGetID());
 	g_TimerManager.Start();
+
+	if (BizManagerInit())
+	{
+		ERR_PRINT("BizManagerInit failed\n");
+		return -FAILURE;
+	}
+	DBG_PRINT("BizManagerInit success\n");
 	
 	if (BizConfigInit())
 	{
@@ -161,137 +462,152 @@ int BizSecondInit(void)
 	}
 	DBG_PRINT("BizSystemComplexInit success\n");
 
-	biz_inited = 1;
+	b_inited = 1;
 	
 	return SUCCESS;
 }
 
-
-//设置参数
-int BizSetNetParam(SConfigNetParam &snet_param)
+void BizEnterPlayback(void)
 {
-	return BizNetSetNetParam(snet_param);
-}
+	plock4param->Lock();
 
-//查询gui 是否准备好接收通知消息
-VD_BOOL BizGuiIsReady()
-{
-	return notifyIsReady();
-}
-
-
-int BizEventCB(SBizEventPara* pSBizEventPara)
-{
-	EMBIZEVENT emType = pSBizEventPara->emType;
-
-	DBG_PRINT("emType: %d\n", emType);
-
-	switch (emType)
+	if (b_preview)
 	{
-		case EM_BIZ_EVENT_PLAYBACK_START: //回放开始
-		{
-			//hisi process
-			hisi_chn_start(0);
-			
-		} break;
-		
-		case EM_BIZ_EVENT_PLAYBACK_DONE: //回放结束
-		{
-			//hisi process
-			hisi_chn_stop(0);
-
-			//notify gui
-			SPlaybackNotify_t para;
-			para.msg_type = 0;
-			para.dev_ip = pSBizEventPara->playback_para.dev_ip;
-			notifyPlaybackInfo(&para);
-		} break;
-		
-		case EM_BIZ_EVENT_PLAYBACK_NETWORK_ERR: //回放时发生网络错误
-		{
-			//hisi process
-			hisi_chn_stop(0);
-
-			//notify gui
-			SPlaybackNotify_t para;
-			para.msg_type = 1;
-			para.dev_ip = pSBizEventPara->playback_para.dev_ip;
-			notifyPlaybackInfo(&para);
-		} break;	
-
-		default:
-			break;
+		ERR_PRINT("b_preview == TRUE\n");
 	}
+
+	if (b_upgrade)
+	{
+		ERR_PRINT("b_preview == TRUE\n");
+	}
+
+	if (playback_chn_mask)
+	{
+		ERR_PRINT("playback_chn_mask(0x%x) != 0\n", playback_chn_mask);
+	}
+
+	b_playback = TRUE;
+
 	
-	return 0;
+	
+	plock4param->Unlock();
 }
 
-//处理网络客户机命令(回应客户机命令)
-u16 BizDealClientCmd(
-	CPHandle 	cph,
-	u16 		event,
-	char*		pbyMsgBuf,
-	int 		msgLen,
-	char*		pbyAckBuf,
-	int*		pAckLen )
+void BizLeavePlayback(void)
 {
-	DBG_PRINT("client cmd: %d\n", event);
-
-	if(pAckLen)
-	{
-		*pAckLen = 0;
-	}
+	s32 i = 0;
 	
-	switch (event)
+	plock4param->Lock();
+
+	if (playback_chn_mask)
 	{
-		case CTRL_CMD_GETDEVICEINFO:
-			ifly_DeviceInfo_t dev_info;
-					
-			if (BizConfigGetDevInfo(&dev_info))
+		DBG_PRINT("playback_chn_mask(0x%x) != 0\n", playback_chn_mask);
+
+		for (i=0; i<32; ++i)
+		{
+			if (playback_chn_mask & (1<<i))
 			{
-				ERR_PRINT("BizConfigGetDevInfo failed\n");
-				return CTRL_FAILED_RESOURCE;
+				BizPlaybackStop(i);
 			}
-			else
-			{
-				if(pAckLen)
-				{
-					*pAckLen = sizeof(ifly_DeviceInfo_t);
-				}
+		}
 
-				dev_info.devicePort = htons(dev_info.devicePort);
-				memcpy(pbyAckBuf, &dev_info, sizeof(ifly_DeviceInfo_t));
-			}
-			
-			break;
-		default:
-			ERR_PRINT("client cmd: %d nonsupport\n", event);
-			return CTRL_FAILED_COMMAND;
-			
+		playback_chn_mask = 0;
 	}
+
+	b_playback = FALSE;
 	
-	
-	return CTRL_SUCCESS;
+	plock4param->Unlock();
 }
 
-//处理网络客户机数据连接
-int BizDealClientDataLink(
-	int sock, 
-	ifly_TCP_Stream_Req *preq_hdr, 
-	struct sockaddr_in *pcli_addr_in)
+//playback_chn 上层传递
+int BizPlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfile_info)
 {
+	int ret = SUCCESS;
+
+	plock4param->Lock();
+
+	if (!b_playback)
+	{
+		ERR_PRINT("b_playback FALSE\n");
+
+		plock4param->Unlock();
+
+		return -FAILURE;
+	}
+
+	if (playback_chn_mask & (1<<playback_chn))//已经启动，先关闭
+	{
+		ret = BizModulePlaybackStop(playback_chn);
+		if (ret)
+		{
+			ERR_PRINT("BizModulePlaybackStop failed, playback_chn: %d, ret: %d\n",
+				playback_chn, ret);
+
+			plock4param->Unlock();
+
+			return ret;
+		}
+		
+		playback_chn_mask &= ~(1<<playback_chn);
+	}
+	
+	ret = BizModulePlaybackStartByFile(playback_chn, dev_ip, pfile_info);
+	if (ret)
+	{
+		ERR_PRINT("BizModulePlaybackStartByFile failed, playback_chn: %d, ret: %d\n",
+			playback_chn, ret);
+
+		plock4param->Unlock();
+
+		return ret;
+	}
+	
+	playback_chn_mask |= 1<<playback_chn;
+
+	plock4param->Unlock();
 	
 	return SUCCESS;
 }
 
-//处理网络服务器事件通知
-void BizDealSvrNotify(u32 dev_ip, u16 event, s8 *pbyMsgBuf, int msgLen)
+int BizPlaybackStartByTime(u32 playback_chn, u32 _dev_ip, u8 chn, u32 start_time, u32 end_time)
 {
-	struct in_addr in;
-	in.s_addr = dev_ip;
-		
-	DBG_PRINT("svr IP: %s, event: %d\n", inet_ntoa(in), event);
+	//BizModulePlaybackStartByTime
+	return SUCCESS;
 }
+
+//是否已经处于进行中
+VD_BOOL BizPlaybackIsStarted(u32 playback_chn)
+{
+	return BizModulePlaybackIsStarted(playback_chn);
+}
+
+int BizPlaybackStop(u32 playback_chn)
+{
+	int ret = SUCCESS;
+	
+	plock4param->Lock();
+
+	if (playback_chn_mask & (1<<playback_chn))
+	{
+		ret = BizModulePlaybackStop(playback_chn);
+		if (ret)
+		{
+			ERR_PRINT("BizModulePlaybackStop(%d) failed, ret: %d\n",
+				playback_chn, ret);
+		}
+		else
+		{
+			playback_chn_mask &= ~(1<<playback_chn);
+		}
+	}
+	
+	plock4param->Unlock();
+
+	return ret;
+}
+
+
+//播放控制
 
 
 

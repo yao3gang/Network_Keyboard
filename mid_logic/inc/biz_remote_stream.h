@@ -6,15 +6,7 @@
 #include <arpa/inet.h>
 
 
-#include "string.h"
-
-#include "types.h"
-#include "ctrlprotocol.h"
-#include "biz_device.h"
-#include "biz_msg_type.h"
-
-
-#define MAX_FRAME_SIZE (1 << 20) // 1MB
+#include <string.h>
 
 //流状态
 typedef enum
@@ -24,6 +16,17 @@ typedef enum
 	EM_STREAM_STATUS_WAIT_DEL,		//等待删除，stream_errno 指示是否出错
 	EM_STREAM_STATUS_STOP,			//停止，本模块内流无此状态
 } EM_STREAM_STATUS_TYPE;
+
+
+#include "types.h"
+#include "ctrlprotocol.h"
+#include "biz_device.h"
+#include "biz_msg_type.h"
+
+
+#define MAX_FRAME_SIZE (1 << 20) // 1MB
+
+
 
 
 //帧接收头

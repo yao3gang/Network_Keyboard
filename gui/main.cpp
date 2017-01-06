@@ -10,7 +10,7 @@
 
 //local header
 #include "bond.h"
-#include "biz.h"
+#include "biz_4_gui.h"
 #include "hisi_sys.h"
 #include "types.h"
 

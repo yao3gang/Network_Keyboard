@@ -310,15 +310,18 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 				frame_hdr.m_dwTimeStamp = hdr.m_dwTimeStamp;
 				frame_hdr.m_pData = (u8 *)pframe_data;
 #if 1
-				if (hdr.m_bKeyFrame)
+				if ((MEDIA_TYPE_H264 == frame_hdr.m_byMediaType)&& hdr.m_bKeyFrame)
 				{
 					DBG_PRINT("dev IP: %s, stream_id: %d, req_cmd: %d, recv one frame, m_byMediaType: %d, m_bKeyFrame: %d, m_dwFrameID: %d, m_dwDataSize: %d\n", 
 						inet_ntoa(in), _stream_id, req_cmd, hdr.m_byMediaType, hdr.m_bKeyFrame, hdr.m_dwFrameID, hdr.m_dwDataSize);
 				}
 #endif				
 				//帧回调
-				if (obj && deal_frame_cb)
+				if ((MEDIA_TYPE_H264 == frame_hdr.m_byMediaType) 
+						&& obj && deal_frame_cb)
+				{
 					(obj->*deal_frame_cb)(_stream_id, &frame_hdr);
+				}
 				
 			}
 			else if (req_cmd == 3)	//文件下载

@@ -2130,6 +2130,7 @@ void CBizDeviceManager::threadRcv(uint param)
 				}
 				else if (cprcvhead.type == CTRL_NOTIFY)//服务器通知消息(报警、处理进度等)
 				{
+					DBG_PRINT("recv notify, event: %d\n", cprcvhead.event);
 					//from fd >>> dev index >>> IP
 					plock_map_fd_idx->Lock();
 						
@@ -2194,6 +2195,8 @@ void CBizDeviceManager::dealDevNotify(s32 dev_idx, u16 event, s8 *pbyMsgBuf, int
 	
 	struct in_addr in;
 	in.s_addr = dev_ip;
+
+	DBG_PRINT("recv notify, event: %d, svr IP: %s\n", event, inet_ntoa(in));
 	
 	switch (event)
 	{
@@ -2206,19 +2209,104 @@ void CBizDeviceManager::dealDevNotify(s32 dev_idx, u16 event, s8 *pbyMsgBuf, int
 			progress.currPos = ntohl(progress.currPos);		//当前进度
 			progress.totallen = ntohl(progress.totallen);	//总时间
 
-			DBG_PRINT("totallen: %d, currPos: %d\n", progress.totallen, progress.currPos);
-			//send msg to stream manager
+			DBG_PRINT("link_id: %d, totallen: %d, currPos: %d\n", 
+				progress.id, progress.totallen, progress.currPos);
 			
+			//send msg to stream manager
+			u32 link_id = progress.id;
+			u32 stream_id = INVALID_VALUE;
+			MAP_LID_PSTREAM::iterator map_iter;
+			SDevStream_t* pstream = NULL;
+			
+			pcdev->plock4stream->Lock();
+	
+			map_iter = pcdev->map_lid_pstream.find(link_id);
+			if (map_iter == pcdev->map_lid_pstream.end())
+			{
+				ERR_PRINT("svr IP: %s, link_id(%u), map_lid_pstream not find\n", 
+					inet_ntoa(in), link_id);//可能发生，StreamStart 中map_lid_pstream.insert 或之前失败
+				
+				pcdev->plock4stream->Unlock();
+				return ;
+			}
+			pstream = map_iter->second;
+			
+			if (NULL == pstream)
+			{
+				ERR_PRINT("svr IP: %s, link_id(%u), NULL == pstream\n", 
+					inet_ntoa(in), link_id);
+				
+				pcdev->plock4stream->Unlock();
+				return ;
+			}
+
+			stream_id = pstream->stream_id;
+			pcdev->plock4stream->Unlock();
+			
+			
+			SBizMsg_t msg;
+			memset(&msg, 0, sizeof(SBizMsg_t));
+			msg.msg_type = EM_STREAM_MSG_PROGRESS;
+			msg.un_part_chn.stream_id = stream_id;
+			msg.un_part_data.stream_progress.cur_pos = progress.currPos;
+			msg.un_part_data.stream_progress.total_size = progress.totallen;
+
+			int ret = BizSendMsg2StreamManager(&msg, sizeof(SBizMsg_t));
+			if (ret)
+			{
+				ERR_PRINT("svr IP: %s, link_id(%u), msg_type: %d, BizSendMsg2StreamManager failed, ret: %d\n",
+					inet_ntoa(in), link_id, msg.msg_type, ret);
+		 	}
 			
 		} break;
 
 		case CTRL_NOTIFY_PLAYEND: //放像结束
 		{
-			u32 linkid = 0;
-			memcpy(&linkid, pbyMsgBuf, sizeof(linkid));
+			u32 link_id = 0;
+			memcpy(&link_id, pbyMsgBuf, sizeof(link_id));
 
 			//send msg to stream manager
+			u32 stream_id = INVALID_VALUE;
+			MAP_LID_PSTREAM::iterator map_iter;
+			SDevStream_t* pstream = NULL;
 			
+			pcdev->plock4stream->Lock();
+	
+			map_iter = pcdev->map_lid_pstream.find(link_id);
+			if (map_iter == pcdev->map_lid_pstream.end())
+			{
+				ERR_PRINT("svr IP: %s, link_id(%u), map_lid_pstream not find\n", 
+					inet_ntoa(in), link_id);//可能发生，StreamStart 中map_lid_pstream.insert 或之前失败
+				
+				pcdev->plock4stream->Unlock();
+				return ;
+			}
+			pstream = map_iter->second;
+			
+			if (NULL == pstream)
+			{
+				ERR_PRINT("svr IP: %s, link_id(%u), NULL == pstream\n", 
+					inet_ntoa(in), link_id);
+				
+				pcdev->plock4stream->Unlock();
+				return ;
+			}
+
+			stream_id = pstream->stream_id;
+			pcdev->plock4stream->Unlock();
+			
+			
+			SBizMsg_t msg;
+			memset(&msg, 0, sizeof(SBizMsg_t));
+			msg.msg_type = EM_STREAM_MSG_FINISH;
+			msg.un_part_chn.stream_id = stream_id;
+
+			int ret = BizSendMsg2StreamManager(&msg, sizeof(SBizMsg_t));
+			if (ret)
+			{
+				ERR_PRINT("svr IP: %s, link_id(%u), msg_type: %d, BizSendMsg2StreamManager failed, ret: %d\n",
+					inet_ntoa(in), link_id, msg.msg_type, ret);
+		 	}
 		} break;
 
 		case CTRL_NOTIFY_ALARMINFO: //异步报警信息

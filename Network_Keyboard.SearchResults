@@ -1,2 +1,7 @@
----- EM_STREAM_MSG_DEL_SUCCESS Matches (1 in 1 files) ----
-biz_msg_type.h (mid_logic\inc):	EM_STREAM_MSG_DEL_SUCCESS,		//删除流成功
+---- EM_STREAM_STATUS_TYPE Matches (6 in 5 files) ----
+biz_device.cpp (mid_logic\src):	EM_STREAM_STATUS_TYPE status;
+biz_device.cpp (mid_logic\src):	EM_STREAM_STATUS_TYPE status;
+biz_device.h (mid_logic\inc):	EM_STREAM_STATUS_TYPE status;
+biz_playback.cpp (mid_logic\src):	EM_STREAM_STATUS_TYPE status;	//流状态
+biz_remote_stream.cpp (mid_logic\src):	EM_STREAM_STATUS_TYPE status;//流状态
+biz_remote_stream.h (mid_logic\inc):} EM_STREAM_STATUS_TYPE;

@@ -2,6 +2,30 @@
 #define __BIZ_TYPES_H__
 
 #include "types.h"
+#include "biz_remote_stream.h"
+
+
+//图像编码类型
+#define  MEDIA_TYPE_H264		(BYTE)98//H.264//可能是109?
+#define  MEDIA_TYPE_MP4			(BYTE)97//MPEG-4
+#define  MEDIA_TYPE_H261		(BYTE)31//H.261
+#define  MEDIA_TYPE_H263		(BYTE)34//H.263
+#define  MEDIA_TYPE_MJPEG		(BYTE)26//Motion JPEG
+#define  MEDIA_TYPE_MP2			(BYTE)33//MPEG2 video
+
+//语音编码类型
+#define	 MEDIA_TYPE_MP3			(BYTE)96//mp3
+#define  MEDIA_TYPE_PCMU		(BYTE)0//G.711 ulaw
+#define  MEDIA_TYPE_PCMA		(BYTE)8//G.711 Alaw
+#define	 MEDIA_TYPE_G7231		(BYTE)4//G.7231
+#define	 MEDIA_TYPE_G722		(BYTE)9//G.722
+#define	 MEDIA_TYPE_G728		(BYTE)15//G.728
+#define	 MEDIA_TYPE_G729		(BYTE)18//G.729
+#define	 MEDIA_TYPE_RAWAUDIO	(BYTE)19//raw audio
+#define  MEDIA_TYPE_ADPCM		(BYTE)20//adpcm
+#define  MEDIA_TYPE_ADPCM_HISI	(BYTE)21//adpcm-hisi
+// #endif//MEDIA_TYPE
+
 
 //业务层消息类型
 typedef enum
@@ -108,23 +132,65 @@ typedef enum
 	
 }EMBIZEVENT;
 
-//param used by FPBIZEVENTCB
+//param used by BizEventCB
 typedef struct
 {
-	EMBIZEVENT emType;
+	EMBIZEVENT type;
+	
 	union
 	{
+		u32 stream_id;//关键，系统唯一
+		u32 playback_chn;
+		u32 preview_chn;
+	} un_part_chn;
+	
+	union 
+	{
+		s32 stream_errno; //GLB_ERROR_NUM
+
+		//回放、文件下载进度
 		struct
 		{
-			u32 dev_ip;
-		} playback_para;
+			u32 cur_pos;
+			u32 total_size;
+		} stream_progress;
 		
-	};   
+	} un_part_data;   
 } SBizEventPara;
 
 //param used by  SBizInitPara.pfnBizEventCb
 //typedef void (* FNBIZEVENTCB)(SBizEventPara* sBizEventPara); //业务层事件回调函数
 typedef int (* FNBIZEVENTCB)(SBizEventPara* sBizEventPara); //业务层事件回调函数
+
+
+//param used by BizDataCB
+typedef enum
+{
+    EM_BIZ_DATA_UNKNOW = -1,
+		
+    EM_BIZ_DATA_PREVIEW = 10,	//预览数据
+    EM_BIZ_DATA_PLAYBACK,  		//回放数据
+    EM_BIZ_DATA_UPGRADE,		//远程升级数据
+    
+} EMBIZDATA;
+
+typedef struct
+{
+	EMBIZDATA type;
+	
+	union
+	{
+		u32 stream_id;//关键，系统唯一
+		u32 playback_chn;
+		u32 preview_chn;
+	} un_part_chn;
+	
+	union
+	{
+		FRAMEHDR *pframe_hdr;
+		
+	} un_part_data;   
+} SBizDataPara;
 
 
 #endif

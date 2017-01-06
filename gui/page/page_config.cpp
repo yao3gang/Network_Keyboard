@@ -20,8 +20,9 @@
 #include "frmmessagebox.h"
 
 #include "bond.h"
-#include "biz.h"
+#include "biz_4_gui.h"
 #include "biz_config.h"
+#include "biz_net.h"
 #include "biz_system_complex.h"
 
 page_config::page_config(QWidget *parent) :
@@ -589,7 +590,7 @@ void page_config::on_btn_net_apply_clicked()
     }
     snet_param.ndns2 = in.s_addr;
 
-    if (BizSetNetParam(snet_param))
+    if (BizNetSetNetParam(snet_param))
     {
         ShowMessageBoxError(QString::fromUtf8("参数设置失败！"));
         return;

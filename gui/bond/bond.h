@@ -1,7 +1,9 @@
 #ifndef __BOND_H__
 #define __BOND_H__
 
-#include "biz.h"
+#include "types.h"
+#include "biz_4_gui.h"
+#include "biz_types.h"
 #include "biz_config.h"
 #include "biz_system_complex.h"
 
@@ -9,8 +11,17 @@
 
 typedef struct
 {
-    int msg_type;//0 正常结束 1 接收出错
-    u32 dev_ip;
+    EMBIZEVENT type;
+    u32 playback_chn;
+    s32 stream_errno; //GLB_ERROR_NUM
+
+    //回放、文件下载进度
+    struct
+    {
+        u32 cur_pos;
+        u32 total_size;
+    } stream_progress;
+
 } SPlaybackNotify_t;
 
 

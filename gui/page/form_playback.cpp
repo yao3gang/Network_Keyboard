@@ -1023,6 +1023,15 @@ void form_playback::mousePressEvent(QMouseEvent *event)
     }
 }
 
+void form_playback::showEvent ( QShowEvent * event )
+{
+    BizEnterPlayback();
+}
+
+void form_playback::hideEvent ( QHideEvent * event )
+{
+    BizLeavePlayback();
+}
 
 
 

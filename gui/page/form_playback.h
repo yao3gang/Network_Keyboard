@@ -24,6 +24,8 @@ public:
 
 protected:
     void mousePressEvent(QMouseEvent *);
+    void showEvent ( QShowEvent * event );
+    void hideEvent ( QHideEvent * event );
 
 private:
     void init_style();

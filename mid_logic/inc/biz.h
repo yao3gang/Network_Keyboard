@@ -17,19 +17,15 @@
 extern "C" {
 #endif
 
-int BizFirstInit(void);
-int BizSecondInit(void);
-
-
 int BizSendMsg2BizManager(SBizMsg_t *pmsg, u32 msg_len);
 
-//设置参数
-int BizSetNetParam(SConfigNetParam &snet_param);
 
 //查询gui 是否准备好接收通知消息
 VD_BOOL BizGuiIsReady();
 
 int BizEventCB(SBizEventPara* pSBizEventPara);
+int BizDataCB(SBizDataPara* SBizDataPara);
+
 
 //处理网络客户机命令(回应客户机命令)
 u16 BizDealClientCmd(
@@ -46,9 +42,10 @@ int BizDealClientDataLink(
 	ifly_TCP_Stream_Req *preq_hdr, 
 	struct sockaddr_in *pcli_addr_in);
 
+#if 0 // 暂时未用
 //处理网络服务器事件通知
 void BizDealSvrNotify(u32 dev_ip, u16 event, s8 *pbyMsgBuf, int msgLen);
-
+#endif
 
 
 #ifdef __cplusplus

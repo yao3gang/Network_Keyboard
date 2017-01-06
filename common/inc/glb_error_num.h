@@ -21,6 +21,8 @@ enum GLB_ERROR_NUM
 	EDEV_NOTFOUND,	/* 设备未找到 */
 	EDEV_OFFLINE,	/* 设备离线 */
 	EDEVS_LIMIT, /* 设备数目到达上限 */
+
+	ESYS_MODE,
 };
 
 

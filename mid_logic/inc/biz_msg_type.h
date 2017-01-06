@@ -1,6 +1,7 @@
 #ifndef __BIZ_MSG_TYPE_H__
 #define __BIZ_MSG_TYPE_H__
 
+
 typedef enum
 {
 	
@@ -45,19 +46,19 @@ typedef struct
 {
 	s32 msg_type;
 
-	union UN_PART_CHN_T
+	union
 	{
 		u32 stream_id;//关键，系统唯一
 		u32 playback_chn;
 		u32 preview_chn;
 	} un_part_chn;
 		
-	union UN_PART_DATA_T
+	union
 	{
 	//流相关数据结构
 		
 		//流错误码
-		s32 stream_errno;// EM_STREAM_MSG_STOP
+		s32 stream_errno;// GLB_ERROR_NUM
 		
 		//回放、文件下载进度
 		struct
@@ -68,8 +69,6 @@ typedef struct
 		
 	} un_part_data;
 }SBizMsg_t;	
-
-
 
 #endif
 

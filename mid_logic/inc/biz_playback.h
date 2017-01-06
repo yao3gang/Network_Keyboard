@@ -35,7 +35,7 @@ int BizPlaybackInit(void);
 int BizSendMsg2PlaybackManager(SBizMsg_t *pmsg, u32 msg_len);
 
 
-//启动时获取一个playback_id，后面操作都通过此ID
+//playback_chn 上层传递
 int BizModulePlaybackStartByFile(u32 playback_chn, u32 _dev_ip, ifly_recfileinfo_t *pfile_info);
 int BizModulePlaybackStartByTime(u32 playback_chn, u32 _dev_ip, u8 chn, u32 start_time, u32 end_time);
 
