@@ -1,7 +1,8 @@
----- EM_STREAM_STATUS_TYPE Matches (6 in 5 files) ----
-biz_device.cpp (mid_logic\src):	EM_STREAM_STATUS_TYPE status;
-biz_device.cpp (mid_logic\src):	EM_STREAM_STATUS_TYPE status;
-biz_device.h (mid_logic\inc):	EM_STREAM_STATUS_TYPE status;
-biz_playback.cpp (mid_logic\src):	EM_STREAM_STATUS_TYPE status;	//流状态
-biz_remote_stream.cpp (mid_logic\src):	EM_STREAM_STATUS_TYPE status;//流状态
-biz_remote_stream.h (mid_logic\inc):} EM_STREAM_STATUS_TYPE;
+---- sync_sem Matches (7 in 1 files) ----
+biz_device.cpp (mid_logic\src):	CSemaphore sync_sem; //socket 发送方同步等待接收服务器回应
+biz_device.cpp (mid_logic\src):, sync_sem(0)
+biz_device.cpp (mid_logic\src):	sync_sem.TryPend();//防止上一条消息的应答
+biz_device.cpp (mid_logic\src):	ret = sync_sem.TimedPend(DIALOGUE_TIMEOUT);
+biz_device.cpp (mid_logic\src):									sync_sem.Post();
+biz_device.cpp (mid_logic\src):								sync_sem.Post();
+biz_device.cpp (mid_logic\src):						sync_sem.Post();

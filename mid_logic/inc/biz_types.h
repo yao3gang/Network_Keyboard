@@ -2,7 +2,6 @@
 #define __BIZ_TYPES_H__
 
 #include "types.h"
-#include "biz_remote_stream.h"
 
 
 //图像编码类型
@@ -132,6 +131,31 @@ typedef enum
 	
 }EMBIZEVENT;
 
+//帧接收头
+typedef struct
+{
+    u8     m_byMediaType; //媒体类型
+    u8    *m_pData;       //数据缓冲
+	u32    m_dwPreBufSize;//m_pData缓冲前预留了多少空间，用于加
+	// RTP option的时候偏移指针一般为12+4+12
+	// (FIXED HEADER + Extence option + Extence bit)
+    u32    m_dwDataSize;  //m_pData指向的实际缓冲大小
+    u8     m_byFrameRate; //发送帧率,用于接收端
+	u32    m_dwFrameID;   //帧标识，用于接收端
+	u32    m_dwTimeStamp; //时间戳, 用于接收端
+    union
+    {
+        struct{
+			u32		m_bKeyFrame;    //频帧类型(I or P)
+			u16		m_wVideoWidth;  //视频帧宽
+			u16		m_wVideoHeight; //视频帧宽
+			u32		m_wBitRate;
+		}m_tVideoParam;
+        u8    m_byAudioMode;//音频模式
+    };
+}FRAMEHDR,*PFRAMEHDR;
+
+
 //param used by BizEventCB
 typedef struct
 {
@@ -173,6 +197,7 @@ typedef enum
     EM_BIZ_DATA_UPGRADE,		//远程升级数据
     
 } EMBIZDATA;
+
 
 typedef struct
 {

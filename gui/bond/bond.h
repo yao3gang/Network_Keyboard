@@ -3,8 +3,13 @@
 
 #include "types.h"
 #include "biz_4_gui.h"
+#include "biz.h"
+#include "biz_net.h"
+#include "biz_msg_type.h"
 #include "biz_types.h"
 #include "biz_config.h"
+#include "biz_remote_stream.h"
+#include "biz_device.h"
 #include "biz_system_complex.h"
 
 #include "gui_dev.h"

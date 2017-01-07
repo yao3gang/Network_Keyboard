@@ -2,14 +2,7 @@
 #include "singleton.h"
 #include "object.h"
 #include "glb_error_num.h"
-#include "biz.h"
-#include "biz_types.h"
-#include "biz_config.h"
-#include "biz_net.h"
-#include "biz_device.h"
-#include "biz_playback.h"
-#include "biz_msg_type.h"
-#include "biz_remote_stream.h"
+
 
 #include "hisi_sys.h"
 #include "atomic.h"
@@ -22,6 +15,17 @@
 #include "ctimer.h"
 #include "ctrlprotocol.h"
 #include "net.h"
+
+#include "biz.h"
+#include "biz_net.h"
+#include "biz_msg_type.h"
+#include "biz_types.h"
+#include "biz_config.h"
+#include "biz_remote_stream.h"
+#include "biz_device.h"
+
+
+#include "biz_playback.h"
 
 
 #include <stdio.h>
@@ -99,7 +103,7 @@ CBizPlayback::CBizPlayback()
 , playback_type(EM_PLAYBACK_NONOE)
 , playback_chn(INVALID_VALUE)	//回放通道
 , stream_id(INVALID_VALUE)	//关键，系统唯一
-, status(EM_STREAM_STATUS_DISCONNECT) //流状态
+, status(EM_STREAM_STATUS_INIT) //流状态
 , stream_errno(SUCCESS) 	//错误码
 , rate(1)					//正常播放
 , cur_pos(INVALID_VALUE)	//当前播放时间
@@ -418,6 +422,10 @@ int CBizPlaybackManager::dealStreamMsgConnectSuccess(u32 stream_id)
 	plock4param->Unlock();//非删除操作可以先释放该锁
 
 	//内部
+	if (EM_STREAM_STATUS_DISCONNECT != pcplayback->status)
+	{
+		ERR_PRINT("EM_STREAM_STATUS_DISCONNECT != pcplayback->status(%d)\n", pcplayback->status);
+	}
 	pcplayback->status = EM_STREAM_STATUS_RUNNING;
 	pcplayback->stream_errno = SUCCESS;
 	pcplayback->rate = 1;
@@ -492,12 +500,19 @@ int CBizPlaybackManager::dealStreamMsgConnectFail(u32 stream_id, s32 stream_errn
 
 	pcplayback->plock4param->Lock();
 
+	if (EM_STREAM_STATUS_INIT != pcplayback->status)
+	{
+		ERR_PRINT("EM_STREAM_STATUS_INIT != pcplayback->status(%d)\n", pcplayback->status);
+	}
+
+	pcplayback->status = EM_STREAM_STATUS_INIT;
+	
 	playback_chn = pcplayback->playback_chn;
 
 	pcplayback->plock4param->Unlock();
 
 	//删除
-	map_pcplayback.erase(map_ppb_iter);
+	map_pcplayback.erase(stream_id);
 	map_pbchn_sid.erase(playback_chn);
 
 	delete pcplayback;
@@ -576,7 +591,7 @@ int CBizPlaybackManager::dealStreamMsgStop(u32 stream_id, s32 stream_errno)
 	pcplayback->plock4param->Unlock();
 
 	//删除
-	map_pcplayback.erase(map_ppb_iter);
+	map_pcplayback.erase(stream_id);
 	map_pbchn_sid.erase(playback_chn);
 
 	delete pcplayback;
@@ -693,8 +708,8 @@ int CBizPlaybackManager::dealStreamMsgProgess(u32 stream_id,u32 cur_pos, u32 tot
 	para.un_part_data.stream_progress.cur_pos = cur_pos;
 	para.un_part_data.stream_progress.total_size = total_size;
 
-	DBG_PRINT("BizEventCB, playback_chn: %d, msg_type: %d, cur_pos: %d, total_size: %d\n",
-			playback_chn, para.type, cur_pos, total_size);
+	//DBG_PRINT("BizEventCB, playback_chn: %d, msg_type: %d, cur_pos: %d, total_size: %d\n",
+	//		playback_chn, para.type, cur_pos, total_size);
 
 	ret = BizEventCB(&para);
 	if (ret)
@@ -913,7 +928,7 @@ int CBizPlaybackManager::dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr)
 		return -EPARAM;
 	}
 
-	int ret = SUCCESS;
+	//int ret = SUCCESS;
 	u32 playback_chn = INVALID_VALUE;
 	CBizPlayback *pcplayback = NULL;
 	MAP_ID_PCPLAYBACK::iterator map_ppb_iter;
@@ -925,9 +940,10 @@ int CBizPlaybackManager::dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr)
 	map_ppb_iter = map_pcplayback.find(stream_id);
 	if (map_ppb_iter == map_pcplayback.end())
 	{
-		ERR_PRINT("MAP_PBChn_SID find success, but MAP_ID_PCPLAYBACK find failed, stream_id: %d\n", stream_id);
+		ERR_PRINT("MAP_ID_PCPLAYBACK find failed, stream_id: %d\n", stream_id);
 
-		ret = -EPARAM;
+		plock4param->Unlock();
+		return -EPARAM;
 	}
 	
 	pcplayback = map_ppb_iter->second;
@@ -955,10 +971,6 @@ int CBizPlaybackManager::dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr)
 
 	return BizDataCB(&para);
 	
-	
-	
-	
-	return SUCCESS;
 }
 
 //WriteMsg
@@ -1043,6 +1055,7 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 		goto fail;
 	}	
 
+	plock4param->Lock();
 	//成功返回并不表示连接成功，只是写入了消息列表，之后在消息线程连接
 	//连接成功后会有消息上传，那时接收进度信息
 	ret = BizStreamReqPlaybackByFile (
@@ -1058,17 +1071,15 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 	{
 		ERR_PRINT("dev_ip: %s, playback_chn: %d, BizStreamReqPlaybackByFile failed, ret: %d\n", inet_ntoa(in), playback_chn, ret);
 		
-		goto fail;
+		goto fail2;
 	}
-	
-	plock4param->Lock();
 	
 	if (!map_pbchn_sid.insert(std::make_pair(playback_chn, stream_id)).second)
 	{
 		ERR_PRINT("dev_ip: %s, playback_chn: %d, MAP_PBChn_SID insert failed\n", inet_ntoa(in), playback_chn);
 
 		ret = -FAILURE;
-		goto fail2;
+		goto fail3;
 	}
 
 	if (!map_pcplayback.insert(std::make_pair(stream_id, pcplayback)).second)
@@ -1077,7 +1088,7 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 
 		
 		ret = -FAILURE;
-		goto fail3;
+		goto fail4;
 	}
 	
 	pcplayback->plock4param->Lock();
@@ -1086,6 +1097,11 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 	pcplayback->file_info = *pfile_info;
 	pcplayback->playback_chn = playback_chn;
 	pcplayback->stream_id = stream_id;
+
+	if (EM_STREAM_STATUS_INIT != pcplayback->status)
+	{
+		ERR_PRINT("EM_STREAM_STATUS_INIT != pcplayback->status(%d)\n", pcplayback->status);
+	}
 	pcplayback->status = EM_STREAM_STATUS_DISCONNECT;
 	pcplayback->stream_errno = SUCCESS;	
 
@@ -1095,15 +1111,17 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 	
 	return SUCCESS;
 
-fail3:
+fail4:
 
 	map_pbchn_sid.erase(playback_chn);
+	
+fail3:
+	
+	BizStreamReqStop(stream_id);
 	
 fail2:
 	
 	plock4param->Unlock();
-	
-	BizStreamReqStop(stream_id);
 	
 fail:
 	if (pcplayback)
@@ -1312,13 +1330,15 @@ int CBizPlaybackManager::PlaybackStop(u32 playback_chn)
 	}
 
 	//移除
-	map_pcplayback.erase(map_ppb_iter);
-	map_pbchn_sid.erase(map_id_iter);
+	map_pcplayback.erase(stream_id);
+	map_pbchn_sid.erase(playback_chn);
 	
 	delete pcplayback;
 	pcplayback = NULL;
 
 	plock4param->Unlock();
+
+	DBG_PRINT("playback_chn: %u, stream_id: %u\n", playback_chn, stream_id);
 
 	ret = BizStreamReqStop(stream_id);
 	if (ret)

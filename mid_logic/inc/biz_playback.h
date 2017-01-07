@@ -3,6 +3,7 @@
 
 #include "types.h"
 #include "ctrlprotocol.h"
+#include "biz_msg_type.h"
 
 typedef enum
 {

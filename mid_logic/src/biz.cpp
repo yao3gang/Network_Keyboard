@@ -440,14 +440,14 @@ int BizSecondInit(void)
 		return -FAILURE;
 	}
 	DBG_PRINT("BizStreamInit success\n");
-	
+#if 0	
 	if (BizPreviewInit())
 	{
 		ERR_PRINT("BizPreviewInit failed\n");
 		return -FAILURE;
 	}
 	DBG_PRINT("BizPreviewInit success\n");
-
+#endif
 	if (BizPlaybackInit())
 	{
 		ERR_PRINT("BizPlaybackInit failed\n");
@@ -469,6 +469,8 @@ int BizSecondInit(void)
 
 void BizEnterPlayback(void)
 {
+	DBG_PRINT("\n");
+	
 	plock4param->Lock();
 
 	if (b_preview)
@@ -486,9 +488,7 @@ void BizEnterPlayback(void)
 		ERR_PRINT("playback_chn_mask(0x%x) != 0\n", playback_chn_mask);
 	}
 
-	b_playback = TRUE;
-
-	
+	b_playback = TRUE;	
 	
 	plock4param->Unlock();
 }
@@ -496,6 +496,8 @@ void BizEnterPlayback(void)
 void BizLeavePlayback(void)
 {
 	s32 i = 0;
+
+	DBG_PRINT("\n");
 	
 	plock4param->Lock();
 
@@ -584,6 +586,9 @@ VD_BOOL BizPlaybackIsStarted(u32 playback_chn)
 int BizPlaybackStop(u32 playback_chn)
 {
 	int ret = SUCCESS;
+
+	//hisi process
+	hisi_chn_stop(playback_chn);
 	
 	plock4param->Lock();
 

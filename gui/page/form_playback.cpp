@@ -12,7 +12,7 @@
 #include "page_dev_mgt.h"
 
 #include "biz_system_complex.h"
-#include "biz_playback.h"
+#include "biz_4_gui.h"
 
 #define MAX_FILE_NUMS (10)
 #define MB (1024*1024)
@@ -379,6 +379,12 @@ void form_playback::tableWidgetDoubleClicked(QTableWidgetItem * item)
         return ;
     }
 
+    if (INADDR_NONE == search_nvr_ip)
+    {
+        ERR_PRINT("INADDR_NONE == search_nvr_ip\n");
+        return ;
+    }
+
     QTableWidget *ptable_widget = NULL;
     ptable_widget = item->tableWidget();
     if (NULL == ptable_widget)
@@ -411,11 +417,14 @@ void form_playback::tableWidgetDoubleClicked(QTableWidgetItem * item)
 
     DBG_PRINT("file name: %s\n", search_result.pfile_info[file_idx].filename);
     int ret = SUCCESS;
-    ret = BizPlaybackStartByFile(search_nvr_ip, &search_result.pfile_info[file_idx]);
+    ret = BizPlaybackStartByFile(0, search_nvr_ip, &search_result.pfile_info[file_idx]);
     if (ret)
     {
         ERR_PRINT("BizPlaybackStartByFile failed, ret: %d\n", ret);
     }
+
+    play_nvr_ip = search_nvr_ip;
+    play_nvr_chn = search_nvr_chn;
 }
 
 void form_playback::showTableWidget(bool b)
@@ -535,26 +544,49 @@ void form_playback::refreshDevInfo(SGuiDev dev)
 
 void form_playback::slotNotifyPlaybackInfo(SPlaybackNotify_t playback_msg)
 {
-    //0 正常结束 1 接收错误
-    if (0 == playback_msg.msg_type)
-    {
-        ShowMessageBoxInfo(QString::fromUtf8("播放结束"));
-    }
-    else if (1 == playback_msg.msg_type)
-    {
-        struct in_addr in;
-        in.s_addr = playback_msg.dev_ip;
-        QString dev_ip = QString::fromUtf8(inet_ntoa(in));
+    EMBIZEVENT type = playback_msg.type;
 
-        if (!dev_ip.isEmpty())
+    DBG_PRINT("type: %d\n", type);
+
+    switch (type)
+    {
+        case EM_BIZ_EVENT_PLAYBACK_INIT:
         {
-            ShowMessageBoxError(QString::fromUtf8("与设备%1通信故障，请检查网络").arg(dev_ip));
-        }
-        else
+
+        } break;
+
+        case EM_BIZ_EVENT_PLAYBACK_START:
         {
-            ERR_PRINT("dev_ip invalid\n");
-        }
+
+        } break;
+
+        case EM_BIZ_EVENT_PLAYBACK_RUN:
+        {
+            u32 cur_pos = playback_msg.stream_progress.cur_pos;
+            u32 total_size = playback_msg.stream_progress.total_size;
+
+            DBG_PRINT("cur_pos: %u, total_size: %u\n", cur_pos, total_size);
+        } break;
+
+        case EM_BIZ_EVENT_PLAYBACK_DONE:
+        {
+            DBG_PRINT("playback done\n");
+        } break;
+
+        case EM_BIZ_EVENT_PLAYBACK_NETWORK_ERR:
+        {
+            u32 playback_chn = playback_msg.playback_chn;
+            s32 stream_errno = playback_msg.stream_errno;
+
+            DBG_PRINT("stream_errno: %d\n", stream_errno);
+        } break;
+
+        default:
+            ERR_PRINT("type: %d, not support\n", type);
     }
+
+    //ShowMessageBoxInfo(QString::fromUtf8("播放结束"));
+    //ShowMessageBoxError(QString::fromUtf8("与设备%1通信故障，请检查网络").arg(dev_ip));
 }
 
 
@@ -1000,7 +1032,7 @@ void form_playback::on_btn_stop_clicked()
 {
     int ret = SUCCESS;
 
-    ret = BizPlaybackStop();
+    ret = BizPlaybackStop(0);
     if (ret)
     {
         ERR_PRINT("BizPlaybackStartByFile failed, ret: %d\n", ret);

@@ -1,6 +1,8 @@
 #ifndef  __NET_H__
 #define  __NET_H__
 
+#include "ctrlprotocol.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

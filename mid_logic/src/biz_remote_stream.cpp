@@ -22,12 +22,7 @@
 #include "singleton.h"
 #include "object.h"
 #include "glb_error_num.h"
-#include "biz.h"
-#include "biz_types.h"
-#include "biz_config.h"
-#include "biz_net.h"
-#include "biz_device.h"
-#include "biz_remote_stream.h"
+
 #include "atomic.h"
 #include "c_lock.h"
 #include "crwlock.h"
@@ -36,6 +31,15 @@
 #include "ctimer.h"
 #include "ctrlprotocol.h"
 #include "net.h"
+
+#include "biz.h"
+#include "biz_net.h"
+#include "biz_msg_type.h"
+#include "biz_types.h"
+#include "biz_config.h"
+#include "biz_remote_stream.h"
+#include "biz_device.h"
+
 
 //声明流管理者
 class CMediaStreamManager;
@@ -227,6 +231,7 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 					"but b_thread_exit == FALSE, inconceivable\n", inet_ntoa(in), _stream_id, req_cmd);
 			}
 
+			DBG_PRINT("EM_STREAM_STATUS_WAIT_DEL \n");
 			plock4param->Unlock();	
 			break;
 		}
@@ -309,7 +314,7 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 				frame_hdr.m_dwFrameID = hdr.m_dwFrameID;
 				frame_hdr.m_dwTimeStamp = hdr.m_dwTimeStamp;
 				frame_hdr.m_pData = (u8 *)pframe_data;
-#if 1
+#if 0
 				if ((MEDIA_TYPE_H264 == frame_hdr.m_byMediaType)&& hdr.m_bKeyFrame)
 				{
 					DBG_PRINT("dev IP: %s, stream_id: %d, req_cmd: %d, recv one frame, m_byMediaType: %d, m_bKeyFrame: %d, m_dwFrameID: %d, m_dwDataSize: %d\n", 
@@ -372,6 +377,7 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 
 done:
 
+	DBG_PRINT("exit 1\n");
 	plock4param->Lock();
 
 	b_thread_running = FALSE;
@@ -387,7 +393,7 @@ done:
 	{
 		 stream_errno = inside_err;
 	}
-
+	DBG_PRINT("exit 2\n");
 	plock4param->Unlock();
 
 	if (pframe_data)
@@ -396,6 +402,7 @@ done:
 		pframe_data = NULL;
 	}
 
+	DBG_PRINT("exit 3\n");
 	//只在模块内部出错退出时发消息
 	if (inside_err) 
 	{
@@ -590,6 +597,8 @@ u32 CMediaStreamManager::_createStreamID()//得到一个新的流ID
 
 	round_stream_no = (round_stream_no+1) & (MAX_STREAM_NO-1);//[0, MAX_STREAM_NO-1] 轮转
 
+	DBG_PRINT("stream_id: %u\n", stream_id);
+	
 	return stream_id;
 }
 
@@ -632,7 +641,9 @@ int CMediaStreamManager::WriteMsg(SBizMsg_t *pmsg, u32 msg_len)
 		ERR_PRINT("pmsg_queue Put msg failed\n");
 
 		pmq_ccbuf->PutRst();
-		goto fail;
+		
+		pthread_mutex_unlock(&mq_mutex);
+		return ret;
 	} 
 
 	mq_msg_count++;
@@ -641,7 +652,9 @@ int CMediaStreamManager::WriteMsg(SBizMsg_t *pmsg, u32 msg_len)
 	if (ret)
 	{
 		ERR_PRINT("pthread_cond_signal failed, err(%d, %s)\n", ret, strerror(ret));
-		goto fail;
+
+		pthread_mutex_unlock(&mq_mutex);
+		return ret;
 	}
 
 	ret = pthread_mutex_unlock(&mq_mutex);
@@ -653,16 +666,12 @@ int CMediaStreamManager::WriteMsg(SBizMsg_t *pmsg, u32 msg_len)
 	}
 	
 	return SUCCESS;
-
-fail:
-	pthread_mutex_unlock(&mq_mutex);
-	return ret;
 }
 
 int CMediaStreamManager::dealStreamConnect(u32 stream_id)
 {
 	int ret = SUCCESS;
-	s32 sock_stream = INVALID_VALUE;
+	s32 sock_stream = INVALID_SOCKET;
 	struct in_addr in;
 	EM_DEV_TYPE dev_type;//服务器类型
 	u32 dev_ip = INADDR_NONE;//服务器IP
@@ -716,9 +725,6 @@ int CMediaStreamManager::dealStreamConnect(u32 stream_id)
 		return -EPARAM;
 	}
 	
-	pstream->plock4param->Unlock();
-	plock4param->Unlock();
-	
 	ret = BizDevReqStreamStart(dev_type, dev_ip, stream_id, &req, &sock_stream);
 	if (SUCCESS == ret)
 	{
@@ -734,8 +740,8 @@ int CMediaStreamManager::dealStreamConnect(u32 stream_id)
 		ERR_PRINT("dev ip: %s, stream_id: %d, req cmd: %d, BizReqStreamStart failed, ret: %d\n",
 			inet_ntoa(in), stream_id, req.command, ret);
 
-		plock4param->Lock();
-
+		pstream->plock4param->Unlock();
+		
 		//删除
 		map_pstream.erase(stream_id);//移除
 		
@@ -753,9 +759,6 @@ int CMediaStreamManager::dealStreamConnect(u32 stream_id)
 	{
 		DBG_PRINT("dev ip: %s, stream_id: %d, req cmd: %d, BizReqStreamStart success\n",
 			inet_ntoa(in), stream_id, req.command);
-		
-		plock4param->Lock();
-		pstream->plock4param->Lock();
 
 		//内部数据
 		pstream->sock_stream = sock_stream;
@@ -851,7 +854,8 @@ int CMediaStreamManager::dealStreamDel(u32 stream_id, u32 stop_reason)
 	}
 
 	pstream->plock4param->Unlock();
-	
+
+	DBG_PRINT("wait threadRcv exit, b_thread_running: %d\n", b_thread_running);
 	if (b_thread_running)
 	{
 		ret = pstream->sem_exit.TimedPend(5);
@@ -1257,7 +1261,6 @@ int CMediaStreamManager::ReqStreamStart(
 	u32 *pstream_id )
 {
 	int ret = SUCCESS;
-	CMediaStream *pstream = NULL;
 	struct in_addr in;
 	in.s_addr = dev_ip;
 
@@ -1278,13 +1281,21 @@ int CMediaStreamManager::ReqStreamStart(
 		return -FAILURE;
 	}
 
+	CMediaStream *pstream = NULL;
 	pstream = new CMediaStream;
+	if (NULL == pstream)
+	{
+		ERR_PRINT("new CMediaStream failed\n");
+		
+		return -ESPACE;
+	}
+	
 	ret = pstream->Init();
 	if (ret)
 	{
 		ERR_PRINT("dev ip: %s, cmd: %d, CMediaStream init failed, ret: %d\n", inet_ntoa(in), preq->command, ret);
 
-		return ret;
+		goto fail;
 	}
 
 	pstream->dev_type = dev_type;
@@ -1304,7 +1315,8 @@ int CMediaStreamManager::ReqStreamStart(
 	{
 		ERR_PRINT("dev ip: %s, cmd: %d, map insert failed\n", inet_ntoa(in), preq->command);
 
-		goto fail;
+		ret = -FAILURE;
+		goto fail2;
 	}
 	
 	//write msg to threadmsg, in threadmsg connect
@@ -1318,19 +1330,22 @@ int CMediaStreamManager::ReqStreamStart(
 	{
 		ERR_PRINT("dev ip: %s, stream req cmd: %d, WriteMsg failed, ret: %d\n", inet_ntoa(in), preq->command, ret);
 
-		goto fail2;
+		ret = -FAILURE;
+		goto fail3;
 	}	
 
 	plock4param->Unlock();
 	return SUCCESS;
 
-fail2:
+fail3:
 
 	map_pstream.erase(*pstream_id);
 
-fail:
+fail2:
 
 	plock4param->Unlock();
+
+fail:
 	
 	if (pstream)
 	{
@@ -1340,7 +1355,7 @@ fail:
 
 	*pstream_id = INVALID_VALUE;
 	
-	return -FAILURE;
+	return ret;
 }
 
 //上层调用的流关闭，可能是正常关闭，也可能是上层出错后关闭
@@ -1471,7 +1486,6 @@ int BizStreamReqPlaybackByFile (
 	u32 *pstream_id )
 {
 	ifly_TCP_Stream_Req req;
-
 	memset(&req, 0, sizeof(ifly_TCP_Stream_Req));
 
 	if (NULL == file_name || NULL == pstream_id)
@@ -1481,7 +1495,9 @@ int BizStreamReqPlaybackByFile (
 
 	if (strlen(file_name) >= sizeof(req.FilePlayBack_t.filename))
 	{
-		ERR_PRINT("file_name len(%d) too long\n", strlen(file_name));
+		ERR_PRINT("file_name len(%d) >= sizeof(req.FilePlayBack_t.filename)(%d), too long\n",
+			strlen(file_name), sizeof(req.FilePlayBack_t.filename));
+		
 		return -EPARAM;
 	}
 

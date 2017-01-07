@@ -3,12 +3,11 @@
 
 #include <QtGui>
 
-#include "bond.h"
-
-#include "biz_playback.h"
-#include "gui_dev.h"
 #include "types.h"
 #include "ctrlprotocol.h"
+#include "gui_dev.h"
+#include "biz_playback.h"
+#include "bond.h"
 
 namespace Ui {
 class form_playback;
@@ -44,8 +43,10 @@ private:
     QMutex mutex;
     ifly_recsearch_param_t search_para;
     ifly_search_file_result_t search_result;
-    u32 search_nvr_ip;
+    u32 search_nvr_ip;//搜索操作对应的设备IP
     u32 search_nvr_chn;
+    u32 play_nvr_ip;//当前播放对应的设备IP
+    u32 play_nvr_chn;
 
 private slots:
     void refreshDevInfo(SGuiDev dev);

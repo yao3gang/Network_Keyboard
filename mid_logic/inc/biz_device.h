@@ -8,17 +8,18 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "biz_msg_type.h"
+
 #include "types.h"
 #include "C_Lock.h"
 #include "object.h"
 #include "csemaphore.h"
 #include "cthread.h"
-#include "biz_config.h"
-#include "biz_remote_stream.h"
 #include "gui_dev.h"
 #include "ctrlprotocol.h"
 #include "glb_error_num.h"
+
+#include "biz_config.h"
+#include "biz_msg_type.h"
 
 
 //设备信息
@@ -67,138 +68,6 @@ typedef struct DeviceInfo_t
 	}
 } SBiz_DeviceInfo_t;
 
-
-#define MaxMediaLinks (5)
-#define MaxIdleNum (60)
-
-typedef struct DevStream_t
-{
-	u32 link_id;//biz_device 内部使用
-	u32 stream_id;//关键，系统唯一
-	EM_STREAM_STATUS_TYPE status;
-	s32 stream_errno;//错误码
-	ifly_TCP_Stream_Req req;
-
-	DevStream_t()
-	: link_id(INVALID_VALUE)
-	, stream_id(INVALID_VALUE)
-	, status(EM_STREAM_STATUS_DISCONNECT)
-	, stream_errno(SUCCESS)
-	{
-		
-	}
-
-	~DevStream_t()
-	{
-		
-	}
-} SDevStream_t;
-
-//u32 stream_id u32 linkid
-typedef std::map<u32, u32> MAP_SID_LID;
-//u32 linkid
-typedef std::map<u32, SDevStream_t*> MAP_LID_PSTREAM;
-
-
-class CBizDevice : public CObject {
-	friend class CBizDeviceManager;
-public:
-	CBizDevice();
-	~CBizDevice();
-	VD_BOOL Init(void);
-	void CleanSock();
-
-	int GetDeviceInfo(ifly_DeviceInfo_t *pDeviceInfo);
-	//keepalive保活使用
-	int GetDevSysTime(ifly_sysTime_t *psys_time);
-	//连接、登录服务器
-	int DevConnect();
-	//断开命令连接
-	int DevDisconnect();
-
-	//stream******************************************
-	//biz_remote_stream 阻塞调用，返回值便知成功与否
-	//无需上传消息到biz_stream_manager
-	int ReqStreamStart(u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *psock_stream);
-	//上层调用关闭，无须再上传消息
-	int ReqStreamStopByStreamID(u32 stream_id, s32 stop_reason = SUCCESS);//GLB_ERROR_NUM 关闭原因默认主动关闭
-	//模块内部调用的关闭，
-	// 1、设备掉线或网络通信出错调用
-	// 2、上层删除设备调用
-	//需要上传消息到biz_stream_manager
-	int StreamStopByLinkID(u32 link_id, s32 stop_reason = SUCCESS);//GLB_ERROR_NUM 关闭原因默认主动关闭
-	int ReqStreamProgress(u32 stream_id, VD_BOOL b);//接收回放进度信息
-	//void _CleanStream(int stream_idx);
-
-	//模块内部调用的关闭，
-	// 1、设备掉线或网络通信出错调用
-	// 2、上层删除设备调用
-	int ShutdownStreamAll(s32 stop_reason = SUCCESS);//GLB_ERROR_NUM
-	
-	//重连部分数据流连接
-	int CheckAndReconnectStream();
-
-	
-	
-	//获取所有通道的IPC信息
-	int GetChnIPCInfo(ifly_ipc_info_t * pipc_info, u32 size);
-	//只支持NVR，得到NVR通道名(osd info)
-	int GetChnName(u8 chn, char *pbuf, u32 size);
-	
-	//设置解码器通道对应的NVR 通道
-	int SetChnIpc(u8 dec_chn, u32 nvr_ip, u8 nvr_chn);
-	//删除通道IPC
-	int DelChnIpc(u8 dec_chn);	
-	//NVR 录像搜索
-	int RecFilesSearch(ifly_recsearch_param_t *psearch_para, ifly_search_file_result_t *psearch_result);
-	//获取设备轮巡参数
-	int GetPatrolPara(ifly_patrol_para_t *para, u32 *pbuf_size);
-
-	
-	
-private:
-    CBizDevice(CBizDevice &)
-	{
-		
-	}
-
-	void FreeSrc();//释放资源
-	int _DevLogin(ifly_loginpara_t *plogin);
-	int _DevLogout(ifly_loginpara_t *plogin);
-	int _DevSetAlarmUpload(u8 upload_enable);
-	int _StreamStop(u32 link_id, s32 stop_reason = SUCCESS);//GLB_ERROR_NUM 关闭原因默认主动关闭
-	//底层数据交互
-	int DevNetDialogue(u16 event, const void *content, int length, void* ackbuf, int ackbuflen);
-	//后期错误检查
-	int DevNetDialogueAfter(int net_ret);
-	//int getStreamFromLinkID(u32 link_id);//通过link_id得到对应tream_rcv[MaxMediaLinks] 下标
-	
-private:
-	C_Lock *plock4param;//mutex
-	SBiz_DeviceInfo_t dev_info;
-	ifly_loginpara_t login;
-	s32 dev_idx; //dev pool index
-	int sock_cmd;		//命令sock，登录，接收报警
-	VD_BOOL b_alive;	//是否在线
-	int err_cnt;		//暂时未用。错误计数，累计2次，重新连接设备
-						//_Add2SetFromMap 检测cnt_err ，close dev sock
-	//stream					
-	C_Lock *plock4stream;//mutex
-#if 1
-	MAP_SID_LID map_sid_lid;
-	MAP_LID_PSTREAM map_lid_pstream;
-
-#else
-	VD_BOOL bthread_stream_running;
-	VD_BOOL bthread_stream_exit;//外部控制线程退出
-	int stream_cnt;//客户机请求流数量，即stearm_rcv 数组有效成员数
-	int idle_cnt;//空闲计数，线程空闲1分钟后退出
-	CSemaphore sem_exit;//等待threadStreamRcv退出信号量
-	SDev_StearmRcv_t stream_rcv[MaxMediaLinks]; //数据流结构MaxMediaLinks
-	void threadStreamRcv(uint param);
-	Threadlet m_threadlet_stream_rcv;
-#endif
-};
 
 
 //外部接口
