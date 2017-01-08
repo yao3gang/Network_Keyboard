@@ -1,8 +1,2 @@
----- sync_sem Matches (7 in 1 files) ----
-biz_device.cpp (mid_logic\src):	CSemaphore sync_sem; //socket 发送方同步等待接收服务器回应
-biz_device.cpp (mid_logic\src):, sync_sem(0)
-biz_device.cpp (mid_logic\src):	sync_sem.TryPend();//防止上一条消息的应答
-biz_device.cpp (mid_logic\src):	ret = sync_sem.TimedPend(DIALOGUE_TIMEOUT);
-biz_device.cpp (mid_logic\src):									sync_sem.Post();
-biz_device.cpp (mid_logic\src):								sync_sem.Post();
-biz_device.cpp (mid_logic\src):						sync_sem.Post();
+---- VIDEO_MODE_FRAME Matches (2 in 1 files) ----
+hisi_sys.c (hisi_lib\src):	stAttr.stVdecVideoAttr.enMode = VIDEO_MODE_FRAME;//VIDEO_MODE_FRAME; VIDEO_MODE_STREAM

@@ -96,7 +96,7 @@ int _checkPlayback(u32 playback_chn)
 		return -ESYS_MODE;
 	}
 	
-	if ( (playback_chn_mask & (1<<playback_chn)) == FALSE)
+	if ( !(playback_chn_mask & (1<<playback_chn)) )
 	{
 		ERR_PRINT("playback_chn(%d) unused\n", playback_chn);
 
@@ -156,7 +156,11 @@ int BizEventCB(SBizEventPara* pSBizEventPara)
 			para.playback_chn = playback_chn;
 			para.stream_progress.cur_pos = cur_pos;
 			para.stream_progress.total_size = total_size;
-			
+
+		#if 1
+			DBG_PRINT("cur_pos: %u, total_size: %u\n", cur_pos, total_size);
+		#endif
+		
 			notifyPlaybackInfo(&para);
 			
 		} break;
@@ -495,27 +499,33 @@ void BizEnterPlayback(void)
 
 void BizLeavePlayback(void)
 {
+	u32 chn_mask = 0;
 	s32 i = 0;
 
 	DBG_PRINT("\n");
 	
 	plock4param->Lock();
-
-	if (playback_chn_mask)
+	
+	chn_mask = playback_chn_mask;
+	
+	plock4param->Unlock();
+	
+	if (chn_mask)
 	{
-		DBG_PRINT("playback_chn_mask(0x%x) != 0\n", playback_chn_mask);
+		DBG_PRINT("playback_chn_mask(0x%x) != 0\n", chn_mask);
 
 		for (i=0; i<32; ++i)
 		{
-			if (playback_chn_mask & (1<<i))
+			if (chn_mask & (1<<i))
 			{
 				BizPlaybackStop(i);
 			}
 		}
-
-		playback_chn_mask = 0;
 	}
 
+	plock4param->Lock();
+	
+	playback_chn_mask = 0;
 	b_playback = FALSE;
 	
 	plock4param->Unlock();
@@ -524,8 +534,10 @@ void BizLeavePlayback(void)
 //playback_chn 上层传递
 int BizPlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfile_info)
 {
+	u32 chn_mask = 0;
 	int ret = SUCCESS;
 
+	DBG_PRINT("start\n");
 	plock4param->Lock();
 
 	if (!b_playback)
@@ -533,24 +545,32 @@ int BizPlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfi
 		ERR_PRINT("b_playback FALSE\n");
 
 		plock4param->Unlock();
-
 		return -FAILURE;
 	}
 
-	if (playback_chn_mask & (1<<playback_chn))//已经启动，先关闭
+	chn_mask = playback_chn_mask;
+	
+	plock4param->Unlock();
+
+	if (chn_mask & (1<<playback_chn))//已经启动，先关闭
 	{
+		
+		DBG_PRINT("stop %d first\n", playback_chn);
+		
 		ret = BizModulePlaybackStop(playback_chn);
 		if (ret)
 		{
 			ERR_PRINT("BizModulePlaybackStop failed, playback_chn: %d, ret: %d\n",
 				playback_chn, ret);
 
-			plock4param->Unlock();
-
 			return ret;
 		}
+
+		plock4param->Lock();
 		
 		playback_chn_mask &= ~(1<<playback_chn);
+		
+		plock4param->Unlock();
 	}
 	
 	ret = BizModulePlaybackStartByFile(playback_chn, dev_ip, pfile_info);
@@ -559,15 +579,16 @@ int BizPlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfi
 		ERR_PRINT("BizModulePlaybackStartByFile failed, playback_chn: %d, ret: %d\n",
 			playback_chn, ret);
 
-		plock4param->Unlock();
-
 		return ret;
 	}
+
+	plock4param->Lock();
 	
 	playback_chn_mask |= 1<<playback_chn;
 
 	plock4param->Unlock();
-	
+
+	DBG_PRINT("end\n");
 	return SUCCESS;
 }
 
@@ -580,35 +601,66 @@ int BizPlaybackStartByTime(u32 playback_chn, u32 _dev_ip, u8 chn, u32 start_time
 //是否已经处于进行中
 VD_BOOL BizPlaybackIsStarted(u32 playback_chn)
 {
-	return BizModulePlaybackIsStarted(playback_chn);
+	u32 chn_mask = 0;
+
+	plock4param->Lock();
+
+	if (!b_playback)
+	{
+		ERR_PRINT("b_playback FALSE\n");
+
+		plock4param->Unlock();
+		return -FAILURE;
+	}
+
+	chn_mask = playback_chn_mask;
+	
+	plock4param->Unlock();
+
+	return (chn_mask & (1<<playback_chn)) ? TRUE:FALSE;
 }
 
 int BizPlaybackStop(u32 playback_chn)
-{
+{	
+	u32 chn_mask = 0;
 	int ret = SUCCESS;
+
+	plock4param->Lock();
+
+	if (!b_playback)
+	{
+		ERR_PRINT("b_playback FALSE\n");
+
+		plock4param->Unlock();
+		return -FAILURE;
+	}
+
+	chn_mask = playback_chn_mask;
+	
+	plock4param->Unlock();
 
 	//hisi process
 	hisi_chn_stop(playback_chn);
-	
-	plock4param->Lock();
 
-	if (playback_chn_mask & (1<<playback_chn))
+	if (chn_mask & (1<<playback_chn))
 	{
 		ret = BizModulePlaybackStop(playback_chn);
 		if (ret)
 		{
 			ERR_PRINT("BizModulePlaybackStop(%d) failed, ret: %d\n",
 				playback_chn, ret);
+
+			return ret;
 		}
-		else
-		{
-			playback_chn_mask &= ~(1<<playback_chn);
-		}
+		
+		plock4param->Lock();
+			
+		playback_chn_mask &= ~(1<<playback_chn);
+
+		plock4param->Unlock();
 	}
 	
-	plock4param->Unlock();
-
-	return ret;
+	return SUCCESS;
 }
 
 

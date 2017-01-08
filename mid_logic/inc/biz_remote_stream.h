@@ -75,6 +75,8 @@ int BizStreamReqPlaybackByTime (
 
 
 int BizStreamReqStop(u32 stream_id, s32 stop_reason=SUCCESS);
+int BizStreamReqProgress(u32 stream_id, VD_BOOL b);//接收回放进度信息
+
 
 #ifdef __cplusplus
 }

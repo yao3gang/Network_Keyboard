@@ -546,7 +546,7 @@ void form_playback::slotNotifyPlaybackInfo(SPlaybackNotify_t playback_msg)
 {
     EMBIZEVENT type = playback_msg.type;
 
-    DBG_PRINT("type: %d\n", type);
+    //DBG_PRINT("type: %d\n", type);
 
     switch (type)
     {
@@ -564,8 +564,9 @@ void form_playback::slotNotifyPlaybackInfo(SPlaybackNotify_t playback_msg)
         {
             u32 cur_pos = playback_msg.stream_progress.cur_pos;
             u32 total_size = playback_msg.stream_progress.total_size;
-
+#if 0
             DBG_PRINT("cur_pos: %u, total_size: %u\n", cur_pos, total_size);
+#endif
         } break;
 
         case EM_BIZ_EVENT_PLAYBACK_DONE:

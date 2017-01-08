@@ -2296,12 +2296,12 @@ void CBizDeviceManager::threadRcv(uint param)
 
 						continue;
 					}
-
+				#if 1
 					dealDevNotify(dev_idx, 
 							cprcvhead.event,
 							rcv_buf + sizeof(ifly_cp_header_t), 
 							cprcvhead.length - sizeof(ifly_cp_header_t));
-					
+				#endif	
 				}
 				else
 				{
@@ -2323,24 +2323,9 @@ fail:
 
 void CBizDeviceManager::dealDevNotify(s32 dev_idx, u16 event, s8 *pbyMsgBuf, int msgLen) //处理设备通知信息
 {
+	struct in_addr in;
 	CBizDevice *pcdev = NULL;
 	u32 dev_ip = INADDR_NONE;
-	
-	pplock_dev[dev_idx]->Lock();
-
-	pcdev = ppcdev[dev_idx];
-	if (NULL == pcdev)
-	{
-		ERR_PRINT("dev_idx(%d) pcdev == NULL\n", dev_idx);
-		
-		pplock_dev[dev_idx]->Unlock();						
-		return ;
-	}
-	
-	dev_ip = pcdev->dev_info.deviceIP;
-	
-	struct in_addr in;
-	in.s_addr = dev_ip;
 
 	//DBG_PRINT("recv notify, event: %d, svr IP: %s\n", event, inet_ntoa(in));
 	
@@ -2348,23 +2333,41 @@ void CBizDeviceManager::dealDevNotify(s32 dev_idx, u16 event, s8 *pbyMsgBuf, int
 	{
 		case CTRL_NOTIFY_PLAYPROGRESS: //回放进度通知
 		{
+			pplock_dev[dev_idx]->Lock();
+
+			pcdev = ppcdev[dev_idx];
+			if (NULL == pcdev)
+			{
+				ERR_PRINT("dev_idx(%d) pcdev == NULL\n", dev_idx);
+				
+				pplock_dev[dev_idx]->Unlock();						
+				return ;
+			}
+			
+			dev_ip = pcdev->dev_info.deviceIP;
+			
+			pcdev->plock4stream->Lock();
+			pplock_dev[dev_idx]->Unlock();//先释放			
+			
+			
+			in.s_addr = dev_ip;
 			ifly_progress_t progress;
 			memcpy(&progress, pbyMsgBuf, sizeof(ifly_progress_t));
 
 			progress.id = ntohl(progress.id);				//回放linkid
 			progress.currPos = ntohl(progress.currPos);		//当前进度
 			progress.totallen = ntohl(progress.totallen);	//总时间
+#if 0
 
 			DBG_PRINT("link_id: %d, totallen: %d, currPos: %d\n", 
 				progress.id, progress.totallen, progress.currPos);
+#endif
 			
 			//send msg to stream manager
 			u32 link_id = progress.id;
 			u32 stream_id = INVALID_VALUE;
 			MAP_LID_PSTREAM::iterator map_iter;
 			SDevStream_t* pstream = NULL;
-			
-			pcdev->plock4stream->Lock();
 	
 			map_iter = pcdev->map_lid_pstream.find(link_id);
 			if (map_iter == pcdev->map_lid_pstream.end())
@@ -2375,8 +2378,8 @@ void CBizDeviceManager::dealDevNotify(s32 dev_idx, u16 event, s8 *pbyMsgBuf, int
 				pcdev->plock4stream->Unlock();
 				return ;
 			}
-			pstream = map_iter->second;
 			
+			pstream = map_iter->second;
 			if (NULL == pstream)
 			{
 				ERR_PRINT("svr IP: %s, link_id(%u), NULL == pstream\n", 
@@ -2389,14 +2392,14 @@ void CBizDeviceManager::dealDevNotify(s32 dev_idx, u16 event, s8 *pbyMsgBuf, int
 			stream_id = pstream->stream_id;
 			pcdev->plock4stream->Unlock();
 			
-			
+#if 1		
 			SBizMsg_t msg;
 			memset(&msg, 0, sizeof(SBizMsg_t));
 			msg.msg_type = EM_STREAM_MSG_PROGRESS;
 			msg.un_part_chn.stream_id = stream_id;
 			msg.un_part_data.stream_progress.cur_pos = progress.currPos;
 			msg.un_part_data.stream_progress.total_size = progress.totallen;
-#if 0
+
 			int ret = BizSendMsg2StreamManager(&msg, sizeof(SBizMsg_t));
 			if (ret)
 			{
@@ -4410,6 +4413,8 @@ int CBizDevice::ReqStreamStopByStreamID(u32 stream_id, s32 stop_reason)//GLB_ERR
 		return -EPARAM;
 	}
 
+	plock4stream->Unlock();
+
 	link_id = htonl(link_id);
 	ret = DevNetDialogue(net_cmd, &link_id, sizeof(link_id), buf, sizeof(buf));
 	if (ret)
@@ -4417,8 +4422,6 @@ int CBizDevice::ReqStreamStopByStreamID(u32 stream_id, s32 stop_reason)//GLB_ERR
 		ERR_PRINT("svr IP: %s, link_id(%u), DevNetDialogue cmd(%d) failed, ret: %d\n",
 			inet_ntoa(in), link_id, net_cmd, ret);
 	}
-
-	plock4stream->Unlock();
 
 #if 0 
  	//send msg to stream manager

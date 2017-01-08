@@ -90,7 +90,7 @@ int hisi_chn_stop(int stream_chn)
 		ERR_PRINT("HI_MPI_VPSS_ResetGrp(vdch=%d) failed, ret: 0x%x\n", stream_chn, s32Ret);
 		//SAMPLE_COMM_VPSS_Stop(chn, 1, VPSS_MAX_CHN_NUM);
 		//SampleWaitDestroyVdecChn(chn);
-		return 0;
+		//return 0;
 	}
 	
 	s32Ret = HI_MPI_VO_ClearChnBuffer(VoLayer, stream_chn, HI_TRUE);

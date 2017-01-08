@@ -85,6 +85,7 @@ private:
 	SPlayback_Time_Info_t time_info;
 
 	u32 playback_chn;	//回放通道
+	u32 dev_ip;//服务器IP
 	u32 stream_id;	//来自biz_remote_stream //关键，系统唯一
 	EM_STREAM_STATUS_TYPE status;	//流状态
 	s32 stream_errno;	//错误码
@@ -102,6 +103,7 @@ CBizPlayback::CBizPlayback()
 , plock4param(NULL)
 , playback_type(EM_PLAYBACK_NONOE)
 , playback_chn(INVALID_VALUE)	//回放通道
+, dev_ip(INADDR_NONE)			//服务器IP
 , stream_id(INVALID_VALUE)	//关键，系统唯一
 , status(EM_STREAM_STATUS_INIT) //流状态
 , stream_errno(SUCCESS) 	//错误码
@@ -395,6 +397,7 @@ int CBizPlaybackManager::dealStreamMsgConnectSuccess(u32 stream_id)
 {
 	int ret = SUCCESS;
 	u32 playback_chn = INVALID_VALUE;
+	u32 dev_ip = INADDR_NONE;
 	CBizPlayback *pcplayback = NULL;
 	MAP_ID_PCPLAYBACK::iterator map_ppb_iter;
 	
@@ -417,9 +420,7 @@ int CBizPlaybackManager::dealStreamMsgConnectSuccess(u32 stream_id)
 		return -EPARAM;
 	}
 
-	pcplayback->plock4param->Lock();
-
-	plock4param->Unlock();//非删除操作可以先释放该锁
+	pcplayback->plock4param->Lock();	
 
 	//内部
 	if (EM_STREAM_STATUS_DISCONNECT != pcplayback->status)
@@ -432,10 +433,11 @@ int CBizPlaybackManager::dealStreamMsgConnectSuccess(u32 stream_id)
 	//pcplayback->cur_pos = 0;
 
 	//其他
+	dev_ip = pcplayback->dev_ip;
 	playback_chn = pcplayback->playback_chn;
 
 	pcplayback->plock4param->Unlock();
-		
+	plock4param->Unlock();//非删除操作可以先释放该锁
 #if 0
 	//上传msg 2 biz manager
 	SBizMsg_t msg;
@@ -466,7 +468,15 @@ int CBizPlaybackManager::dealStreamMsgConnectSuccess(u32 stream_id)
 		ERR_PRINT("BizEventCB failed, ret: %d, playback_chn: %d, msg_type: %d\n",
 			ret, playback_chn, para.type);
 	}
-		
+
+	#if 0
+		ret = BizStreamReqProgress(playback_chn, TRUE);//接收回放进度信息
+		if (ret)
+		{
+			ERR_PRINT("BizStreamReqProgress failed, ret: %d, playback_chn: %d, msg_type: %d\n",
+				ret, playback_chn, para.type);
+		}
+	#endif
 #endif
 
 	return ret;
@@ -1010,6 +1020,8 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 	u32 stream_id = INVALID_VALUE;
 	struct in_addr in;
 	in.s_addr = dev_ip;
+
+	DBG_PRINT("start\n"); 
 	
 	if (NULL == pfile_info)
 	{
@@ -1053,9 +1065,8 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 		
 		ret = -ESPACE;
 		goto fail;
-	}	
-
-	plock4param->Lock();
+	}
+	
 	//成功返回并不表示连接成功，只是写入了消息列表，之后在消息线程连接
 	//连接成功后会有消息上传，那时接收进度信息
 	ret = BizStreamReqPlaybackByFile (
@@ -1071,15 +1082,18 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 	{
 		ERR_PRINT("dev_ip: %s, playback_chn: %d, BizStreamReqPlaybackByFile failed, ret: %d\n", inet_ntoa(in), playback_chn, ret);
 		
-		goto fail2;
+		goto fail;
 	}
+
+	DBG_PRINT("lock\n");
+	plock4param->Lock();
 	
 	if (!map_pbchn_sid.insert(std::make_pair(playback_chn, stream_id)).second)
 	{
 		ERR_PRINT("dev_ip: %s, playback_chn: %d, MAP_PBChn_SID insert failed\n", inet_ntoa(in), playback_chn);
 
 		ret = -FAILURE;
-		goto fail3;
+		goto fail2;
 	}
 
 	if (!map_pcplayback.insert(std::make_pair(stream_id, pcplayback)).second)
@@ -1088,7 +1102,7 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 
 		
 		ret = -FAILURE;
-		goto fail4;
+		goto fail3;
 	}
 	
 	pcplayback->plock4param->Lock();
@@ -1096,6 +1110,7 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 	pcplayback->playback_type = EM_PLAYBACK_FILE;
 	pcplayback->file_info = *pfile_info;
 	pcplayback->playback_chn = playback_chn;
+	pcplayback->dev_ip = dev_ip;
 	pcplayback->stream_id = stream_id;
 
 	if (EM_STREAM_STATUS_INIT != pcplayback->status)
@@ -1108,20 +1123,20 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 	pcplayback->plock4param->Unlock();
 	
 	plock4param->Unlock();
+
+	DBG_PRINT("end\n");
 	
-	return SUCCESS;
-
-fail4:
-
-	map_pbchn_sid.erase(playback_chn);
+	return SUCCESS;	
 	
 fail3:
 	
-	BizStreamReqStop(stream_id);
+	map_pbchn_sid.erase(playback_chn);
 	
 fail2:
 	
 	plock4param->Unlock();
+
+	BizStreamReqStop(stream_id);
 	
 fail:
 	if (pcplayback)
@@ -1225,6 +1240,7 @@ int CBizPlaybackManager::PlaybackStartByTime(u32 playback_chn, u32 dev_ip, u8 ch
 	pcplayback->time_info.end_time = end_time;
 	
 	pcplayback->playback_chn = playback_chn;
+	pcplayback->dev_ip = dev_ip;
 	pcplayback->stream_id = stream_id;
 	pcplayback->status = EM_STREAM_STATUS_DISCONNECT;
 	pcplayback->stream_errno = SUCCESS;	
@@ -1296,7 +1312,10 @@ int CBizPlaybackManager::PlaybackStop(u32 playback_chn)
 	CBizPlayback *pcplayback = NULL;
 	MAP_PBChn_SID::iterator map_id_iter;
 	MAP_ID_PCPLAYBACK::iterator map_ppb_iter;
-	
+
+	DBG_PRINT("start\n");
+
+	DBG_PRINT("manager lock\n");
 	plock4param->Lock();
 
 	map_id_iter = map_pbchn_sid.find(playback_chn);
@@ -1346,7 +1365,8 @@ int CBizPlaybackManager::PlaybackStop(u32 playback_chn)
 		ERR_PRINT("BizStreamReqStop failed, ret: %d, playback_chn: %d, stream_id: %d\n",
 			ret, playback_chn, stream_id);
 	}
-	
+
+	DBG_PRINT("end\n");
 	return ret;
 }
 
