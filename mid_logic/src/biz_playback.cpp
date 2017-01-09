@@ -870,7 +870,7 @@ void CBizPlaybackManager::threadMsg(uint param)//∂¡œ˚œ¢
 		{
 			ret = SUCCESS;
 			s32 msg_type = msg.msg_type;
-			DBG_PRINT("msg type: %d\n", msg_type);		
+			//DBG_PRINT("msg type: %d\n", msg_type);		
 			
 			switch (msg_type)
 			{

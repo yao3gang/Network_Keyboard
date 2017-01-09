@@ -166,9 +166,9 @@ private:
 	int _DevSetAlarmUpload(u8 upload_enable);
 	int _StreamStop(u32 link_id, s32 stop_reason = SUCCESS);//GLB_ERROR_NUM 关闭原因默认主动关闭
 	//底层数据交互
-	int DevNetDialogue(u16 event, const void *content, int length, void* ackbuf, int ackbuflen);
+	int DevNetCom(u16 event, const void *content, int length, void* ackbuf, int ackbuflen);
 	//后期错误检查
-	int DevNetDialogueAfter(int net_ret);
+	int DevNetComAfter(int net_ret);
 	//int getStreamFromLinkID(u32 link_id);//通过link_id得到对应tream_rcv[MaxMediaLinks] 下标
 	
 private:
@@ -256,7 +256,7 @@ public:
 	int DevReqStreamStopByStreamID(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, s32 stop_reason=SUCCESS);
 	int DevStreamProgress(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, VD_BOOL b);//接收回放进度信息
 	//底层数据交互
-	int NetDialogue(int sock, u16 event, const void *content, int length, void* ackbuf, int ackbuflen, int *realacklen);
+	int NetCom(int sock, u16 event, const void *content, int length, void* ackbuf, int ackbuflen, int *realacklen);
 	int FirstInit();
 	int SecondInit();
 	VD_BOOL isInited();
@@ -267,7 +267,7 @@ public:
 	//如果不在说明在thread_Rcv 中已经发生接收错误
 	VD_BOOL isInMapRcv(s32 sock_fd);
 	// 写消息to dev manager
-	int WriteMsg(s32 msg_type, u8 *pmsg, u32 msg_len);
+	int WriteMsg(SBizMsg_t *pmsg, u32 msg_len);
 	
 private:
 	CBizDeviceManager();
@@ -1608,7 +1608,7 @@ int CBizDeviceManager::DevStreamProgress(EM_DEV_TYPE dev_type, u32 dev_ip, u32 s
 
 
 //底层数据交互
-int CBizDeviceManager::NetDialogue(int sock, u16 event, const void *content, int length, void* ackbuf, int ackbuflen, int *realacklen)
+int CBizDeviceManager::NetCom(int sock, u16 event, const void *content, int length, void* ackbuf, int ackbuflen, int *realacklen)
 {
 	//u8 abyBuf[1024];
 	int ret = SUCCESS;
@@ -1677,7 +1677,7 @@ int CBizDeviceManager::NetDialogue(int sock, u16 event, const void *content, int
 		plock4sock->Unlock();
 		return -ESEND;
 	}
-	//printf("%s snd number2: %d\n", , number);
+	//printf("snd number: %d, event: %d\n", number, event);
 	
 	//等待接收返回
 	ret = sync_sem.TimedPend(DIALOGUE_TIMEOUT);
@@ -2169,13 +2169,14 @@ void CBizDeviceManager::threadRcv(uint param)
 				cprcvhead.number	= ntohs(cprcvhead.number);
 				cprcvhead.event		= ntohs(cprcvhead.event);
 
-				memcpy(rcv_buf, &cprcvhead, sizeof(ifly_cp_header_t));//转换完成后写回，NetDialogue中会用到ifly_cp_header_t结构
-/*
+				memcpy(rcv_buf, &cprcvhead, sizeof(ifly_cp_header_t));//转换完成后写回，NetCom中会用到ifly_cp_header_t结构
+#if 0
 				printf("recv msg: \n");
+				printf("\t number: %d\n", cprcvhead.number);
 				printf("\t type: %d\n", cprcvhead.type);
 				printf("\t event: %d\n", cprcvhead.event);
 				printf("\t length: %d\n", cprcvhead.length);
-	*/				
+#endif					
 				if(cprcvhead.length < sizeof(ifly_cp_header_t) || cprcvhead.type > CTRL_ACK || cprcvhead.version != CTRL_VERSION)
 				{
 					DBG_PRINT("sock_cli ifly_cp_header_t param error, len: %d, type: %d, version: %d\n", 
@@ -2225,7 +2226,7 @@ void CBizDeviceManager::threadRcv(uint param)
 								if(cprcvhead.number == sync_num)//_GetSyncNum())
 								{
 									cprcvhead.event		= CTRL_FAILED_NETRCV;
-									memcpy(sync_buf, &cprcvhead, sizeof(ifly_cp_header_t));//转换完成后写回，NetDialogue中会用到ifly_cp_header_t结构
+									memcpy(sync_buf, &cprcvhead, sizeof(ifly_cp_header_t));//转换完成后写回，NetCom中会用到ifly_cp_header_t结构
 									sync_ack_len = sizeof(ifly_cp_header_t);
 									sync_sem.Post();
 								}
@@ -2253,7 +2254,7 @@ void CBizDeviceManager::threadRcv(uint param)
 							if(cprcvhead.number == sync_num)//_GetSyncNum())
 							{
 								cprcvhead.event		= CTRL_FAILED_NETRCV;
-								memcpy(sync_buf, &cprcvhead, sizeof(ifly_cp_header_t));//转换完成后写回，NetDialogue中会用到ifly_cp_header_t结构
+								memcpy(sync_buf, &cprcvhead, sizeof(ifly_cp_header_t));//转换完成后写回，NetCom中会用到ifly_cp_header_t结构
 								sync_ack_len = sizeof(ifly_cp_header_t);
 								sync_sem.Post();
 							}					
@@ -2301,7 +2302,7 @@ void CBizDeviceManager::threadRcv(uint param)
 							cprcvhead.event,
 							rcv_buf + sizeof(ifly_cp_header_t), 
 							cprcvhead.length - sizeof(ifly_cp_header_t));
-				#endif	
+				#endif
 				}
 				else
 				{
@@ -2323,88 +2324,36 @@ fail:
 
 void CBizDeviceManager::dealDevNotify(s32 dev_idx, u16 event, s8 *pbyMsgBuf, int msgLen) //处理设备通知信息
 {
-	struct in_addr in;
-	CBizDevice *pcdev = NULL;
-	u32 dev_ip = INADDR_NONE;
-
-	//DBG_PRINT("recv notify, event: %d, svr IP: %s\n", event, inet_ntoa(in));
+	//DBG_PRINT("event: %d\n", event);
 	
 	switch (event)
 	{
 		case CTRL_NOTIFY_PLAYPROGRESS: //回放进度通知
-		{
-			pplock_dev[dev_idx]->Lock();
-
-			pcdev = ppcdev[dev_idx];
-			if (NULL == pcdev)
-			{
-				ERR_PRINT("dev_idx(%d) pcdev == NULL\n", dev_idx);
-				
-				pplock_dev[dev_idx]->Unlock();						
-				return ;
-			}
-			
-			dev_ip = pcdev->dev_info.deviceIP;
-			
-			pcdev->plock4stream->Lock();
-			pplock_dev[dev_idx]->Unlock();//先释放			
-			
-			
-			in.s_addr = dev_ip;
+		{			
 			ifly_progress_t progress;
 			memcpy(&progress, pbyMsgBuf, sizeof(ifly_progress_t));
 
 			progress.id = ntohl(progress.id);				//回放linkid
 			progress.currPos = ntohl(progress.currPos);		//当前进度
 			progress.totallen = ntohl(progress.totallen);	//总时间
-#if 0
-
-			DBG_PRINT("link_id: %d, totallen: %d, currPos: %d\n", 
-				progress.id, progress.totallen, progress.currPos);
-#endif
-			
-			//send msg to stream manager
-			u32 link_id = progress.id;
-			u32 stream_id = INVALID_VALUE;
-			MAP_LID_PSTREAM::iterator map_iter;
-			SDevStream_t* pstream = NULL;
-	
-			map_iter = pcdev->map_lid_pstream.find(link_id);
-			if (map_iter == pcdev->map_lid_pstream.end())
-			{
-				ERR_PRINT("svr IP: %s, link_id(%u), map_lid_pstream not find\n", 
-					inet_ntoa(in), link_id);//可能发生，StreamStart 中map_lid_pstream.insert 或之前失败
-				
-				pcdev->plock4stream->Unlock();
-				return ;
-			}
-			
-			pstream = map_iter->second;
-			if (NULL == pstream)
-			{
-				ERR_PRINT("svr IP: %s, link_id(%u), NULL == pstream\n", 
-					inet_ntoa(in), link_id);
-				
-				pcdev->plock4stream->Unlock();
-				return ;
-			}
-
-			stream_id = pstream->stream_id;
-			pcdev->plock4stream->Unlock();
-			
-#if 1		
+					
+#if 1	
+			//send msg to stream manager	
 			SBizMsg_t msg;
 			memset(&msg, 0, sizeof(SBizMsg_t));
-			msg.msg_type = EM_STREAM_MSG_PROGRESS;
-			msg.un_part_chn.stream_id = stream_id;
+			msg.msg_type = EM_DEV_MSG_PROGRESS;
+			msg.dev_idx = dev_idx;
+			msg.un_part_chn.link_id = progress.id;
 			msg.un_part_data.stream_progress.cur_pos = progress.currPos;
 			msg.un_part_data.stream_progress.total_size = progress.totallen;
 
-			int ret = BizSendMsg2StreamManager(&msg, sizeof(SBizMsg_t));
+			//DBG_PRINT("msg_type: %d, link_id(%u)\n", msg.msg_type, progress.id);
+			
+			int ret = WriteMsg(&msg, sizeof(SBizMsg_t));
 			if (ret)
 			{
-				ERR_PRINT("svr IP: %s, link_id(%u), msg_type: %d, BizSendMsg2StreamManager failed, ret: %d\n",
-					inet_ntoa(in), link_id, msg.msg_type, ret);
+				ERR_PRINT("link_id(%u), msg_type: %d, WriteMsg failed, ret: %d\n",
+					progress.id, msg.msg_type, ret);
 		 	}
 #endif			
 		} break;
@@ -2412,49 +2361,22 @@ void CBizDeviceManager::dealDevNotify(s32 dev_idx, u16 event, s8 *pbyMsgBuf, int
 		case CTRL_NOTIFY_PLAYEND: //放像结束。文件回放(无)；时间回放(有)
 		{
 			u32 link_id = 0;
+			
 			memcpy(&link_id, pbyMsgBuf, sizeof(link_id));
-
+			link_id = ntohl(link_id);
+			
 			//send msg to stream manager
-			u32 stream_id = INVALID_VALUE;
-			MAP_LID_PSTREAM::iterator map_iter;
-			SDevStream_t* pstream = NULL;
-			
-			pcdev->plock4stream->Lock();
-	
-			map_iter = pcdev->map_lid_pstream.find(link_id);
-			if (map_iter == pcdev->map_lid_pstream.end())
-			{
-				ERR_PRINT("svr IP: %s, link_id(%u), map_lid_pstream not find\n", 
-					inet_ntoa(in), link_id);//可能发生，StreamStart 中map_lid_pstream.insert 或之前失败
-				
-				pcdev->plock4stream->Unlock();
-				return ;
-			}
-			pstream = map_iter->second;
-			
-			if (NULL == pstream)
-			{
-				ERR_PRINT("svr IP: %s, link_id(%u), NULL == pstream\n", 
-					inet_ntoa(in), link_id);
-				
-				pcdev->plock4stream->Unlock();
-				return ;
-			}
-
-			stream_id = pstream->stream_id;
-			pcdev->plock4stream->Unlock();
-			
-			
 			SBizMsg_t msg;
 			memset(&msg, 0, sizeof(SBizMsg_t));
-			msg.msg_type = EM_STREAM_MSG_FINISH;
-			msg.un_part_chn.stream_id = stream_id;
+			msg.msg_type = EM_DEV_MSG_FINISH;
+			msg.dev_idx = dev_idx;
+			msg.un_part_chn.link_id = link_id;
 
-			int ret = BizSendMsg2StreamManager(&msg, sizeof(SBizMsg_t));
+			int ret = WriteMsg(&msg, sizeof(SBizMsg_t));
 			if (ret)
 			{
-				ERR_PRINT("svr IP: %s, link_id(%u), msg_type: %d, BizSendMsg2StreamManager failed, ret: %d\n",
-					inet_ntoa(in), link_id, msg.msg_type, ret);
+				ERR_PRINT("link_id(%u), msg_type: %d, WriteMsg failed, ret: %d\n",
+					link_id, msg.msg_type, ret);
 		 	}
 		} break;
 
@@ -2463,10 +2385,9 @@ void CBizDeviceManager::dealDevNotify(s32 dev_idx, u16 event, s8 *pbyMsgBuf, int
 		} break;
 
 		default:
-			DBG_PRINT("dev(%s) notify event(%d) not support\n", inet_ntoa(in), event);
+			DBG_PRINT("notify event(%d) not support\n", event);
 	}
-	
-	pplock_dev[dev_idx]->Unlock();
+
 #if 0
 	BizDealSvrNotify(dev_ip, 
 			cprcvhead.event,
@@ -2995,37 +2916,37 @@ void CBizDeviceManager::threadKeepAlive(uint param)
 }
 
 // 发消息
-int CBizDeviceManager::WriteMsg(s32 msg_type, u8 *pmsg, u32 msg_len)
+int CBizDeviceManager::WriteMsg(SBizMsg_t *pmsg, u32 msg_len)
 {	
 	int ret = SUCCESS;
-	
+
 	if (!b_inited)
 	{
 		ERR_PRINT("module not init\n");
 		return -FAILURE;
 	}
-#if 0	
-	if (msg_type >=  EM_MSG_TYPE_MAX)
+
+	if (NULL == pmsg)
 	{
-		ERR_PRINT("msg_type(%d) >=  EM_MSG_TYPE_MAX(%d)\n", msg_type, EM_MSG_TYPE_MAX);
-		return -FAILURE;
-	}
-#endif
-	SMQHdr_t hdr;
-	hdr.msg_type = msg_type;
-	hdr.msg_len = msg_len;
-	
-	if (pthread_mutex_lock(&mq_mutex))
-	{
-		ERR_PRINT("cond_mutex lock failed\n");
-		return -FAILURE;
+		ERR_PRINT("NULL == pmsg\n");
+		
+		return -EPARAM;
 	}
 
-	ret = pmq_ccbuf->Put((u8 *)&hdr, sizeof(SMQHdr_t));
+	if (sizeof(SBizMsg_t) != msg_len)
+	{
+		ERR_PRINT("sizeof(SBizMsg_t)(%d) != msg_len(%d)\n",
+			sizeof(SBizMsg_t), msg_len);
+		
+		return -EPARAM;
+	}
+
+	ret = pthread_mutex_lock(&mq_mutex);
 	if (ret)
 	{
-		ERR_PRINT("pmsg_queue Put Hdr failed\n");
-		goto fail;
+		ERR_PRINT("pthread_mutex_lock failed, err(%d, %s)\n", ret, strerror(ret));
+		
+		return -FAILURE;
 	}
 
 	ret = pmq_ccbuf->Put((u8 *)pmsg, msg_len);
@@ -3034,78 +2955,65 @@ int CBizDeviceManager::WriteMsg(s32 msg_type, u8 *pmsg, u32 msg_len)
 		ERR_PRINT("pmsg_queue Put msg failed\n");
 
 		pmq_ccbuf->PutRst();
-		goto fail;
+		
+		pthread_mutex_unlock(&mq_mutex);
+		return ret;
 	} 
 
 	mq_msg_count++;
 
-	if (pthread_cond_signal(&mq_cond))
+	ret = pthread_cond_signal(&mq_cond);
+	if (ret)
 	{
-		ERR_PRINT("pthread_cond_broadcast failed\n");
-		goto fail;
+		ERR_PRINT("pthread_cond_signal failed, err(%d, %s)\n", ret, strerror(ret));
+
+		pthread_mutex_unlock(&mq_mutex);
+		return ret;
 	}
 
-	pthread_mutex_unlock(&mq_mutex);
+	ret = pthread_mutex_unlock(&mq_mutex);
+	if (ret)
+	{
+		ERR_PRINT("pthread_mutex_unlock failed, err(%d, %s)\n", ret, strerror(ret));
+		
+		return -FAILURE;
+	}
+	
 	return SUCCESS;
-
-fail:
-	pthread_mutex_unlock(&mq_mutex);
-	return ret;
 }
-
-#define MSGLEN (1024)
 void CBizDeviceManager::threadMsg(uint param)//读消息
 {
 	VD_BOOL b_process = FALSE;
 	int ret = SUCCESS;
-	SMQHdr_t hdr;
-	u8 *pmsg = NULL;
-
-	pmsg = new u8[MSGLEN];
-	if (NULL == pmsg)
-	{
-		ERR_PRINT("new msg buffer failed\n");
-		goto thread_exit;
-	}
+	struct in_addr in;
+	s32 dev_idx = INVALID_VALUE;//设备索引 biz_dev
+	CBizDevice *pcdev = NULL;
+	u32 dev_ip = INADDR_NONE;
+	SBizMsg_t msg;
 	
 	while (1)
 	{
 		ret = SUCCESS;
 		b_process = FALSE;
 		
-		pthread_mutex_lock(&mq_mutex);
+		ret = pthread_mutex_lock(&mq_mutex);
+		if (ret)
+		{
+			ERR_PRINT("pthread_mutex_lock failed, err(%d, %s)\n", ret, strerror(ret));
+			
+			break;
+		}
+		
 		if (mq_msg_count)	//有消息
 		{
-			ret = pmq_ccbuf->Get((u8 *)&hdr, sizeof(SMQHdr_t));
-			if (ret != SUCCESS)
+			memset(&msg, 0, sizeof(SBizMsg_t));
+			ret = pmq_ccbuf->Get((u8 *)&msg, sizeof(SBizMsg_t));
+			if (ret)
 			{
-				ERR_PRINT("msg_queue get Hdr fail, ret: %d\n", ret);
+				ERR_PRINT("msg_queue get msg fail(%d), reset it\n", ret);
 
-				goto done;
-			}
-
-			if (hdr.msg_len > MSGLEN)
-			{
-				ERR_PRINT("hdr.msg_len(%d) > MSGLEN(%d)\n", hdr.msg_len, MSGLEN);
-
-				ret = -EDATA;
-				goto done;
-			}
-
-			ret = pmq_ccbuf->Get(pmsg, hdr.msg_len);
-			if (ret != SUCCESS)
-			{
-				ERR_PRINT("msg_queue get msg fail, ret: %d\n", ret);
-
-				goto done;
-			}
-
-done:
-
-			if (ret != SUCCESS)
-			{
-				mq_msg_count = 0;
 				pmq_ccbuf->Reset();
+				mq_msg_count = 0;
 			}
 			else
 			{
@@ -3115,25 +3023,191 @@ done:
 		}
 		else	//无消息
 		{
-			pthread_cond_wait(&mq_cond, &mq_mutex);			
+			ret = pthread_cond_wait(&mq_cond, &mq_mutex);
+			if (ret)
+			{
+				ERR_PRINT("pthread_cond_wait failed, err(%d, %s)\n", ret, strerror(ret));
+
+				pthread_mutex_unlock(&mq_mutex);
+				break;
+			}
 		}
 		
-		pthread_mutex_unlock(&mq_mutex);		
+		ret = pthread_mutex_unlock(&mq_mutex);
+		if (ret)
+		{
+			ERR_PRINT("pthread_cond_wait failed, err(%d, %s)\n", ret, strerror(ret));
+			
+			break;
+		}
 		
 		if (b_process)
 		{
+			ret = SUCCESS;
+			s32 msg_type = msg.msg_type;
 			
+			//DBG_PRINT("msg type: %d\n", msg_type);		
+			
+			switch (msg_type)
+			{
+				case EM_DEV_MSG_PROGRESS: //回放进度通知
+				{
+					dev_idx = msg.dev_idx;
+					u32 link_id = msg.un_part_chn.link_id;
+					u32 cur_pos = msg.un_part_data.stream_progress.cur_pos;
+					u32 total_size = msg.un_part_data.stream_progress.total_size;
+					
+					u32 stream_id = INVALID_VALUE;
+					MAP_LID_PSTREAM::iterator map_iter;
+					SDevStream_t* pstream = NULL;
+					
+					pplock_dev[dev_idx]->Lock();
+
+					pcdev = ppcdev[dev_idx];
+					if (NULL == pcdev)
+					{
+						ERR_PRINT("dev_idx(%d) pcdev == NULL\n", dev_idx);
+						
+						pplock_dev[dev_idx]->Unlock();						
+						break ;
+					}
+					
+					dev_ip = pcdev->dev_info.deviceIP;
+					
+					pcdev->plock4stream->Lock();
+								
+					
+					
+					in.s_addr = dev_ip;
+#if 0
+
+					DBG_PRINT("link_id: %d, cur_pos: %d, total_size: %d\n", 
+						link_id, cur_pos, total_size);
+#endif
+					map_iter = pcdev->map_lid_pstream.find(link_id);
+					if (map_iter == pcdev->map_lid_pstream.end())
+					{
+						ERR_PRINT("svr IP: %s, link_id(%u), map_lid_pstream not find\n", 
+							inet_ntoa(in), link_id);//可能发生，StreamStart 中map_lid_pstream.insert 或之前失败
+						
+						pcdev->plock4stream->Unlock();
+						pplock_dev[dev_idx]->Unlock();
+						break ;
+					}
+					
+					pstream = map_iter->second;
+					if (NULL == pstream)
+					{
+						ERR_PRINT("svr IP: %s, link_id(%u), NULL == pstream\n", 
+							inet_ntoa(in), link_id);
+						
+						pcdev->plock4stream->Unlock();
+						pplock_dev[dev_idx]->Unlock();
+						break ;
+					}
+
+					stream_id = pstream->stream_id;
+					pcdev->plock4stream->Unlock();
+					pplock_dev[dev_idx]->Unlock();
+					
+#if 1
+					//send msg to stream manager
+					memset(&msg, 0, sizeof(SBizMsg_t));
+					msg.msg_type = EM_STREAM_MSG_PROGRESS;
+					msg.un_part_chn.stream_id = stream_id;
+					msg.un_part_data.stream_progress.cur_pos = cur_pos;
+					msg.un_part_data.stream_progress.total_size = total_size;
+
+					int ret = BizSendMsg2StreamManager(&msg, sizeof(SBizMsg_t));
+					if (ret)
+					{
+						ERR_PRINT("svr IP: %s, link_id(%u), msg_type: %d, BizSendMsg2StreamManager failed, ret: %d\n",
+							inet_ntoa(in), link_id, msg.msg_type, ret);
+				 	}
+#endif			
+				} break;
+
+				case EM_DEV_MSG_FINISH: //放像结束。文件回放(无)；时间回放(有)
+				{
+					dev_idx = msg.dev_idx;
+					u32 link_id = msg.un_part_chn.link_id;
+					u32 stream_id = INVALID_VALUE;
+					MAP_LID_PSTREAM::iterator map_iter;
+					SDevStream_t* pstream = NULL;
+					
+					pplock_dev[dev_idx]->Lock();
+
+					pcdev = ppcdev[dev_idx];
+					if (NULL == pcdev)
+					{
+						ERR_PRINT("dev_idx(%d) pcdev == NULL\n", dev_idx);
+						
+						pplock_dev[dev_idx]->Unlock();						
+						break ;
+					}
+					
+					dev_ip = pcdev->dev_info.deviceIP;
+					
+					pcdev->plock4stream->Lock();
+			
+					in.s_addr = dev_ip;
+#if 0
+
+					DBG_PRINT("link_id: %d, totallen: %d, currPos: %d\n", 
+						progress.id, progress.totallen, progress.currPos);
+#endif
+					map_iter = pcdev->map_lid_pstream.find(link_id);
+					if (map_iter == pcdev->map_lid_pstream.end())
+					{
+						ERR_PRINT("svr IP: %s, link_id(%u), map_lid_pstream not find\n", 
+							inet_ntoa(in), link_id);//可能发生，StreamStart 中map_lid_pstream.insert 或之前失败
+						
+						pcdev->plock4stream->Unlock();
+						pplock_dev[dev_idx]->Unlock();
+						break ;
+					}
+					
+					pstream = map_iter->second;
+					if (NULL == pstream)
+					{
+						ERR_PRINT("svr IP: %s, link_id(%u), NULL == pstream\n", 
+							inet_ntoa(in), link_id);
+						
+						pcdev->plock4stream->Unlock();
+						pplock_dev[dev_idx]->Unlock();
+						break ;
+					}
+
+					stream_id = pstream->stream_id;
+					pcdev->plock4stream->Unlock();
+					pplock_dev[dev_idx]->Unlock();
+
+					//send msg to stream manager
+					memset(&msg, 0, sizeof(SBizMsg_t));
+					msg.msg_type = EM_STREAM_MSG_FINISH;
+					msg.un_part_chn.stream_id = stream_id;
+
+					int ret = BizSendMsg2StreamManager(&msg, sizeof(SBizMsg_t));
+					if (ret)
+					{
+						ERR_PRINT("svr IP: %s, link_id(%u), msg_type: %d, BizSendMsg2StreamManager failed, ret: %d\n",
+							inet_ntoa(in), link_id, msg.msg_type, ret);
+				 	}
+				} break;
+
+				case CTRL_NOTIFY_ALARMINFO: //异步报警信息
+				{
+				} break;
+
+				default:
+					ERR_PRINT("msg_type: %d, not support\n", msg_type);
+			}
 		}
 	}
 
 thread_exit:
+	
 	ERR_PRINT("CBizDeviceManager::threadMsg exit, inconceivable\n");
-
-	if (pmsg)
-	{
-		delete[] pmsg;
-		pmsg = NULL;
-	}
 }
 
 #if 0
@@ -3263,10 +3337,10 @@ int CBizDevice::_DevLogin(ifly_loginpara_t *plogin)
 	int ret = SUCCESS;
 	u8 buf[128];
     
-	ret = g_biz_device_manager.NetDialogue(sock_cmd, CTRL_CMD_LOGIN, plogin, sizeof(ifly_loginpara_t), buf, sizeof(buf), &realacklen);
+	ret = g_biz_device_manager.NetCom(sock_cmd, CTRL_CMD_LOGIN, plogin, sizeof(ifly_loginpara_t), buf, sizeof(buf), &realacklen);
 	if (SUCCESS != ret)
 	{
-		ERR_PRINT("NetDialogue CTRL_CMD_LOGIN invalid\n");
+		ERR_PRINT("NetCom CTRL_CMD_LOGIN invalid\n");
 		return -FAILURE;
 	}
 
@@ -3280,17 +3354,17 @@ int CBizDevice::_DevLogout(ifly_loginpara_t *plogin)
 	u8 buf[128];
 
 #if 0   
-	ret = g_biz_device_manager.NetDialogue(sock_cmd, CTRL_CMD_LOGOFF, plogin, sizeof(ifly_loginpara_t), buf, sizeof(buf), &realacklen);
+	ret = g_biz_device_manager.NetCom(sock_cmd, CTRL_CMD_LOGOFF, plogin, sizeof(ifly_loginpara_t), buf, sizeof(buf), &realacklen);
 	if (SUCCESS != ret)
 	{
-		ERR_PRINT("NetDialogue CTRL_CMD_LOGOFF invalid\n");
+		ERR_PRINT("NetCom CTRL_CMD_LOGOFF invalid\n");
 		return -FAILURE;
 	}
 #else
-	ret = DevNetDialogue(CTRL_CMD_LOGOFF, plogin, sizeof(ifly_loginpara_t), buf, sizeof(buf));
+	ret = DevNetCom(CTRL_CMD_LOGOFF, plogin, sizeof(ifly_loginpara_t), buf, sizeof(buf));
 	if (SUCCESS != ret)
 	{
-		ERR_PRINT("DevNetDialogue CTRL_CMD_LOGOFF failed\n");
+		ERR_PRINT("DevNetCom CTRL_CMD_LOGOFF failed\n");
 		return ret;
 	}
 #endif
@@ -3310,17 +3384,17 @@ int CBizDevice::_DevSetAlarmUpload(u8 upload_enable)
     }
 
 #if 0	
-	ret = g_biz_device_manager.NetDialogue(sock_cmd, CTRL_CMD_ALARMUPLOADCENTER, &upload_enable,sizeof(upload_enable), buf, sizeof(buf), &realacklen);
+	ret = g_biz_device_manager.NetCom(sock_cmd, CTRL_CMD_ALARMUPLOADCENTER, &upload_enable,sizeof(upload_enable), buf, sizeof(buf), &realacklen);
 	if (SUCCESS != ret)
 	{
-		ERR_PRINT("NetDialogue CTRL_CMD_ALARMUPLOADCENTER invalid\n");
+		ERR_PRINT("NetCom CTRL_CMD_ALARMUPLOADCENTER invalid\n");
 		return -FAILURE;
 	}
 #else
-	ret = DevNetDialogue(CTRL_CMD_ALARMUPLOADCENTER, &upload_enable, sizeof(upload_enable), buf, sizeof(buf));
+	ret = DevNetCom(CTRL_CMD_ALARMUPLOADCENTER, &upload_enable, sizeof(upload_enable), buf, sizeof(buf));
 	if (SUCCESS != ret)
 	{
-		ERR_PRINT("DevNetDialogue CTRL_CMD_LOGOFF failed\n");
+		ERR_PRINT("DevNetCom CTRL_CMD_LOGOFF failed\n");
 		return ret;
 	}
 #endif
@@ -3345,10 +3419,10 @@ int CBizDevice::GetDeviceInfo(ifly_DeviceInfo_t *pDeviceInfo)
         return -EDEV_OFFLINE;
     }
 	
-	ret = g_biz_device_manager.NetDialogue(sock_cmd, CTRL_CMD_GETDEVICEINFO, NULL, 0, pDeviceInfo, sizeof(ifly_DeviceInfo_t), &realacklen);
+	ret = g_biz_device_manager.NetCom(sock_cmd, CTRL_CMD_GETDEVICEINFO, NULL, 0, pDeviceInfo, sizeof(ifly_DeviceInfo_t), &realacklen);
 	if (ret)
 	{
-		ERR_PRINT("NetDialogue invalid\n");
+		ERR_PRINT("NetCom invalid\n");
 		return -FAILURE;
 	}
 
@@ -3372,7 +3446,7 @@ int CBizDevice::GetDeviceInfo(ifly_DeviceInfo_t *pDeviceInfo)
 }
 
 //底层数据交互
-int CBizDevice::DevNetDialogue(u16 event, const void *content, int length, void* ackbuf, int ackbuflen)
+int CBizDevice::DevNetCom(u16 event, const void *content, int length, void* ackbuf, int ackbuflen)
 {
 	int realacklen = 0;
 	int ret = SUCCESS;
@@ -3413,11 +3487,11 @@ int CBizDevice::DevNetDialogue(u16 event, const void *content, int length, void*
 			goto fail;
 		}
 		
-		ret = g_biz_device_manager.NetDialogue(sock_cmd, event, content, length, ackbuf, ackbuflen, &realacklen);
+		ret = g_biz_device_manager.NetCom(sock_cmd, event, content, length, ackbuf, ackbuflen, &realacklen);
 
 fail:
 		//成功与否都要进行后期处理
-		ret = DevNetDialogueAfter(ret);
+		ret = DevNetComAfter(ret);
 		if (SUCCESS == ret)
 		{
 			break;
@@ -3431,7 +3505,7 @@ fail:
 	return ret;
 }
 
-int CBizDevice::DevNetDialogueAfter(int net_ret)//后期错误检查
+int CBizDevice::DevNetComAfter(int net_ret)//后期错误检查
 {
 	struct in_addr in;
 	in.s_addr = dev_info.deviceIP;
@@ -3508,10 +3582,10 @@ int CBizDevice::GetDevSysTime(ifly_sysTime_t *psys_time)
         return -EPARAM;
 	}
 
-	ret = DevNetDialogue(CTRL_CMD_GETSYSTIME, NULL, 0, psys_time, sizeof(ifly_sysTime_t));
+	ret = DevNetCom(CTRL_CMD_GETSYSTIME, NULL, 0, psys_time, sizeof(ifly_sysTime_t));
 	if (ret)
 	{
-		ERR_PRINT("DevNetDialogue CTRL_CMD_GETSYSTIME failed, ret: %d\n", ret);
+		ERR_PRINT("DevNetCom CTRL_CMD_GETSYSTIME failed, ret: %d\n", ret);
 		return ret;
 	}
 
@@ -3573,10 +3647,10 @@ int CBizDevice::GetChnIPCInfo(ifly_ipc_info_t * pipc_info, u32 size)
 		req_desc.startID = ret_desc.endID+1;//从第一个开始
 		req_desc.startID = htons(req_desc.startID);
 		
-		ret = DevNetDialogue(CTRL_CMD_GETADDIPCLIST, &req_desc, sizeof(ifly_search_desc_t), buf, sizeof(buf));
+		ret = DevNetCom(CTRL_CMD_GETADDIPCLIST, &req_desc, sizeof(ifly_search_desc_t), buf, sizeof(buf));
 		if (ret)
 		{
-			ERR_PRINT("DevNetDialogue CTRL_CMD_GETADDIPCLIST failed, ret: %d\n", ret);
+			ERR_PRINT("DevNetCom CTRL_CMD_GETADDIPCLIST failed, ret: %d\n", ret);
 			
 			return ret;
 		}
@@ -3639,10 +3713,10 @@ int CBizDevice::GetChnName(u8 chn, char *pbuf, u32 size)
 	ifly_ImgParam_t para_info;
 	memset(&para_info, 0, sizeof(ifly_ImgParam_t));
 	
-	ret = DevNetDialogue(CTRL_CMD_GETIMGPARAM, &chn, sizeof(chn), &para_info, sizeof(ifly_ImgParam_t));
+	ret = DevNetCom(CTRL_CMD_GETIMGPARAM, &chn, sizeof(chn), &para_info, sizeof(ifly_ImgParam_t));
 	if (ret)
 	{
-		ERR_PRINT("DevNetDialogue CTRL_CMD_GETIMGPARAM failed, ret: %d\n", ret);
+		ERR_PRINT("DevNetCom CTRL_CMD_GETIMGPARAM failed, ret: %d\n", ret);
 		
 		return ret;
 	}
@@ -3696,10 +3770,10 @@ int CBizDevice::SetChnIpc(u8 dec_chn, u32 nvr_ip, u8 nvr_chn)
 	ipc_info.max_nvr_chn = 16;
 	ipc_info.req_nvr_chn = nvr_chn;
 
-	ret = DevNetDialogue(CTRL_CMD_SETIPC, &ipc_info, sizeof(ifly_ipc_info_t), NULL, 0);
+	ret = DevNetCom(CTRL_CMD_SETIPC, &ipc_info, sizeof(ifly_ipc_info_t), NULL, 0);
 	if (ret)
 	{
-		ERR_PRINT("DevNetDialogue CTRL_CMD_SETIPC failed, ret: %d\n", ret);
+		ERR_PRINT("DevNetCom CTRL_CMD_SETIPC failed, ret: %d\n", ret);
 		
 		return ret;
 	}
@@ -3740,10 +3814,10 @@ int CBizDevice::DelChnIpc(u8 dec_chn)
 	ipc_info.req_nvr_chn = nvr_chn;
 	#endif
 
-	ret = DevNetDialogue(CTRL_CMD_DELETEIPC, &ipc_info, sizeof(ifly_ipc_info_t), NULL, 0);
+	ret = DevNetCom(CTRL_CMD_DELETEIPC, &ipc_info, sizeof(ifly_ipc_info_t), NULL, 0);
 	if (ret)
 	{
-		ERR_PRINT("DevNetDialogue CTRL_CMD_DELETEIPC failed, ret: %d\n", ret);
+		ERR_PRINT("DevNetCom CTRL_CMD_DELETEIPC failed, ret: %d\n", ret);
 		
 		return ret;
 	}
@@ -3791,12 +3865,12 @@ enum NETDVR_REC_INDEX_MASK
     search_para.startID = htons(search_para.startID);  //must >= 1
     search_para.max_return = htons(search_para.max_return); //must <= 24
     
-	ret = DevNetDialogue(CTRL_CMD_RECFILESEARCH, 
+	ret = DevNetCom(CTRL_CMD_RECFILESEARCH, 
 				&search_para, sizeof(ifly_recsearch_param_t), 
 				buf, sizeof(buf));
 	if (ret)
 	{
-		ERR_PRINT("DevNetDialogue CTRL_CMD_RECFILESEARCH failed, ret: %d\n", ret);
+		ERR_PRINT("DevNetCom CTRL_CMD_RECFILESEARCH failed, ret: %d\n", ret);
 		
 		return ret;
 	}
@@ -3866,10 +3940,10 @@ int CBizDevice::GetPatrolPara(ifly_patrol_para_t *para, u32 *pbuf_size)
 	}
 	
 	memset(para, 0, sizeof(ifly_patrol_para_t));
-	ret = DevNetDialogue(CTRL_CMD_GET_PATROL_PARA, NULL, 0, buf, sizeof(buf));
+	ret = DevNetCom(CTRL_CMD_GET_PATROL_PARA, NULL, 0, buf, sizeof(buf));
 	if (ret)
 	{
-		ERR_PRINT("DevNetDialogue CTRL_CMD_GET_PATROL_PARA failed, ret: %d\n", ret);
+		ERR_PRINT("DevNetCom CTRL_CMD_GET_PATROL_PARA failed, ret: %d\n", ret);
 		
 		return ret;
 	}
@@ -4283,7 +4357,7 @@ fail2:
 			goto fail;
 		}
 		
-		DevNetDialogue(net_cmd, &link_id, sizeof(link_id), NULL, 0);
+		DevNetCom(net_cmd, &link_id, sizeof(link_id), NULL, 0);
 	}
 	
 fail:
@@ -4416,10 +4490,10 @@ int CBizDevice::ReqStreamStopByStreamID(u32 stream_id, s32 stop_reason)//GLB_ERR
 	plock4stream->Unlock();
 
 	link_id = htonl(link_id);
-	ret = DevNetDialogue(net_cmd, &link_id, sizeof(link_id), buf, sizeof(buf));
+	ret = DevNetCom(net_cmd, &link_id, sizeof(link_id), buf, sizeof(buf));
 	if (ret)
 	{
-		ERR_PRINT("svr IP: %s, link_id(%u), DevNetDialogue cmd(%d) failed, ret: %d\n",
+		ERR_PRINT("svr IP: %s, link_id(%u), DevNetCom cmd(%d) failed, ret: %d\n",
 			inet_ntoa(in), link_id, net_cmd, ret);
 	}
 
@@ -4553,10 +4627,10 @@ int CBizDevice::StreamStopByLinkID(u32 link_id, s32 stop_reason)//GLB_ERROR_NUM
 	}
 
 	link_id = htonl(link_id);
-	ret = DevNetDialogue(net_cmd, &link_id, sizeof(link_id), buf, sizeof(buf));
+	ret = DevNetCom(net_cmd, &link_id, sizeof(link_id), buf, sizeof(buf));
 	if (ret)
 	{
-		ERR_PRINT("svr IP: %s, link_id(%u), DevNetDialogue cmd(%d) failed, ret: %d\n",
+		ERR_PRINT("svr IP: %s, link_id(%u), DevNetCom cmd(%d) failed, ret: %d\n",
 			inet_ntoa(in), link_id, net_cmd, ret);
 	}
 
@@ -4649,10 +4723,10 @@ int CBizDevice::StreamProgress(u32 stream_id, VD_BOOL b) //接收回放进度信息
 	
 	DBG_PRINT("sndlen: %d\n", sndlen);
 	
-	ret = DevNetDialogue(CTRL_CMD_PLAYPROGRESS, sndbuf, sndlen, NULL, 0);
+	ret = DevNetCom(CTRL_CMD_PLAYPROGRESS, sndbuf, sndlen, NULL, 0);
 	if (ret)
 	{
-		ERR_PRINT("DevNetDialogue CTRL_CMD_PLAYPROGRESS failed, ret: %d\n", ret);
+		ERR_PRINT("DevNetCom CTRL_CMD_PLAYPROGRESS failed, ret: %d\n", ret);
 
 		return ret;
 	}

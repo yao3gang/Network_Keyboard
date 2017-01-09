@@ -43,10 +43,11 @@ private:
     QMutex mutex;
     ifly_recsearch_param_t search_para;
     ifly_search_file_result_t search_result;
-    u32 search_nvr_ip;//搜索操作对应的设备IP
+    u32 search_nvr_ip;//搜索操作相关数据
     u32 search_nvr_chn;
-    u32 play_nvr_ip;//当前播放对应的设备IP
+    u32 play_nvr_ip;//当前播放相关数据
     u32 play_nvr_chn;
+    ifly_recfileinfo_t play_file;
 
 private slots:
     void refreshDevInfo(SGuiDev dev);

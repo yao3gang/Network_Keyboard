@@ -36,6 +36,10 @@ typedef enum
 	EM_FILE_DOWNLOAD_MSG_PROGRESS,		//文件回放由NVR 端发出，下载和升级进度由本地接收进程发出
 	EM_FILE_DOWNLOAD_MSG_FINISH,		//文件下载完成
 	EM_FILE_CONVERT_MSG_FINISH,		//文件转换AVI 完成
+
+	//biz dev
+	EM_DEV_MSG_PROGRESS,		//文件回放/下载进度
+	EM_DEV_MSG_FINISH,		//文件下载完成
 } EM_BIZ_MSG_TYPE;
 
 
@@ -45,9 +49,11 @@ typedef enum
 typedef struct 
 {
 	s32 msg_type;
-
+	s32 dev_idx;//设备索引 biz_dev
+	
 	union
 	{
+		u32 link_id;//连接ID  biz_dev
 		u32 stream_id;//关键，系统唯一
 		u32 playback_chn;
 		u32 preview_chn;

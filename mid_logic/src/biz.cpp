@@ -113,7 +113,7 @@ int BizEventCB(SBizEventPara* pSBizEventPara)
 {
 	EMBIZEVENT type = pSBizEventPara->type;
 
-	DBG_PRINT("type: %d\n", type);
+	//DBG_PRINT("type: %d\n", type);
 
 	switch (type)
 	{
@@ -131,6 +131,21 @@ int BizEventCB(SBizEventPara* pSBizEventPara)
 
 			//hisi process
 			hisi_chn_start(playback_chn);
+
+			//notify gui
+			SPlaybackNotify_t para;
+			memset(&para, 0, sizeof(SPlaybackNotify_t));
+			
+			para.type = EM_BIZ_EVENT_PLAYBACK_START;
+			para.playback_chn = playback_chn;
+			para.stream_progress.cur_pos = cur_pos;
+			para.stream_progress.total_size = total_size;
+
+		#if 0
+			DBG_PRINT("cur_pos: %u, total_size: %u\n", cur_pos, total_size);
+		#endif
+		
+			notifyPlaybackInfo(&para);
 			
 		} break;
 
@@ -157,7 +172,7 @@ int BizEventCB(SBizEventPara* pSBizEventPara)
 			para.stream_progress.cur_pos = cur_pos;
 			para.stream_progress.total_size = total_size;
 
-		#if 1
+		#if 0
 			DBG_PRINT("cur_pos: %u, total_size: %u\n", cur_pos, total_size);
 		#endif
 		

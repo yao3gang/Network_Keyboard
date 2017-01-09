@@ -1,2 +1,5 @@
----- VIDEO_MODE_FRAME Matches (2 in 1 files) ----
-hisi_sys.c (hisi_lib\src):	stAttr.stVdecVideoAttr.enMode = VIDEO_MODE_FRAME;//VIDEO_MODE_FRAME; VIDEO_MODE_STREAM
+---- EM_BIZ_EVENT_PLAYBACK_START Matches (4 in 4 files) ----
+biz.cpp (mid_logic\src):		case EM_BIZ_EVENT_PLAYBACK_START: //回放开始
+biz_playback.cpp (mid_logic\src):	para.type = EM_BIZ_EVENT_PLAYBACK_START;
+biz_types.h (mid_logic\inc):    EM_BIZ_EVENT_PLAYBACK_START, //回放开始
+form_playback.cpp (gui\page):        case EM_BIZ_EVENT_PLAYBACK_START:

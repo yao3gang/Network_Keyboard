@@ -329,7 +329,7 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 				frame_hdr.m_dwTimeStamp = hdr.m_dwTimeStamp;
 				frame_hdr.m_pData = (u8 *)pframe_data;
 				
-#if 1
+#if 0
 				if (MEDIA_TYPE_H264 == frame_hdr.m_byMediaType)
 				{
 					ms64 = SystemGetMSCount64();
@@ -337,7 +337,10 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 						hdr.m_dwFrameID, hdr.m_dwDataSize, hdr.m_dwTimeStamp, ms64);
 				}
 
-#else
+#endif
+#if 0
+
+
 				if ((MEDIA_TYPE_H264 == frame_hdr.m_byMediaType) && hdr.m_bKeyFrame)
 				{
 					DBG_PRINT("dev IP: %s, stream_id: %d, req_cmd: %d, recv one frame, m_byMediaType: %d, m_bKeyFrame: %d, m_dwFrameID: %u, m_dwDataSize: %d\n", 
@@ -824,7 +827,7 @@ int CMediaStreamManager::dealStreamDel(u32 stream_id, u32 stop_reason)
 {
 	int ret = SUCCESS;
 	struct in_addr in;
-	EM_DEV_TYPE dev_type;//服务器类型
+	EM_DEV_TYPE dev_type = EM_DEV_TYPE_NONE;//服务器类型
 	u32 dev_ip = INADDR_NONE;//服务器IP
 	CMediaStream *pstream = NULL;
 	MAP_ID_PSTREAM::iterator map_iter;
@@ -850,6 +853,7 @@ int CMediaStreamManager::dealStreamDel(u32 stream_id, u32 stop_reason)
 		plock4param->Unlock();
 		return -EPARAM;
 	}
+	
 	DBG_PRINT("lock\n");
 	pstream->plock4param->Lock();
 
@@ -868,7 +872,20 @@ int CMediaStreamManager::dealStreamDel(u32 stream_id, u32 stop_reason)
 		plock4param->Unlock();
 		return -EPARAM;
 	}
-			
+	pstream->plock4param->Unlock();
+	plock4param->Unlock();
+
+	//先关
+	ret = BizDevReqStreamStop(dev_type, dev_ip, stream_id, stop_reason);
+	if (ret)
+	{
+		ERR_PRINT("dev ip: %s, stream_id: %d, req cmd: %d, BizDevReqStreamStop failed, ret: %d\n",
+			inet_ntoa(in), stream_id, req_cmd, ret);
+	}
+	
+	plock4param->Lock();
+	pstream->plock4param->Lock();
+	
 	DBG_PRINT("wait threadRcv exit, b_thread_running: %d\n", pstream->b_thread_running);
 	if (pstream->b_thread_running)
 	{
@@ -892,22 +909,13 @@ int CMediaStreamManager::dealStreamDel(u32 stream_id, u32 stop_reason)
 	pstream->plock4param->Unlock();
 
 	//安全了
+	
 	map_pstream.erase(stream_id);//移除
 	
 	delete pstream;//释放
 	pstream = NULL;
 
 	plock4param->Unlock();
-
-
-	ret = BizDevReqStreamStop(dev_type, dev_ip, stream_id, stop_reason);
-	if (ret)
-	{
-		ERR_PRINT("dev ip: %s, stream_id: %d, req cmd: %d, BizDevReqStreamStop failed, ret: %d\n",
-			inet_ntoa(in), stream_id, req_cmd, ret);
-
-		return ret;
-	}
 	
 	DBG_PRINT("dev ip: %s, stream_id: %d, req cmd: %d, BizDevReqStreamStop success\n",
 		inet_ntoa(in), stream_id, req_cmd);
@@ -1018,7 +1026,7 @@ int CMediaStreamManager::dealStreamMsgProgess(u32 stream_id, u32 cur_pos, u32 to
 	PDEAL_STATUS deal_status_cb = NULL;
 	SBizMsg_t msg;
 	
-	DBG_PRINT("manager lock\n");
+	//DBG_PRINT("manager lock\n");
 	plock4param->Lock();
 	
 	map_iter = map_pstream.find(stream_id);
@@ -1039,7 +1047,7 @@ int CMediaStreamManager::dealStreamMsgProgess(u32 stream_id, u32 cur_pos, u32 to
 		return -EPARAM;
 	}
 
-	DBG_PRINT("lock\n");
+	//DBG_PRINT("lock\n");
 	pstream->plock4param->Lock();
 
 	obj = pstream->m_obj;
@@ -1212,7 +1220,7 @@ void CMediaStreamManager::threadMsg(uint param)//读消息
 		{
 			ret = SUCCESS;
 			s32 msg_type = msg.msg_type;
-			DBG_PRINT("msg type: %d\n", msg_type);		
+			//DBG_PRINT("msg type: %d\n", msg_type);		
 			
 			switch (msg_type)
 			{

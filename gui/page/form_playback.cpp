@@ -425,6 +425,7 @@ void form_playback::tableWidgetDoubleClicked(QTableWidgetItem * item)
 
     play_nvr_ip = search_nvr_ip;
     play_nvr_chn = search_nvr_chn;
+    play_file = search_result.pfile_info[file_idx];
 }
 
 void form_playback::showTableWidget(bool b)
@@ -557,14 +558,14 @@ void form_playback::slotNotifyPlaybackInfo(SPlaybackNotify_t playback_msg)
 
         case EM_BIZ_EVENT_PLAYBACK_START:
         {
-
+            ui->slider_play->set
         } break;
 
         case EM_BIZ_EVENT_PLAYBACK_RUN:
         {
             u32 cur_pos = playback_msg.stream_progress.cur_pos;
             u32 total_size = playback_msg.stream_progress.total_size;
-#if 0
+#if 1
             DBG_PRINT("cur_pos: %u, total_size: %u\n", cur_pos, total_size);
 #endif
         } break;
