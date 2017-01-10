@@ -697,7 +697,7 @@ int CMediaStreamManager::dealStreamConnect(u32 stream_id)
 	SBizMsg_t msg;
 	memset(&msg, 0, sizeof(SBizMsg_t));
 	
-	DBG_PRINT("manager lock\n");
+	//DBG_PRINT("manager lock\n");
 	plock4param->Lock();
 	
 	map_iter = map_pstream.find(stream_id);
@@ -718,7 +718,7 @@ int CMediaStreamManager::dealStreamConnect(u32 stream_id)
 		return -EPARAM;
 	}
 
-	DBG_PRINT("lock\n");
+	//DBG_PRINT("lock\n");
 	pstream->plock4param->Lock();
 
 	obj = pstream->m_obj;
@@ -1318,7 +1318,7 @@ int CMediaStreamManager::ReqStreamStart(
 		
 		return -EPARAM;
 	}
-	DBG_PRINT("start\n");
+	//DBG_PRINT("start\n");
 	
 	if (!b_inited)
 	{
@@ -1350,7 +1350,7 @@ int CMediaStreamManager::ReqStreamStart(
 	pstream->m_deal_frame_cb = deal_frame_cb;//流注册的帧数据处理函数
 	pstream->m_deal_status_cb = deal_status_cb;//流注册的状态处理函数
 
-	DBG_PRINT("manager lock\n");
+	//DBG_PRINT("manager lock\n");
 	plock4param->Lock();
 
 	pstream->stream_id = _createStreamID();
@@ -1382,7 +1382,7 @@ int CMediaStreamManager::ReqStreamStart(
 		goto fail3;
 	}	
 
-	DBG_PRINT("end\n");
+	//DBG_PRINT("end\n");
 	return SUCCESS;
 
 fail3:

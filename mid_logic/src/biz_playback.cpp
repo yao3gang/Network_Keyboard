@@ -1021,7 +1021,7 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 	struct in_addr in;
 	in.s_addr = dev_ip;
 
-	DBG_PRINT("start\n"); 
+	//DBG_PRINT("start\n"); 
 	
 	if (NULL == pfile_info)
 	{
@@ -1085,7 +1085,7 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 		goto fail;
 	}
 
-	DBG_PRINT("lock\n");
+	//DBG_PRINT("lock\n");
 	plock4param->Lock();
 	
 	if (!map_pbchn_sid.insert(std::make_pair(playback_chn, stream_id)).second)
@@ -1124,7 +1124,7 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 	
 	plock4param->Unlock();
 
-	DBG_PRINT("end\n");
+	//DBG_PRINT("end\n");
 	
 	return SUCCESS;	
 	

@@ -17,6 +17,13 @@ class form_playback : public QWidget
 {
     Q_OBJECT
     
+    typedef enum{
+        EM_PLAY_STATUS_STOP,
+        EM_PLAY_STATUS_PLAYING,
+        EM_PLAY_STATUS_PAUSE,
+        EM_PLAY_STATUS_STEP,
+    } EM_PLAY_STATUS_T;
+
 public:
     explicit form_playback(QWidget *parent = 0);
     ~form_playback();
@@ -40,6 +47,7 @@ private:
 
 private:
     Ui::form_playback *ui;
+    QLabel *m_displayLabel;
     QMutex mutex;
     ifly_recsearch_param_t search_para;
     ifly_search_file_result_t search_result;
@@ -48,6 +56,9 @@ private:
     u32 play_nvr_ip;//当前播放相关数据
     u32 play_nvr_chn;
     ifly_recfileinfo_t play_file;
+    EM_PLAY_STATUS_T play_status;
+    bool b_slider_mover;
+    int slider_pressed_pos;
 
 private slots:
     void refreshDevInfo(SGuiDev dev);
@@ -62,8 +73,14 @@ private slots:
     void on_btn_page_next_clicked();
     void on_btn_page_end_clicked();
     void on_btn_to_dec_clicked();
-    //play ctl
+
+    //play ctl    
     void on_btn_stop_clicked();
+    void on_btn_play_clicked();
+
+    void slider_pressed(int pos);
+    void slider_moved(int pos);
+    void slider_released(int pos);
 };
 
 #endif // FORM_PLAYBACK_H

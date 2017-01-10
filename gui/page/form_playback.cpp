@@ -17,11 +17,17 @@
 #define MAX_FILE_NUMS (10)
 #define MB (1024*1024)
 
-form_playback::form_playback(QWidget *parent) :
-    QWidget(parent),
-    ui(new Ui::form_playback),
-    search_nvr_ip(INADDR_NONE),
-    search_nvr_chn(INADDR_NONE)//只是使用该无效值，没有其他意思
+form_playback::form_playback(QWidget *parent)
+    : QWidget(parent)
+    , ui(new Ui::form_playback)
+    , m_displayLabel(NULL)
+    , search_nvr_ip(INADDR_NONE)
+    , search_nvr_chn(INVALID_VALUE)//只是使用该无效值，没有其他意思
+    , play_nvr_ip(INADDR_NONE)//当前播放相关数据
+    , play_nvr_chn(INVALID_VALUE)
+    , play_status(EM_PLAY_STATUS_STOP)
+    , b_slider_mover(false)
+    , slider_pressed_pos(0)
 {
     memset(&search_para, 0, sizeof(ifly_recsearch_param_t));
 
@@ -246,8 +252,31 @@ void form_playback::setupWidgetBottom()
     //btn frame
     ui->btn_next_frame->setToolTip(QString::fromUtf8("单帧前进"));
 
-    ui->slider_play->setToolTip(QString::fromUtf8("播放速率"));
+    //slider
+    QTime qtime(0, 0, 0);
+    ui->lab_time_start->setText(qtime.toString(QString::fromUtf8("HH:mm:ss")));
+    ui->lab_time_end->setText(qtime.toString(QString::fromUtf8("HH:mm:ss")));
 
+    ui->slider_play->setMinimum(0);
+    ui->slider_play->setMaximum(0);
+    ui->slider_play->setSingleStep(1);
+
+    //slider label 显示鼠标拖动游标时的当前时间
+    m_displayLabel=new QLabel(this);
+    //m_displayLabel->setFixedSize(QSize(20,20));
+    //设置游标背景为白色
+    m_displayLabel->setAutoFillBackground(true);
+    QPalette palette;
+    palette.setColor(QPalette::Background, Qt::white);
+    m_displayLabel->setPalette(palette);
+
+    m_displayLabel->setAlignment(Qt::AlignCenter);
+
+    m_displayLabel->setVisible(false);
+    //m_displayLabel->move(ui->slider_play->x(), ui->slider_play->y()+3);
+
+    //rate
+    ui->comboBox_speed->setToolTip(QString::fromUtf8("播放速率"));
     //搜索文件 控制
     ui->btn_page_start->setToolTip(QString::fromUtf8("首页"));
     ui->btn_page_pre->setToolTip(QString::fromUtf8("上一页"));
@@ -273,6 +302,10 @@ void form_playback::setupWidgetBottom()
     connect(ui->tableWidget_left, SIGNAL(itemDoubleClicked(QTableWidgetItem*)), this, SLOT(tableWidgetDoubleClicked(QTableWidgetItem*)));
     connect(ui->tableWidget_right, SIGNAL(itemClicked(QTableWidgetItem*)), this, SLOT(tableWidgetClicked(QTableWidgetItem*)));
     connect(ui->tableWidget_right, SIGNAL(itemDoubleClicked(QTableWidgetItem*)), this, SLOT(tableWidgetDoubleClicked(QTableWidgetItem*)));
+
+    connect(ui->slider_play, SIGNAL(costomSliderPressed(int)), this, SLOT(slider_pressed(int)));
+    connect(ui->slider_play, SIGNAL(sliderMoved(int)), this, SLOT(slider_moved(int)));
+    connect(ui->slider_play, SIGNAL(costomSliderReleased(int)), this, SLOT(slider_released(int)));
 }
 
 void form_playback::setupTableWidgetResult()
@@ -426,6 +459,7 @@ void form_playback::tableWidgetDoubleClicked(QTableWidgetItem * item)
     play_nvr_ip = search_nvr_ip;
     play_nvr_chn = search_nvr_chn;
     play_file = search_result.pfile_info[file_idx];
+    //play_status = EM_PLAY_STATUS_PLAYING;
 }
 
 void form_playback::showTableWidget(bool b)
@@ -558,16 +592,65 @@ void form_playback::slotNotifyPlaybackInfo(SPlaybackNotify_t playback_msg)
 
         case EM_BIZ_EVENT_PLAYBACK_START:
         {
-            ui->slider_play->set
+            u32 start_time = 0;
+            u32 end_time = 0;
+            struct tm tm_time;
+
+            if (EM_PLAY_STATUS_STOP == play_status)
+            {
+                play_status = EM_PLAY_STATUS_PLAYING;
+
+                //time: start end
+                start_time = play_file.start_time;
+                end_time = play_file.end_time;
+
+                if (start_time >= end_time)
+                {
+                    ERR_PRINT("start_time >= end_time\n");
+
+                    return;
+                }
+
+                start_time += 8*3600;
+                end_time += 8*3600;
+
+                gmtime_r((time_t *)&start_time, &tm_time);
+                QTime qtime_start(tm_time.tm_hour, tm_time.tm_min, tm_time.tm_sec);
+                ui->lab_time_start->setText(qtime_start.toString(QString::fromUtf8("HH:mm:ss")));
+
+                gmtime_r((time_t *)&end_time, &tm_time);
+                QTime qtime_end(tm_time.tm_hour, tm_time.tm_min, tm_time.tm_sec);
+                ui->lab_time_end->setText(qtime_end.toString(QString::fromUtf8("HH:mm:ss")));
+
+                //slider
+                ui->slider_play->setMinimum(0);
+                ui->slider_play->setMaximum(end_time - start_time);
+                //ui->slider_play->setStartTime(start_time);
+
+                DBG_PRINT("start_time: %s, end_time: %s\n", ui->lab_time_start->text().toUtf8().constData(),
+                          ui->lab_time_end->text().toUtf8().constData());
+            }
+            else
+            {
+                ERR_PRINT("EM_PLAY_STATUS_STOP != play_status(%d)\n", play_status);
+            }
         } break;
 
         case EM_BIZ_EVENT_PLAYBACK_RUN:
         {
             u32 cur_pos = playback_msg.stream_progress.cur_pos;
             u32 total_size = playback_msg.stream_progress.total_size;
-#if 1
-            DBG_PRINT("cur_pos: %u, total_size: %u\n", cur_pos, total_size);
-#endif
+
+            if (!b_slider_mover
+                    && EM_PLAY_STATUS_STOP != play_status)
+            {
+                //if (total_size != ui->slider_play->maximum())
+                {
+                    //ERR_PRINT("total_size(%u) != ui->slider_play->maximum(%u)\n", total_size, ui->slider_play->maximum());
+                }
+                //ui->slider_play->setValue(cur_pos);
+                DBG_PRINT("update progress pos: %d\n", cur_pos);
+            }
         } break;
 
         case EM_BIZ_EVENT_PLAYBACK_DONE:
@@ -1040,6 +1123,65 @@ void form_playback::on_btn_stop_clicked()
         ERR_PRINT("BizPlaybackStartByFile failed, ret: %d\n", ret);
     }
 }
+
+void form_playback::on_btn_play_clicked()
+{
+    DBG_PRINT("slider height: %d, ctrl height: %d\n", ui->widget_play_slider->height(), ui->widget_play_ctrl->height());
+}
+
+void form_playback::slider_pressed(int pos)
+{
+    b_slider_mover = true;
+    slider_pressed_pos = pos;
+    DBG_PRINT("pos: %d\n", pos);
+
+    u32 label_time = play_file.start_time + pos;
+    label_time += 8*3600;
+    struct tm tm_time;
+    gmtime_r((time_t *)&label_time, &tm_time);
+    QTime qtime(tm_time.tm_hour, tm_time.tm_min, tm_time.tm_sec);
+    m_displayLabel->setText(qtime.toString(QString::fromUtf8("HH:mm:ss")));
+    m_displayLabel->adjustSize();
+
+    int g_x = (double)pos / (ui->slider_play->maximum() - ui->slider_play->minimum()) * ui->slider_play->width() + ui->slider_play->mapToGlobal(QPoint(0,0)).x();
+    g_x -= m_displayLabel->width()/2;
+    int g_y = ui->slider_play->mapToGlobal(QPoint(0,0)).y()-m_displayLabel->height();
+    QPoint pot = this->mapFromGlobal(QPoint(g_x, g_y));
+    m_displayLabel->move(pot);
+    m_displayLabel->setVisible(true);
+    //DBG_PRINT("label x: %d, y: %d, g_x: %d, g_y: %d\n", pot.x(), pot.y(), g_x, g_y);
+
+}
+
+void form_playback::slider_moved(int pos)
+{
+    DBG_PRINT("slider cur_value: %d, value: %d\n", ui->slider_play->value(), pos);
+
+    u32 label_time = play_file.start_time + pos;
+    label_time += 8*3600;
+    struct tm tm_time;
+    gmtime_r((time_t *)&label_time, &tm_time);
+    QTime qtime(tm_time.tm_hour, tm_time.tm_min, tm_time.tm_sec);
+    m_displayLabel->setText(qtime.toString(QString::fromUtf8("HH:mm:ss")));
+    m_displayLabel->adjustSize();
+
+    int g_x = (double)pos / (ui->slider_play->maximum() - ui->slider_play->minimum()) * ui->slider_play->width() + ui->slider_play->mapToGlobal(QPoint(0,0)).x();
+    g_x -= m_displayLabel->width()/2;
+    int g_y = ui->slider_play->mapToGlobal(QPoint(0,0)).y()-m_displayLabel->height();
+    QPoint pot = this->mapFromGlobal(QPoint(g_x, g_y));
+    m_displayLabel->move(pot);
+    //DBG_PRINT("label x: %d, y: %d, g_x: %d, g_y: %d\n", pot.x(), pot.y(), g_x, g_y);
+}
+
+void form_playback::slider_released(int pos)
+{
+     b_slider_mover = false;
+     m_displayLabel->setVisible(false);
+    //DBG_PRINT("slider pressed_pos: %d, releaseed_pos: %d\n", slider_pressed_pos, pos);
+}
+
+
+
 
 void form_playback::mousePressEvent(QMouseEvent *event)
 {

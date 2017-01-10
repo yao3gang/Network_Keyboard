@@ -4721,7 +4721,7 @@ int CBizDevice::StreamProgress(u32 stream_id, VD_BOOL b) //接收回放进度信息
 	memcpy(sndbuf + sizeof(send_link_id), &flagSend, sizeof(flagSend));
 	sndlen = sizeof(send_link_id) + sizeof(flagSend);
 	
-	DBG_PRINT("sndlen: %d\n", sndlen);
+	//DBG_PRINT("sndlen: %d\n", sndlen);
 	
 	ret = DevNetCom(CTRL_CMD_PLAYPROGRESS, sndbuf, sndlen, NULL, 0);
 	if (ret)

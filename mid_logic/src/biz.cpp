@@ -138,12 +138,9 @@ int BizEventCB(SBizEventPara* pSBizEventPara)
 			
 			para.type = EM_BIZ_EVENT_PLAYBACK_START;
 			para.playback_chn = playback_chn;
-			para.stream_progress.cur_pos = cur_pos;
-			para.stream_progress.total_size = total_size;
 
-		#if 0
-			DBG_PRINT("cur_pos: %u, total_size: %u\n", cur_pos, total_size);
-		#endif
+			DBG_PRINT("playback_chn: %u start\n", playback_chn);
+		
 		
 			notifyPlaybackInfo(&para);
 			
@@ -552,7 +549,7 @@ int BizPlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfi
 	u32 chn_mask = 0;
 	int ret = SUCCESS;
 
-	DBG_PRINT("start\n");
+	//DBG_PRINT("start\n");
 	plock4param->Lock();
 
 	if (!b_playback)
@@ -603,7 +600,7 @@ int BizPlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfi
 
 	plock4param->Unlock();
 
-	DBG_PRINT("end\n");
+	//DBG_PRINT("end\n");
 	return SUCCESS;
 }
 

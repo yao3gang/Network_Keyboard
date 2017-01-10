@@ -20,12 +20,12 @@
 #include <QtGui/QHeaderView>
 #include <QtGui/QLabel>
 #include <QtGui/QPushButton>
-#include <QtGui/QSlider>
 #include <QtGui/QSpacerItem>
 #include <QtGui/QTableWidget>
 #include <QtGui/QTimeEdit>
 #include <QtGui/QVBoxLayout>
 #include <QtGui/QWidget>
+#include "custom_slider.h"
 #include "treewidget_dev.h"
 
 QT_BEGIN_NAMESPACE
@@ -55,13 +55,18 @@ public:
     QFrame *frame;
     QWidget *widget_bottom;
     QVBoxLayout *verticalLayout_3;
-    QWidget *widget_play_ctrl;
+    QWidget *widget_play_slider;
     QHBoxLayout *horizontalLayout_2;
+    QLabel *lab_time_start;
+    custom_slider *slider_play;
+    QLabel *lab_time_end;
+    QWidget *widget_play_ctrl;
+    QHBoxLayout *horizontalLayout_8;
     QPushButton *btn_play;
     QPushButton *btn_stop;
     QPushButton *btn_next_frame;
     QComboBox *comboBox_speed;
-    QSlider *slider_play;
+    QSpacerItem *horizontalSpacer;
     QPushButton *btn_page_start;
     QPushButton *btn_page_pre;
     QPushButton *btn_page_next;
@@ -233,16 +238,40 @@ public:
         verticalLayout_3->setSpacing(0);
         verticalLayout_3->setContentsMargins(0, 0, 0, 0);
         verticalLayout_3->setObjectName(QString::fromUtf8("verticalLayout_3"));
-        widget_play_ctrl = new QWidget(widget_bottom);
-        widget_play_ctrl->setObjectName(QString::fromUtf8("widget_play_ctrl"));
+        widget_play_slider = new QWidget(widget_bottom);
+        widget_play_slider->setObjectName(QString::fromUtf8("widget_play_slider"));
         QSizePolicy sizePolicy4(QSizePolicy::Preferred, QSizePolicy::Fixed);
         sizePolicy4.setHorizontalStretch(0);
         sizePolicy4.setVerticalStretch(0);
-        sizePolicy4.setHeightForWidth(widget_play_ctrl->sizePolicy().hasHeightForWidth());
-        widget_play_ctrl->setSizePolicy(sizePolicy4);
-        horizontalLayout_2 = new QHBoxLayout(widget_play_ctrl);
-        horizontalLayout_2->setContentsMargins(8, 8, 8, 8);
+        sizePolicy4.setHeightForWidth(widget_play_slider->sizePolicy().hasHeightForWidth());
+        widget_play_slider->setSizePolicy(sizePolicy4);
+        horizontalLayout_2 = new QHBoxLayout(widget_play_slider);
         horizontalLayout_2->setObjectName(QString::fromUtf8("horizontalLayout_2"));
+        horizontalLayout_2->setContentsMargins(8, 6, 8, 8);
+        lab_time_start = new QLabel(widget_play_slider);
+        lab_time_start->setObjectName(QString::fromUtf8("lab_time_start"));
+
+        horizontalLayout_2->addWidget(lab_time_start);
+
+        slider_play = new custom_slider(widget_play_slider);
+        slider_play->setObjectName(QString::fromUtf8("slider_play"));
+        slider_play->setOrientation(Qt::Horizontal);
+
+        horizontalLayout_2->addWidget(slider_play);
+
+        lab_time_end = new QLabel(widget_play_slider);
+        lab_time_end->setObjectName(QString::fromUtf8("lab_time_end"));
+
+        horizontalLayout_2->addWidget(lab_time_end);
+
+
+        verticalLayout_3->addWidget(widget_play_slider);
+
+        widget_play_ctrl = new QWidget(widget_bottom);
+        widget_play_ctrl->setObjectName(QString::fromUtf8("widget_play_ctrl"));
+        horizontalLayout_8 = new QHBoxLayout(widget_play_ctrl);
+        horizontalLayout_8->setObjectName(QString::fromUtf8("horizontalLayout_8"));
+        horizontalLayout_8->setContentsMargins(8, 0, 8, 4);
         btn_play = new QPushButton(widget_play_ctrl);
         btn_play->setObjectName(QString::fromUtf8("btn_play"));
         QSizePolicy sizePolicy5(QSizePolicy::Fixed, QSizePolicy::Fixed);
@@ -253,7 +282,7 @@ public:
         btn_play->setMinimumSize(QSize(24, 24));
         btn_play->setMaximumSize(QSize(24, 24));
 
-        horizontalLayout_2->addWidget(btn_play);
+        horizontalLayout_8->addWidget(btn_play);
 
         btn_stop = new QPushButton(widget_play_ctrl);
         btn_stop->setObjectName(QString::fromUtf8("btn_stop"));
@@ -265,7 +294,7 @@ public:
         icon3.addFile(QString::fromUtf8(":/image/pctl_stop.bmp"), QSize(), QIcon::Normal, QIcon::Off);
         btn_stop->setIcon(icon3);
 
-        horizontalLayout_2->addWidget(btn_stop);
+        horizontalLayout_8->addWidget(btn_stop);
 
         btn_next_frame = new QPushButton(widget_play_ctrl);
         btn_next_frame->setObjectName(QString::fromUtf8("btn_next_frame"));
@@ -277,20 +306,18 @@ public:
         icon4.addFile(QString::fromUtf8(":/image/pctl_frame.bmp"), QSize(), QIcon::Normal, QIcon::Off);
         btn_next_frame->setIcon(icon4);
 
-        horizontalLayout_2->addWidget(btn_next_frame);
+        horizontalLayout_8->addWidget(btn_next_frame);
 
         comboBox_speed = new QComboBox(widget_play_ctrl);
         comboBox_speed->setObjectName(QString::fromUtf8("comboBox_speed"));
         sizePolicy5.setHeightForWidth(comboBox_speed->sizePolicy().hasHeightForWidth());
         comboBox_speed->setSizePolicy(sizePolicy5);
 
-        horizontalLayout_2->addWidget(comboBox_speed);
+        horizontalLayout_8->addWidget(comboBox_speed);
 
-        slider_play = new QSlider(widget_play_ctrl);
-        slider_play->setObjectName(QString::fromUtf8("slider_play"));
-        slider_play->setOrientation(Qt::Horizontal);
+        horizontalSpacer = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
 
-        horizontalLayout_2->addWidget(slider_play);
+        horizontalLayout_8->addItem(horizontalSpacer);
 
         btn_page_start = new QPushButton(widget_play_ctrl);
         btn_page_start->setObjectName(QString::fromUtf8("btn_page_start"));
@@ -302,7 +329,7 @@ public:
         icon5.addFile(QString::fromUtf8(":/image/page_start.png"), QSize(), QIcon::Normal, QIcon::Off);
         btn_page_start->setIcon(icon5);
 
-        horizontalLayout_2->addWidget(btn_page_start);
+        horizontalLayout_8->addWidget(btn_page_start);
 
         btn_page_pre = new QPushButton(widget_play_ctrl);
         btn_page_pre->setObjectName(QString::fromUtf8("btn_page_pre"));
@@ -314,7 +341,7 @@ public:
         icon6.addFile(QString::fromUtf8(":/image/page_pre.png"), QSize(), QIcon::Normal, QIcon::Off);
         btn_page_pre->setIcon(icon6);
 
-        horizontalLayout_2->addWidget(btn_page_pre);
+        horizontalLayout_8->addWidget(btn_page_pre);
 
         btn_page_next = new QPushButton(widget_play_ctrl);
         btn_page_next->setObjectName(QString::fromUtf8("btn_page_next"));
@@ -326,7 +353,7 @@ public:
         icon7.addFile(QString::fromUtf8(":/image/page_next.png"), QSize(), QIcon::Normal, QIcon::Off);
         btn_page_next->setIcon(icon7);
 
-        horizontalLayout_2->addWidget(btn_page_next);
+        horizontalLayout_8->addWidget(btn_page_next);
 
         btn_page_end = new QPushButton(widget_play_ctrl);
         btn_page_end->setObjectName(QString::fromUtf8("btn_page_end"));
@@ -338,12 +365,12 @@ public:
         icon8.addFile(QString::fromUtf8(":/image/page_end.png"), QSize(), QIcon::Normal, QIcon::Off);
         btn_page_end->setIcon(icon8);
 
-        horizontalLayout_2->addWidget(btn_page_end);
+        horizontalLayout_8->addWidget(btn_page_end);
 
         lab_page = new QLabel(widget_play_ctrl);
         lab_page->setObjectName(QString::fromUtf8("lab_page"));
 
-        horizontalLayout_2->addWidget(lab_page);
+        horizontalLayout_8->addWidget(lab_page);
 
         btn_extra = new QPushButton(widget_play_ctrl);
         btn_extra->setObjectName(QString::fromUtf8("btn_extra"));
@@ -353,7 +380,7 @@ public:
         btn_extra->setMaximumSize(QSize(24, 24));
         btn_extra->setIconSize(QSize(24, 24));
 
-        horizontalLayout_2->addWidget(btn_extra);
+        horizontalLayout_8->addWidget(btn_extra);
 
 
         verticalLayout_3->addWidget(widget_play_ctrl);
@@ -388,7 +415,7 @@ public:
 
         verticalLayout_3->addWidget(widget_result);
 
-        verticalLayout_3->setStretch(1, 1);
+        verticalLayout_3->setStretch(2, 1);
 
         verticalLayout_2->addWidget(widget_bottom);
 
@@ -414,6 +441,8 @@ public:
         btn_srh->setText(QApplication::translate("form_playback", "\346\237\245\350\257\242", 0, QApplication::UnicodeUTF8));
         btn_backup->setText(QApplication::translate("form_playback", "\345\244\207\344\273\275", 0, QApplication::UnicodeUTF8));
         btn_to_dec->setText(QApplication::translate("form_playback", "\345\217\221\351\200\201\350\207\263\350\247\243\347\240\201\345\231\250", 0, QApplication::UnicodeUTF8));
+        lab_time_start->setText(QApplication::translate("form_playback", "TextLabel", 0, QApplication::UnicodeUTF8));
+        lab_time_end->setText(QApplication::translate("form_playback", "TextLabel", 0, QApplication::UnicodeUTF8));
         btn_stop->setText(QString());
         btn_next_frame->setText(QString());
         btn_page_next->setText(QString());

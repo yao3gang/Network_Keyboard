@@ -582,9 +582,9 @@ int HisiVoInit(SIZE_S *pstSize)
 
 	//VO StartChn
 	s32X = 200;//QT widget_left
-	s32Y = 0;//QT widget_title
+	s32Y = 0;
 	u32Width  = pstSize->u32Width  - s32X;
-	u32Height = pstSize->u32Height - s32Y;
+	u32Height = pstSize->u32Height - 60;//QT widget_play_slider / widget_play_ctrl
 
 	stChnAttr.stRect.s32X       = ALIGN_BACK(s32X, 2);
 	stChnAttr.stRect.s32Y       = ALIGN_BACK(s32Y, 2);
