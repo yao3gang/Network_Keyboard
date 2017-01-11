@@ -27,6 +27,13 @@ int BizPlaybackStartByTime(u32 playback_chn, u32 _dev_ip, u8 chn, u32 start_time
 int BizPlaybackStop(u32 playback_chn);
 
 
+//»Ø·Å
+int BizPlaybackPause(u32 playback_chn);
+int BizPlaybackResume(u32 playback_chn);
+int BizPlaybackStep(u32 playback_chn);//Ö¡½ø
+int BizPlaybackRate(u32 playback_chn, s32 rate);//{-8, -4, -2, 1, 2, 4, 8}
+int BizPlaybackSeek(u32 playback_chn, u32 time);
+
 
 
 

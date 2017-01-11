@@ -421,7 +421,7 @@
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="btn_next_frame">
+            <widget class="QPushButton" name="btn_step">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                <horstretch>0</horstretch>
@@ -450,7 +450,7 @@
             </widget>
            </item>
            <item>
-            <widget class="QComboBox" name="comboBox_speed">
+            <widget class="QComboBox" name="cmb_rate">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                <horstretch>0</horstretch>

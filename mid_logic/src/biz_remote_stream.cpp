@@ -473,7 +473,6 @@ public:
 	//上层调用的流关闭，可能是正常关闭，也可能是上层出错后关闭
 	//之后在内部threadMsg  线程中删除流
 	int ReqStreamStop(u32 stream_id, s32 stop_reason=SUCCESS);
-	int ReqStreamProgress(u32 stream_id, VD_BOOL b);
 	// 写消息to stream manager
 	int WriteMsg(SBizMsg_t *pmsg, u32 msg_len);
 	
@@ -1417,7 +1416,7 @@ int CMediaStreamManager::ReqStreamStop(u32 stream_id, s32 stop_reason)
 	MAP_ID_PSTREAM::iterator map_iter;
 	SBizMsg_t msg;
 
-	DBG_PRINT("start\n");
+	//DBG_PRINT("start\n");
 		
 	if (!b_inited)
 	{
@@ -1426,7 +1425,7 @@ int CMediaStreamManager::ReqStreamStop(u32 stream_id, s32 stop_reason)
 	}
 
 #if 1
-	DBG_PRINT("manager lock\n");
+	//DBG_PRINT("manager lock\n");
 	plock4param->Lock();
 	
 	map_iter = map_pstream.find(stream_id);
@@ -1447,7 +1446,7 @@ int CMediaStreamManager::ReqStreamStop(u32 stream_id, s32 stop_reason)
 		return -EPARAM;
 	}
 
-	DBG_PRINT("lock\n");
+	//DBG_PRINT("lock\n");
 	pstream->plock4param->Lock();
 
 	in.s_addr = pstream->dev_ip;
@@ -1495,23 +1494,10 @@ int CMediaStreamManager::ReqStreamStop(u32 stream_id, s32 stop_reason)
 	}
 #endif
 
-	DBG_PRINT("end\n");
+	//DBG_PRINT("end\n");
 
 	return ret;
 }
-
-int CMediaStreamManager::ReqStreamProgress(u32 stream_id, VD_BOOL b)
-{
-	return SUCCESS;
-}
-
-
-
-
-
-
-
-
 
 
 
@@ -1608,9 +1594,6 @@ int BizStreamReqStop(u32 stream_id, s32 stop_reason)
 	return g_biz_stream_manager.ReqStreamStop(stream_id, stop_reason);
 }
 
-int BizStreamReqProgress(u32 stream_id, VD_BOOL b)//接收回放进度信息
-{
-	return g_biz_stream_manager.ReqStreamProgress(stream_id, b);
-}
+
 
 

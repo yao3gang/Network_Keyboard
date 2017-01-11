@@ -64,8 +64,8 @@ public:
     QHBoxLayout *horizontalLayout_8;
     QPushButton *btn_play;
     QPushButton *btn_stop;
-    QPushButton *btn_next_frame;
-    QComboBox *comboBox_speed;
+    QPushButton *btn_step;
+    QComboBox *cmb_rate;
     QSpacerItem *horizontalSpacer;
     QPushButton *btn_page_start;
     QPushButton *btn_page_pre;
@@ -296,24 +296,24 @@ public:
 
         horizontalLayout_8->addWidget(btn_stop);
 
-        btn_next_frame = new QPushButton(widget_play_ctrl);
-        btn_next_frame->setObjectName(QString::fromUtf8("btn_next_frame"));
-        sizePolicy5.setHeightForWidth(btn_next_frame->sizePolicy().hasHeightForWidth());
-        btn_next_frame->setSizePolicy(sizePolicy5);
-        btn_next_frame->setMinimumSize(QSize(24, 24));
-        btn_next_frame->setMaximumSize(QSize(24, 24));
+        btn_step = new QPushButton(widget_play_ctrl);
+        btn_step->setObjectName(QString::fromUtf8("btn_step"));
+        sizePolicy5.setHeightForWidth(btn_step->sizePolicy().hasHeightForWidth());
+        btn_step->setSizePolicy(sizePolicy5);
+        btn_step->setMinimumSize(QSize(24, 24));
+        btn_step->setMaximumSize(QSize(24, 24));
         QIcon icon4;
         icon4.addFile(QString::fromUtf8(":/image/pctl_frame.bmp"), QSize(), QIcon::Normal, QIcon::Off);
-        btn_next_frame->setIcon(icon4);
+        btn_step->setIcon(icon4);
 
-        horizontalLayout_8->addWidget(btn_next_frame);
+        horizontalLayout_8->addWidget(btn_step);
 
-        comboBox_speed = new QComboBox(widget_play_ctrl);
-        comboBox_speed->setObjectName(QString::fromUtf8("comboBox_speed"));
-        sizePolicy5.setHeightForWidth(comboBox_speed->sizePolicy().hasHeightForWidth());
-        comboBox_speed->setSizePolicy(sizePolicy5);
+        cmb_rate = new QComboBox(widget_play_ctrl);
+        cmb_rate->setObjectName(QString::fromUtf8("cmb_rate"));
+        sizePolicy5.setHeightForWidth(cmb_rate->sizePolicy().hasHeightForWidth());
+        cmb_rate->setSizePolicy(sizePolicy5);
 
-        horizontalLayout_8->addWidget(comboBox_speed);
+        horizontalLayout_8->addWidget(cmb_rate);
 
         horizontalSpacer = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
 
@@ -444,7 +444,7 @@ public:
         lab_time_start->setText(QApplication::translate("form_playback", "TextLabel", 0, QApplication::UnicodeUTF8));
         lab_time_end->setText(QApplication::translate("form_playback", "TextLabel", 0, QApplication::UnicodeUTF8));
         btn_stop->setText(QString());
-        btn_next_frame->setText(QString());
+        btn_step->setText(QString());
         btn_page_next->setText(QString());
         btn_page_end->setText(QString());
         lab_page->setText(QApplication::translate("form_playback", "TextLabel", 0, QApplication::UnicodeUTF8));

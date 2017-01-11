@@ -678,5 +678,175 @@ int BizPlaybackStop(u32 playback_chn)
 
 //²¥·Å¿ØÖÆ
 
+int BizPlaybackPause(u32 playback_chn)
+{	
+	u32 chn_mask = 0;
+	int ret = SUCCESS;
+
+	plock4param->Lock();
+
+	if (!b_playback)
+	{
+		ERR_PRINT("b_playback FALSE\n");
+
+		plock4param->Unlock();
+		return -FAILURE;
+	}
+
+	chn_mask = playback_chn_mask;
+	
+	plock4param->Unlock();
+
+	if (chn_mask & (1<<playback_chn))
+	{
+		ret = BizModulePlaybackPause(playback_chn);
+		if (ret)
+		{
+			ERR_PRINT("BizModulePlayPause(%d) failed, ret: %d\n",
+				playback_chn, ret);
+
+			return ret;
+		}
+	}
+	
+	return SUCCESS;
+}
+
+int BizPlaybackResume(u32 playback_chn)
+{	
+	u32 chn_mask = 0;
+	int ret = SUCCESS;
+
+	plock4param->Lock();
+
+	if (!b_playback)
+	{
+		ERR_PRINT("b_playback FALSE\n");
+
+		plock4param->Unlock();
+		return -FAILURE;
+	}
+
+	chn_mask = playback_chn_mask;
+	
+	plock4param->Unlock();
+
+	if (chn_mask & (1<<playback_chn))
+	{
+		ret = BizModulePlaybackResume(playback_chn);
+		if (ret)
+		{
+			ERR_PRINT("BizModulePlayResume(%d) failed, ret: %d\n",
+				playback_chn, ret);
+
+			return ret;
+		}
+	}
+	
+	return SUCCESS;
+}
+
+int BizPlaybackStep(u32 playback_chn)//Ö¡½ø
+{	
+	u32 chn_mask = 0;
+	int ret = SUCCESS;
+
+	plock4param->Lock();
+
+	if (!b_playback)
+	{
+		ERR_PRINT("b_playback FALSE\n");
+
+		plock4param->Unlock();
+		return -FAILURE;
+	}
+
+	chn_mask = playback_chn_mask;
+	
+	plock4param->Unlock();
+
+	if (chn_mask & (1<<playback_chn))
+	{
+		ret = BizModulePlaybackStep(playback_chn);
+		if (ret)
+		{
+			ERR_PRINT("BizModulePlayStep(%d) failed, ret: %d\n",
+				playback_chn, ret);
+
+			return ret;
+		}
+	}
+	
+	return SUCCESS;
+}
+
+int BizPlaybackRate(u32 playback_chn, s32 rate)//{-8, -4, -2, 1, 2, 4, 8}
+{	
+	u32 chn_mask = 0;
+	int ret = SUCCESS;
+
+	plock4param->Lock();
+
+	if (!b_playback)
+	{
+		ERR_PRINT("b_playback FALSE\n");
+
+		plock4param->Unlock();
+		return -FAILURE;
+	}
+
+	chn_mask = playback_chn_mask;
+	
+	plock4param->Unlock();
+
+	if (chn_mask & (1<<playback_chn))
+	{
+		ret = BizModulePlaybackRate(playback_chn, rate);
+		if (ret)
+		{
+			ERR_PRINT("BizModulePlayStep(%d) failed, ret: %d\n",
+				playback_chn, ret);
+
+			return ret;
+		}
+	}
+	
+	return SUCCESS;
+}
+
+int BizPlaybackSeek(u32 playback_chn, u32 time)
+{
+	u32 chn_mask = 0;
+	int ret = SUCCESS;
+
+	plock4param->Lock();
+
+	if (!b_playback)
+	{
+		ERR_PRINT("b_playback FALSE\n");
+
+		plock4param->Unlock();
+		return -FAILURE;
+	}
+
+	chn_mask = playback_chn_mask;
+	
+	plock4param->Unlock();
+
+	if (chn_mask & (1<<playback_chn))
+	{
+		ret = BizModulePlaybackSeek(playback_chn, time);
+		if (ret)
+		{
+			ERR_PRINT("BizModulePlaybackSeek(%d) failed, ret: %d\n",
+				playback_chn, ret);
+
+			return ret;
+		}
+	}
+	
+	return SUCCESS;
+}
+
 
 

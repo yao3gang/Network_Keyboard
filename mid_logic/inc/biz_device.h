@@ -127,6 +127,13 @@ int BizDevReqStreamStart(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, ifly_T
 int BizDevReqStreamStop(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, s32 stop_reason=SUCCESS);//GLB_ERROR_NUM
 int BizDevStreamProgress(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, VD_BOOL b);//接收回放进度信息
 
+//回放控制
+int BizDevStreamPause(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id);
+int BizDevStreamResume(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id);
+int BizDevStreamStep(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id);//帧进
+int BizDevStreamRate(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, s32 rate);//{-8, -4, -2, 1, 2, 4, 8}
+int BizDevStreamSeek(EM_DEV_TYPE dev_type, u32 dev_ip, u32 stream_id, u32 time);
+
 
 
 

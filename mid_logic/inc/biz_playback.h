@@ -46,9 +46,14 @@ VD_BOOL BizModulePlaybackIsStarted(u32 playback_chn);
 
 int BizModulePlaybackStop(u32 playback_chn);
 
+//回放控制
+int BizModulePlaybackPause(u32 playback_chn);
+int BizModulePlaybackResume(u32 playback_chn);
+int BizModulePlaybackStep(u32 playback_chn);//帧进
+int BizModulePlaybackRate(u32 playback_chn, s32 rate);//{-8, -4, -2, 1, 2, 4, 8}
+int BizModulePlaybackSeek(u32 playback_chn, u32 time);
 
-//播放控制
-int BizModulePlaybackCtl(u32 playback_chn, SPlayback_Ctrl_t *pb_ctl);
+
 
 
 #ifdef __cplusplus

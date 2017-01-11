@@ -201,7 +201,12 @@ public:
 	//预览是否已经处于进行中
 	VD_BOOL PlaybackIsStarted(u32 playback_chn);
 	int PlaybackStop(u32 playback_chn);
-	int PlaybackCtrl(u32 playback_chn, SPlayback_Ctrl_t *pb_ctl);
+	//回放控制
+	int PlaybackPause(u32 playback_chn);
+	int PlaybackResume(u32 playback_chn);
+	int PlaybackStep(u32 playback_chn);//帧进
+	int PlaybackRate(u32 playback_chn, s32 rate);//{-8, -4, -2, 1, 2, 4, 8}
+	int PlaybackSeek(u32 playback_chn, u32 time);
 	
 private:
 	CBizPlaybackManager();
@@ -1313,9 +1318,9 @@ int CBizPlaybackManager::PlaybackStop(u32 playback_chn)
 	MAP_PBChn_SID::iterator map_id_iter;
 	MAP_ID_PCPLAYBACK::iterator map_ppb_iter;
 
-	DBG_PRINT("start\n");
+	//DBG_PRINT("start\n");
 
-	DBG_PRINT("manager lock\n");
+	//DBG_PRINT("manager lock\n");
 	plock4param->Lock();
 
 	map_id_iter = map_pbchn_sid.find(playback_chn);
@@ -1370,10 +1375,367 @@ int CBizPlaybackManager::PlaybackStop(u32 playback_chn)
 	return ret;
 }
 
-int CBizPlaybackManager::PlaybackCtrl(u32 playback_chn, SPlayback_Ctrl_t *pb_ctl)
+int CBizPlaybackManager::PlaybackPause(u32 playback_chn)
 {
+	if (!b_inited)
+	{
+		ERR_PRINT("module not inited\n");
+		return -FAILURE;
+	}
+	
+	int ret = SUCCESS;
+	u32 dev_ip = INADDR_NONE;
+	u32 stream_id = INVALID_VALUE;
+	CBizPlayback *pcplayback = NULL;
+	MAP_PBChn_SID::iterator map_id_iter;
+	MAP_ID_PCPLAYBACK::iterator map_ppb_iter;
 
-	return SUCCESS;
+	DBG_PRINT("start\n");
+
+	//DBG_PRINT("manager lock\n");
+	plock4param->Lock();
+
+	map_id_iter = map_pbchn_sid.find(playback_chn);
+	if (map_id_iter == map_pbchn_sid.end())//不存在
+	{
+		ERR_PRINT("MAP_PBChn_SID find failed, playback_chn: %d\n", playback_chn);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+
+	stream_id = map_id_iter->second;
+	map_ppb_iter = map_pcplayback.find(stream_id);
+	if (map_ppb_iter == map_pcplayback.end())
+	{
+		ERR_PRINT("MAP_PBChn_SID find success, but MAP_ID_PCPLAYBACK find failed, playback_chn: %d, stream_id: %d\n",
+			playback_chn, stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+	
+	pcplayback = map_ppb_iter->second;
+	if (NULL == pcplayback)
+	{
+		ERR_PRINT("NULL == pcplayback, playback_chn: %d, stream_id: %d\n",
+			playback_chn, stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+
+	pcplayback->plock4param->Lock();
+	
+	dev_ip = pcplayback->dev_ip;
+	stream_id = pcplayback->stream_id;
+
+	pcplayback->plock4param->Unlock();
+
+	plock4param->Unlock();
+
+	DBG_PRINT("playback_chn: %u, stream_id: %u\n", playback_chn, stream_id);
+
+
+	ret = BizDevStreamPause(EM_NVR, dev_ip, stream_id);
+	if (ret)
+	{
+		ERR_PRINT("BizDevStreamPause failed, ret: %d, playback_chn: %d, stream_id: %d\n",
+			ret, playback_chn, stream_id);
+	}
+
+	DBG_PRINT("end\n");
+	return ret;
+}
+
+int CBizPlaybackManager::PlaybackResume(u32 playback_chn)
+{
+	if (!b_inited)
+	{
+		ERR_PRINT("module not inited\n");
+		return -FAILURE;
+	}
+	
+	int ret = SUCCESS;
+	u32 dev_ip = INADDR_NONE;
+	u32 stream_id = INVALID_VALUE;
+	CBizPlayback *pcplayback = NULL;
+	MAP_PBChn_SID::iterator map_id_iter;
+	MAP_ID_PCPLAYBACK::iterator map_ppb_iter;
+
+	DBG_PRINT("start\n");
+
+	//DBG_PRINT("manager lock\n");
+	plock4param->Lock();
+
+	map_id_iter = map_pbchn_sid.find(playback_chn);
+	if (map_id_iter == map_pbchn_sid.end())//不存在
+	{
+		ERR_PRINT("MAP_PBChn_SID find failed, playback_chn: %d\n", playback_chn);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+
+	stream_id = map_id_iter->second;
+	map_ppb_iter = map_pcplayback.find(stream_id);
+	if (map_ppb_iter == map_pcplayback.end())
+	{
+		ERR_PRINT("MAP_PBChn_SID find success, but MAP_ID_PCPLAYBACK find failed, playback_chn: %d, stream_id: %d\n",
+			playback_chn, stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+	
+	pcplayback = map_ppb_iter->second;
+	if (NULL == pcplayback)
+	{
+		ERR_PRINT("NULL == pcplayback, playback_chn: %d, stream_id: %d\n",
+			playback_chn, stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+
+	pcplayback->plock4param->Lock();
+	
+	dev_ip = pcplayback->dev_ip;
+	stream_id = pcplayback->stream_id;
+
+	pcplayback->plock4param->Unlock();
+
+	plock4param->Unlock();
+
+	DBG_PRINT("playback_chn: %u, stream_id: %u\n", playback_chn, stream_id);
+
+
+	ret = BizDevStreamResume(EM_NVR, dev_ip, stream_id);
+	if (ret)
+	{
+		ERR_PRINT("BizDevStreamResume failed, ret: %d, playback_chn: %d, stream_id: %d\n",
+			ret, playback_chn, stream_id);
+	}
+
+	DBG_PRINT("end\n");
+	return ret;
+}
+
+int CBizPlaybackManager::PlaybackStep(u32 playback_chn)//帧进
+{
+	if (!b_inited)
+	{
+		ERR_PRINT("module not inited\n");
+		return -FAILURE;
+	}
+	
+	int ret = SUCCESS;
+	u32 dev_ip = INADDR_NONE;
+	u32 stream_id = INVALID_VALUE;
+	CBizPlayback *pcplayback = NULL;
+	MAP_PBChn_SID::iterator map_id_iter;
+	MAP_ID_PCPLAYBACK::iterator map_ppb_iter;
+
+	DBG_PRINT("start\n");
+
+	//DBG_PRINT("manager lock\n");
+	plock4param->Lock();
+
+	map_id_iter = map_pbchn_sid.find(playback_chn);
+	if (map_id_iter == map_pbchn_sid.end())//不存在
+	{
+		ERR_PRINT("MAP_PBChn_SID find failed, playback_chn: %d\n", playback_chn);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+
+	stream_id = map_id_iter->second;
+	map_ppb_iter = map_pcplayback.find(stream_id);
+	if (map_ppb_iter == map_pcplayback.end())
+	{
+		ERR_PRINT("MAP_PBChn_SID find success, but MAP_ID_PCPLAYBACK find failed, playback_chn: %d, stream_id: %d\n",
+			playback_chn, stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+	
+	pcplayback = map_ppb_iter->second;
+	if (NULL == pcplayback)
+	{
+		ERR_PRINT("NULL == pcplayback, playback_chn: %d, stream_id: %d\n",
+			playback_chn, stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+
+	pcplayback->plock4param->Lock();
+	
+	dev_ip = pcplayback->dev_ip;
+	stream_id = pcplayback->stream_id;
+
+	pcplayback->plock4param->Unlock();
+
+	plock4param->Unlock();
+
+	DBG_PRINT("playback_chn: %u, stream_id: %u\n", playback_chn, stream_id);
+
+
+	ret = BizDevStreamStep(EM_NVR, dev_ip, stream_id);
+	if (ret)
+	{
+		ERR_PRINT("BizDevStreamResume failed, ret: %d, playback_chn: %d, stream_id: %d\n",
+			ret, playback_chn, stream_id);
+	}
+
+	DBG_PRINT("end\n");
+	return ret;
+}
+
+int CBizPlaybackManager::PlaybackRate(u32 playback_chn, s32 rate)//{-8, -4, -2, 1, 2, 4, 8}
+{
+	if (!b_inited)
+	{
+		ERR_PRINT("module not inited\n");
+		return -FAILURE;
+	}
+	
+	int ret = SUCCESS;
+	u32 dev_ip = INADDR_NONE;
+	u32 stream_id = INVALID_VALUE;
+	CBizPlayback *pcplayback = NULL;
+	MAP_PBChn_SID::iterator map_id_iter;
+	MAP_ID_PCPLAYBACK::iterator map_ppb_iter;
+
+	DBG_PRINT("start\n");
+
+	//DBG_PRINT("manager lock\n");
+	plock4param->Lock();
+
+	map_id_iter = map_pbchn_sid.find(playback_chn);
+	if (map_id_iter == map_pbchn_sid.end())//不存在
+	{
+		ERR_PRINT("MAP_PBChn_SID find failed, playback_chn: %d\n", playback_chn);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+
+	stream_id = map_id_iter->second;
+	map_ppb_iter = map_pcplayback.find(stream_id);
+	if (map_ppb_iter == map_pcplayback.end())
+	{
+		ERR_PRINT("MAP_PBChn_SID find success, but MAP_ID_PCPLAYBACK find failed, playback_chn: %d, stream_id: %d\n",
+			playback_chn, stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+	
+	pcplayback = map_ppb_iter->second;
+	if (NULL == pcplayback)
+	{
+		ERR_PRINT("NULL == pcplayback, playback_chn: %d, stream_id: %d\n",
+			playback_chn, stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+
+	pcplayback->plock4param->Lock();
+	
+	dev_ip = pcplayback->dev_ip;
+	stream_id = pcplayback->stream_id;
+
+	pcplayback->plock4param->Unlock();
+
+	plock4param->Unlock();
+
+	DBG_PRINT("playback_chn: %u, stream_id: %u\n", playback_chn, stream_id);
+
+	ret = BizDevStreamRate(EM_NVR, dev_ip, stream_id, rate);
+	if (ret)
+	{
+		ERR_PRINT("BizDevStreamRate failed, ret: %d, playback_chn: %d, stream_id: %d\n",
+			ret, playback_chn, stream_id);
+	}
+
+	DBG_PRINT("end\n");
+	return ret;
+}
+
+int CBizPlaybackManager::PlaybackSeek(u32 playback_chn, u32 time)
+{
+	if (!b_inited)
+	{
+		ERR_PRINT("module not inited\n");
+		return -FAILURE;
+	}
+	
+	int ret = SUCCESS;
+	u32 dev_ip = INADDR_NONE;
+	u32 stream_id = INVALID_VALUE;
+	CBizPlayback *pcplayback = NULL;
+	MAP_PBChn_SID::iterator map_id_iter;
+	MAP_ID_PCPLAYBACK::iterator map_ppb_iter;
+
+	DBG_PRINT("start\n");
+
+	//DBG_PRINT("manager lock\n");
+	plock4param->Lock();
+
+	map_id_iter = map_pbchn_sid.find(playback_chn);
+	if (map_id_iter == map_pbchn_sid.end())//不存在
+	{
+		ERR_PRINT("MAP_PBChn_SID find failed, playback_chn: %d\n", playback_chn);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+
+	stream_id = map_id_iter->second;
+	map_ppb_iter = map_pcplayback.find(stream_id);
+	if (map_ppb_iter == map_pcplayback.end())
+	{
+		ERR_PRINT("MAP_PBChn_SID find success, but MAP_ID_PCPLAYBACK find failed, playback_chn: %d, stream_id: %d\n",
+			playback_chn, stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+	
+	pcplayback = map_ppb_iter->second;
+	if (NULL == pcplayback)
+	{
+		ERR_PRINT("NULL == pcplayback, playback_chn: %d, stream_id: %d\n",
+			playback_chn, stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+
+	pcplayback->plock4param->Lock();
+	
+	dev_ip = pcplayback->dev_ip;
+	stream_id = pcplayback->stream_id;
+
+	pcplayback->plock4param->Unlock();
+
+	plock4param->Unlock();
+
+	DBG_PRINT("playback_chn: %u, stream_id: %u\n", playback_chn, stream_id);
+
+	ret = BizDevStreamSeek(EM_NVR, dev_ip, stream_id, time);
+	if (ret)
+	{
+		ERR_PRINT("BizDevStreamSeek failed, ret: %d, playback_chn: %d, stream_id: %d\n",
+			ret, playback_chn, stream_id);
+	}
+
+	DBG_PRINT("end\n");
+	return ret;
 }
 
 
@@ -1422,11 +1784,33 @@ int BizModulePlaybackStop(u32 playback_chn)
 }
 
 
-//播放控制
-int BizModulePlaybackCtrl(u32 playback_chn, SPlayback_Ctrl_t *pb_ctl)
+//回放控制
+int BizModulePlaybackPause(u32 playback_chn)
 {
-	return g_biz_playback_manager.PlaybackCtrl(playback_chn, pb_ctl);
+	return g_biz_playback_manager.PlaybackPause(playback_chn);
 }
+
+int BizModulePlaybackResume(u32 playback_chn)
+{
+	return g_biz_playback_manager.PlaybackResume(playback_chn);
+}
+
+int BizModulePlaybackStep(u32 playback_chn)//帧进
+{
+	return g_biz_playback_manager.PlaybackStep(playback_chn);
+}
+
+int BizModulePlaybackRate(u32 playback_chn, s32 rate)//{-8, -4, -2, 1, 2, 4, 8}
+{
+	return g_biz_playback_manager.PlaybackRate(playback_chn, rate);
+}
+
+int BizModulePlaybackSeek(u32 playback_chn, u32 time)
+{
+	return g_biz_playback_manager.PlaybackSeek(playback_chn, time);
+}
+
+
 
 
 

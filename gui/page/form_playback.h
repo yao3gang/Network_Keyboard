@@ -59,6 +59,8 @@ private:
     EM_PLAY_STATUS_T play_status;
     bool b_slider_mover;
     int slider_pressed_pos;
+    int play_pos;
+    int play_rate_index;
 
 private slots:
     void refreshDevInfo(SGuiDev dev);
@@ -77,6 +79,8 @@ private slots:
     //play ctl    
     void on_btn_stop_clicked();
     void on_btn_play_clicked();
+    void on_btn_step_clicked();
+    void set_play_rate(int index);
 
     void slider_pressed(int pos);
     void slider_moved(int pos);
