@@ -24,6 +24,10 @@ int BizGetTime(SDateTime *pdt);
 int BizSetTime(SDateTime *pdt);
 int BizNtpSyncTime(const char *ntpser_ip);
 
+//udisk
+int BizMountUdisk();
+int BizUnmountUdisk();
+
 
 
 #ifdef __cplusplus

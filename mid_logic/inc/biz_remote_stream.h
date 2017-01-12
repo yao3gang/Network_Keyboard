@@ -52,9 +52,11 @@ int BizSendMsg2StreamManager(SBizMsg_t *pmsg, u32 msg_len);
 //成功返回并不表示连接成功，只是写入了消息列表，之后在消息线程连接
 int BizStreamReqPlaybackByFile (
 	EM_DEV_TYPE dev_type,
+	int connect_type,/* 0 回放 1 下载*/
 	u32 dev_ip,
 	char *file_name,
 	u32 offset,
+	u32 size,
 	CObject *obj,
 	PDEAL_FRAME deal_frame_cb,
 	PDEAL_STATUS deal_status_cb,
@@ -64,6 +66,7 @@ int BizStreamReqPlaybackByFile (
 //成功返回并不表示连接成功，只是写入了消息列表，之后在消息线程连接
 int BizStreamReqPlaybackByTime (
 	EM_DEV_TYPE dev_type,
+	int connect_type,/* 0 回放 1 下载*/
 	u32 dev_ip,
 	u8 chn, 
 	u32 start_time, 

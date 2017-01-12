@@ -1,5 +1,9 @@
----- EM_BIZ_EVENT_PLAYBACK_START Matches (4 in 4 files) ----
-biz.cpp (mid_logic\src):		case EM_BIZ_EVENT_PLAYBACK_START: //回放开始
-biz_playback.cpp (mid_logic\src):	para.type = EM_BIZ_EVENT_PLAYBACK_START;
-biz_types.h (mid_logic\inc):    EM_BIZ_EVENT_PLAYBACK_START, //回放开始
-form_playback.cpp (gui\page):        case EM_BIZ_EVENT_PLAYBACK_START:
+---- ifly_search_file_result_t Matches (8 in 4 files) ----
+biz_device.cpp (mid_logic\src):	int RecFilesSearch(ifly_recsearch_param_t *psearch_para, ifly_search_file_result_t *psearch_result);
+biz_device.cpp (mid_logic\src):	int DevRecFilesSearch(u32 nvr_ip, ifly_recsearch_param_t *psearch_para, ifly_search_file_result_t *psearch_result);
+biz_device.cpp (mid_logic\src):int CBizDevice::RecFilesSearch(ifly_recsearch_param_t *psearch_para, ifly_search_file_result_t *psearch_result)
+biz_device.cpp (mid_logic\src):int CBizDeviceManager::DevRecFilesSearch(u32 nvr_ip, ifly_recsearch_param_t *psearch_para, ifly_search_file_result_t *psearch_result)
+biz_device.cpp (mid_logic\src):int BizDevRecFilesSearch(u32 nvr_ip, ifly_recsearch_param_t *psearch_para, ifly_search_file_result_t *psearch_result)
+biz_device.h (mid_logic\inc):int BizDevRecFilesSearch(u32 nvr_ip, ifly_recsearch_param_t *psearch_para, ifly_search_file_result_t *psearch_result);
+ctrlprotocol.h (low_module\net\inc):}ifly_search_file_result_t;
+form_playback.h (gui\page):    ifly_search_file_result_t search_result;

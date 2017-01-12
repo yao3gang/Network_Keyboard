@@ -22,7 +22,7 @@ static const uint qt_meta_data_form_playback[] = {
        6,       // revision
        0,       // classname
        0,    0, // classinfo
-      18,   14, // methods
+      19,   14, // methods
        0,    0, // properties
        0,    0, // enums/sets
        0,    0, // constructors
@@ -42,12 +42,13 @@ static const uint qt_meta_data_form_playback[] = {
      311,   14,   14,   14, 0x08,
      337,   14,   14,   14, 0x08,
      361,   14,   14,   14, 0x08,
-     383,   14,   14,   14, 0x08,
-     405,   14,   14,   14, 0x08,
-     433,  427,   14,   14, 0x08,
-     456,  452,   14,   14, 0x08,
-     476,  452,   14,   14, 0x08,
-     494,  452,   14,   14, 0x08,
+     385,   14,   14,   14, 0x08,
+     407,   14,   14,   14, 0x08,
+     429,   14,   14,   14, 0x08,
+     457,  451,   14,   14, 0x08,
+     480,  476,   14,   14, 0x08,
+     500,  476,   14,   14, 0x08,
+     518,  476,   14,   14, 0x08,
 
        0        // eod
 };
@@ -62,11 +63,11 @@ static const char qt_meta_stringdata_form_playback[] = {
     "on_btn_page_pre_clicked()\0"
     "on_btn_page_next_clicked()\0"
     "on_btn_page_end_clicked()\0"
-    "on_btn_to_dec_clicked()\0on_btn_stop_clicked()\0"
-    "on_btn_play_clicked()\0on_btn_step_clicked()\0"
-    "index\0set_play_rate(int)\0pos\0"
-    "slider_pressed(int)\0slider_moved(int)\0"
-    "slider_released(int)\0"
+    "on_btn_to_dec_clicked()\0on_btn_backup_clicked()\0"
+    "on_btn_stop_clicked()\0on_btn_play_clicked()\0"
+    "on_btn_step_clicked()\0index\0"
+    "set_play_rate(int)\0pos\0slider_pressed(int)\0"
+    "slider_moved(int)\0slider_released(int)\0"
 };
 
 void form_playback::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, void **_a)
@@ -86,13 +87,14 @@ void form_playback::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _i
         case 8: _t->on_btn_page_next_clicked(); break;
         case 9: _t->on_btn_page_end_clicked(); break;
         case 10: _t->on_btn_to_dec_clicked(); break;
-        case 11: _t->on_btn_stop_clicked(); break;
-        case 12: _t->on_btn_play_clicked(); break;
-        case 13: _t->on_btn_step_clicked(); break;
-        case 14: _t->set_play_rate((*reinterpret_cast< int(*)>(_a[1]))); break;
-        case 15: _t->slider_pressed((*reinterpret_cast< int(*)>(_a[1]))); break;
-        case 16: _t->slider_moved((*reinterpret_cast< int(*)>(_a[1]))); break;
-        case 17: _t->slider_released((*reinterpret_cast< int(*)>(_a[1]))); break;
+        case 11: _t->on_btn_backup_clicked(); break;
+        case 12: _t->on_btn_stop_clicked(); break;
+        case 13: _t->on_btn_play_clicked(); break;
+        case 14: _t->on_btn_step_clicked(); break;
+        case 15: _t->set_play_rate((*reinterpret_cast< int(*)>(_a[1]))); break;
+        case 16: _t->slider_pressed((*reinterpret_cast< int(*)>(_a[1]))); break;
+        case 17: _t->slider_moved((*reinterpret_cast< int(*)>(_a[1]))); break;
+        case 18: _t->slider_released((*reinterpret_cast< int(*)>(_a[1]))); break;
         default: ;
         }
     }
@@ -130,9 +132,9 @@ int form_playback::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 18)
+        if (_id < 19)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 18;
+        _id -= 19;
     }
     return _id;
 }

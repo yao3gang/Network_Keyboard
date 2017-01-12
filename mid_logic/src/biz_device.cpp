@@ -1293,6 +1293,7 @@ int CBizDevice::ReqStreamStart(u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *ps
 	{
 		send_req.FileDownLoad_t.offset = htonl(send_req.FileDownLoad_t.offset);
 		send_req.FileDownLoad_t.size = htonl(send_req.FileDownLoad_t.size);
+		//DBG_PRINT("offset: %u, size: %u\n", send_req.FileDownLoad_t.offset, send_req.FileDownLoad_t.size);
 	}
 	else
 	{
@@ -1353,7 +1354,7 @@ int CBizDevice::ReqStreamStart(u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *ps
 		goto fail;
 	}
 
-	ret = loopsend(fd_tmp, (char *)preq, sizeof(ifly_TCP_Stream_Req));
+	ret = loopsend(fd_tmp, (char *)&send_req, sizeof(ifly_TCP_Stream_Req));
 	if (ret < 0)
 	{
 		ERR_PRINT("svr IP: %s, stream req cmd: %d, Send ifly_TCP_Stream_Req failed\n", inet_ntoa(in), preq->command);
@@ -1495,7 +1496,7 @@ int CBizDevice::ReqStreamStopByStreamID(u32 stream_id, s32 stop_reason)//GLB_ERR
 	u32 link_id = INVALID_VALUE;
 	//s32 stream_errno = SUCCESS;
 	EM_STREAM_STATUS_TYPE status;
-	char buf[128];
+	//char buf[128];
 	SDevStream_t* pstream = NULL;
 	MAP_SID_LID::iterator map_sid_lid_iter;
 	MAP_LID_PSTREAM::iterator map_iter;
@@ -1607,7 +1608,7 @@ int CBizDevice::ReqStreamStopByStreamID(u32 stream_id, s32 stop_reason)//GLB_ERR
 	plock4stream->Unlock();
 
 	link_id = htonl(link_id);
-	ret = DevNetCom(net_cmd, &link_id, sizeof(link_id), buf, sizeof(buf));
+	ret = DevNetCom(net_cmd, &link_id, sizeof(link_id), NULL, 0);
 	if (ret)
 	{
 		ERR_PRINT("svr IP: %s, link_id(%u), DevNetCom cmd(%d) failed, ret: %d\n",

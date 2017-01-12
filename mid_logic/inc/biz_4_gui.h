@@ -34,6 +34,11 @@ int BizPlaybackStep(u32 playback_chn);//帧进
 int BizPlaybackRate(u32 playback_chn, s32 rate);//{-8, -4, -2, 1, 2, 4, 8}
 int BizPlaybackSeek(u32 playback_chn, u32 time);
 
+//文件下载
+int BizDownloadByFile(u32 dev_ip, ifly_recfileinfo_t *pfile_info);
+int BizDownloadByTime(u32 _dev_ip, u8 chn, u32 start_time, u32 end_time);
+int BizDownloadStop();
+int BizDownloadCancel();
 
 
 

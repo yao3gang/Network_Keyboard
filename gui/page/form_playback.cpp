@@ -6,6 +6,7 @@
 #include "form_playback.h"
 #include "ui_form_playback.h"
 #include "frmmessagebox.h"
+#include "dialogprogress.h"
 
 #include "page_manager.h"
 #include "page_main.h"
@@ -612,8 +613,9 @@ void form_playback::slotNotifyPlaybackInfo(SPlaybackNotify_t playback_msg)
             u32 end_time = 0;
             struct tm tm_time;
 
-            ERR_PRINT("play_status(%d)\n", play_status);
+            DBG_PRINT("play_status(%d)\n", play_status);
             //if (EM_PLAY_STATUS_STOP == play_status)
+            if (playback_msg.playback_chn < 0x10)
             {
                 //time: start & end
                 start_time = play_file.start_time;
@@ -655,10 +657,10 @@ void form_playback::slotNotifyPlaybackInfo(SPlaybackNotify_t playback_msg)
                 DBG_PRINT("start_time: %s, end_time: %s\n", ui->lab_time_start->text().toUtf8().constData(),
                           ui->lab_time_end->text().toUtf8().constData());
             }
-#if 0
+#if 1
             else
             {
-                ERR_PRINT("EM_PLAY_STATUS_STOP != play_status(%d)\n", play_status);
+                DBG_PRINT("file download start, chn: %d\n", playback_msg.playback_chn);
             }
 #endif
         } break;
@@ -1176,9 +1178,31 @@ void form_playback::on_btn_to_dec_clicked()
     return ;
 }
 
+void form_playback::on_btn_backup_clicked()
+{
+    //test udisk
+    //BizMountUdisk();
+#if 0
+    DialogProgress dialog;
+
+    dialog.setTitle(QString::fromUtf8("文件下载"));
+
+    int ret = dialog.exec();
+    DBG_PRINT("dialog return: %d\n", ret);
+#endif
+    int ret = SUCCESS;
+    DBG_PRINT("offset: %u, size: %u\n", search_result.pfile_info[0].offset, search_result.pfile_info[0].size);
+    ret = BizDownloadByFile(search_nvr_ip, &search_result.pfile_info[0]);
+    if (ret)
+    {
+        ERR_PRINT("BizDownloadByFile failed, ret: %d\n", ret);
+    }
+}
+
 //play ctl
 void form_playback::on_btn_stop_clicked()
 {
+
     int ret = SUCCESS;
 
     if (EM_PLAY_STATUS_STOP == play_status)
@@ -1193,6 +1217,7 @@ void form_playback::on_btn_stop_clicked()
         ERR_PRINT("BizPlaybackStartByFile failed, ret: %d\n", ret);
     }
     play_status = EM_PLAY_STATUS_STOP;
+
 }
 
 void form_playback::on_btn_play_clicked()

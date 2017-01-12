@@ -130,7 +130,10 @@ int BizEventCB(SBizEventPara* pSBizEventPara)
 			}
 
 			//hisi process
-			hisi_chn_start(playback_chn);
+			if (playback_chn < 0x10)//回放
+			{
+				hisi_chn_start(playback_chn);
+			}
 
 			//notify gui
 			SPlaybackNotify_t para;
@@ -140,7 +143,6 @@ int BizEventCB(SBizEventPara* pSBizEventPara)
 			para.playback_chn = playback_chn;
 
 			DBG_PRINT("playback_chn: %u start\n", playback_chn);
-		
 		
 			notifyPlaybackInfo(&para);
 			
@@ -848,5 +850,24 @@ int BizPlaybackSeek(u32 playback_chn, u32 time)
 	return SUCCESS;
 }
 
+//文件下载
+int BizDownloadByFile(u32 dev_ip, ifly_recfileinfo_t *pfile_info)
+{
+	return BizPlaybackStartByFile(0x10, dev_ip, pfile_info);// 0回放 0x10下载
+}
+int BizDownloadByTime(u32 dev_ip, u8 chn, u32 start_time, u32 end_time)
+{
+	return BizPlaybackStartByTime(0x10, dev_ip, chn, start_time, end_time);// 0回放 1下载
+}
+
+int BizDownloadStop()
+{
+	return BizPlaybackStop(0x10);
+}
+
+int BizDownloadCancel()
+{
+	return BizPlaybackStop(0x10);
+}
 
 

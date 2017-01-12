@@ -175,3 +175,21 @@ margin:1px 1px 2px 1px;
 QPushButton#btnMenu_Close:hover{
 background-color:rgba(238,0,0,128);
 }
+
+QProgressBar {
+	border: 1px solid white;
+	text-align: right;
+}
+
+QProgressBar::chunk {
+	background-color: black;
+	width: 10px;
+}
+
+QProgressBar QLineEdit{
+	border: none;
+	color: black;
+	padding-left: 5px;
+	font-size: 16px;
+	background-color: transparent;
+}

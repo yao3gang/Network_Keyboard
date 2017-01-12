@@ -35,6 +35,10 @@
 #include <sys/time.h>
 #include <sys/select.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mount.h>
+
+
 
 
 #include <map>
@@ -324,7 +328,7 @@ int BizSystemComplexInit()
 	ret = pthread_create(&ptid, NULL, threadUpdateTime, NULL);
 	if (ret)
 	{
-		DBG_PRINT("pthread_create failed\n");
+		ERR_PRINT("pthread_create failed\n");
 		return -1;
 	}
 	
@@ -332,6 +336,169 @@ int BizSystemComplexInit()
 	b_inited = 1;
 	
 	return 0;
+}
+
+//udisk
+#define USB_MAX_PTN_NUM (2)
+
+int umount_user(const char *user_path)
+{
+	if(user_path == NULL)
+	{
+		return -1;
+	}
+
+	char path[256];
+	if(realpath(user_path,path) == NULL)
+	{
+		ERR_PRINT("realpath %s failed, errno(%d: %s)\n", user_path, errno, strerror(errno));
+		
+		return -FAILURE;
+	}
+	//DBG_PRINT("realpath success, path: %s\n", path);
+
+	s32 curstat = umount(path);
+	if(curstat)
+	{
+		if(errno == 22)//Invalid argument
+		{
+			ERR_PRINT("umount failed1, errno(%d: %s)\n", errno, strerror(errno));
+			return -EPARAM;
+		}
+		else
+		{
+			ERR_PRINT("umount failed2, errno(%d: %s)\n", errno, strerror(errno));
+			return -FAILURE;
+		}
+	}
+
+	DBG_PRINT("success, path: %s, resolved_path: %s\n", user_path, path);
+
+	return SUCCESS;;
+}
+
+int mount_user(const char *mounted_path, const char *user_path)
+{
+	if(mounted_path == NULL || user_path == NULL)
+	{
+		return -EPARAM;
+	}
+	
+	struct stat st;
+	if(lstat(mounted_path, &st))
+	{
+		ERR_PRINT("lstat %s failed, errno(%d: %s)\n", mounted_path, errno, strerror(errno));
+		return -FAILURE;
+	}
+	
+	char path[256];
+	if(realpath(user_path,path) == NULL)
+	{
+		ERR_PRINT("realpath %s failed, errno(%d: %s)\n", user_path, errno, strerror(errno));
+		return -1;
+	}
+	
+	int curstat = mount(mounted_path, path, "vfat", 32768, NULL);
+	if(curstat)
+	{
+		if(errno == 16)//Device or resource busy
+		{
+			ERR_PRINT("mount %s to %s failed1, errno(%d: %s)\n", mounted_path , path, errno, strerror(errno));
+			
+			return -2;//wrchen 090728
+		}
+		else
+		{
+			ERR_PRINT("mount %s to %s failed2, errno(%d: %s)\n", mounted_path , path, errno, strerror(errno));
+			return -1;
+		}
+	}
+	
+	DBG_PRINT("mount %s to %s success\n", mounted_path, path);
+	
+	return 0;
+}
+
+
+int BizMountUdisk()
+{
+	int j;
+	char devname[32] = {0};
+	
+	s32 rtn = SUCCESS;
+	s32 ret = 0;
+	
+	if(0==access("udisk", F_OK))
+	{
+		DBG_PRINT("udisk dir exist!!! umount & unlink first.\n");
+		
+		if( umount_user("udisk") )
+		{
+			unlink("udisk");
+			mkdir("udisk", 0600);			
+		}
+	}
+	else
+	{
+		unlink("udisk");
+		mkdir("udisk", 0600);
+	}
+
+	for(j=1; j<=USB_MAX_PTN_NUM; j++)
+	{
+		//sprintf(devname,"/dev/sd%c%d",'a'+nIdx,j);
+		sprintf(devname,"/dev/sda%d", j);
+		
+		ret = mount_user(devname, "udisk");		
+		if(ret == 0)
+		{
+			DBG_PRINT("mount %s success\n", devname);
+			break;
+		}
+	}
+
+	if(ret == 0)
+	{
+		rtn = 0;
+		goto END;
+	}	
+	
+	//sprintf(devname,"/dev/sd%c",'a');	
+	sprintf(devname,"/dev/sda");
+	if( mount_user(devname, "udisk")==0 )
+	{
+		DBG_PRINT("mount %s success\n", devname);
+		rtn = 0;
+		goto END;
+	}
+
+	rtn = -FAILURE;
+	
+END:
+	//printf("mount %s rtn %d\n", devname, rtn);
+	
+	return rtn;
+	
+}
+
+int BizUnmountUdisk()
+{
+	if(0==access("udisk", F_OK))
+	{
+		DBG_PRINT("udisk dir exist!!! then umount & unlink\n");
+		
+		if( umount_user("udisk") )
+		{
+			unlink("udisk");
+			mkdir("udisk", 0600);			
+		}
+	}
+	else
+	{
+		ERR_PRINT("udisk dir not exist!!!\n");
+	}
+
+	return SUCCESS;
 }
 
 

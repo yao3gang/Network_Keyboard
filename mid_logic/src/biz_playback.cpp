@@ -443,6 +443,20 @@ int CBizPlaybackManager::dealStreamMsgConnectSuccess(u32 stream_id)
 
 	pcplayback->plock4param->Unlock();
 	plock4param->Unlock();//非删除操作可以先释放该锁
+
+	if (playback_chn < 0x10)//回放
+	{
+		ret = BizDevStreamProgress(EM_NVR, dev_ip, stream_id, TRUE);//接收回放进度信息
+		if (ret)
+		{
+			ERR_PRINT("BizDevStreamProgress, playback_chn: %d failed, ret: %d\n",
+				playback_chn, ret);
+		}
+	}
+	else	//下载
+	{
+		DBG_PRINT("download file connect success, playback_chn: %d\n", playback_chn);
+	}
 #if 0
 	//上传msg 2 biz manager
 	SBizMsg_t msg;
@@ -875,7 +889,7 @@ void CBizPlaybackManager::threadMsg(uint param)//读消息
 		{
 			ret = SUCCESS;
 			s32 msg_type = msg.msg_type;
-			//DBG_PRINT("msg type: %d\n", msg_type);		
+			DBG_PRINT("msg type: %d\n", msg_type);		
 			
 			switch (msg_type)
 			{
@@ -1023,6 +1037,7 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 {
 	int ret = SUCCESS;
 	u32 stream_id = INVALID_VALUE;
+	int connect_type = 0;
 	struct in_addr in;
 	in.s_addr = dev_ip;
 
@@ -1071,14 +1086,25 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 		ret = -ESPACE;
 		goto fail;
 	}
+
+	if (playback_chn < 0x10) //回放
+	{
+		connect_type = 0;
+	}
+	else	//下载
+	{
+		connect_type = 1;
+	}
 	
 	//成功返回并不表示连接成功，只是写入了消息列表，之后在消息线程连接
 	//连接成功后会有消息上传，那时接收进度信息
 	ret = BizStreamReqPlaybackByFile (
 			EM_NVR,
+			connect_type,/* 0 回放 1 下载*/
 			dev_ip,
 			pfile_info->filename,
 			pfile_info->offset,
+			pfile_info->size,
 			this,
 			(PDEAL_FRAME)&CBizPlaybackManager::dealFrameFunc,
 			(PDEAL_STATUS)&CBizPlaybackManager::dealStateFunc,
@@ -1157,6 +1183,8 @@ int CBizPlaybackManager::PlaybackStartByTime(u32 playback_chn, u32 dev_ip, u8 ch
 {
 	int ret = SUCCESS;
 	u32 stream_id = INVALID_VALUE;
+	int connect_type = 0;
+	
 	struct in_addr in;
 	in.s_addr = dev_ip;
 	
@@ -1196,12 +1224,22 @@ int CBizPlaybackManager::PlaybackStartByTime(u32 playback_chn, u32 dev_ip, u8 ch
 		
 		ret = -ESPACE;
 		goto fail;
-	}	
+	}
+
+	if (playback_chn < 0x10) //回放
+	{
+		connect_type = 0;
+	}
+	else	//下载
+	{
+		connect_type = 1;
+	}
 
 	//成功返回并不表示连接成功，只是写入了消息列表，之后在消息线程连接
 	//连接成功后会有消息上传，那时接收进度信息
 	ret = BizStreamReqPlaybackByTime (
 			EM_NVR,
+			connect_type,/* 0 回放 1 下载*/
 			dev_ip,
 			chn,
 			start_time,

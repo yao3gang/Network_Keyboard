@@ -360,8 +360,8 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 				ret = recv(sock_stream, pframe_data, MAX_FRAME_SIZE, 0);
 				if (ret <= 0)
 				{					
-					ERR_PRINT("dev IP: %s, stream_id: %d, req_cmd: %d, recv failed\n",
-						inet_ntoa(in), _stream_id, req_cmd);					
+					ERR_PRINT("dev IP: %s, stream_id: %d, req_cmd: %d, recv failed, ret: %d, errno(%d, %s)\n",
+						inet_ntoa(in), _stream_id, req_cmd, ret, errno, strerror(errno));					
 					
 					inside_err = -ERECV;
 					break;
@@ -370,11 +370,15 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 				frame_hdr.m_pData = (u8 *)pframe_data;
 				frame_hdr.m_dwDataSize = ret;
 
+			#if 0
 				//帧回调
 				if (obj && deal_frame_cb)
 				{
 					(obj->*deal_frame_cb)(_stream_id, &frame_hdr);
 				}
+			#else
+				DBG_PRINT("download file m_dwDataSize: %d, \n", ret);
+			#endif
 			}
 			else if (req_cmd == 4)	//升级
 			{
@@ -745,7 +749,7 @@ int CMediaStreamManager::dealStreamConnect(u32 stream_id)
 	ret = BizDevReqStreamStart(dev_type, dev_ip, stream_id, &req, &sock_stream);
 	if (SUCCESS == ret)
 	{
-		#if 1
+		#if 0 //放入回放层操作
 		ret = BizDevStreamProgress(dev_type, dev_ip, stream_id, TRUE);//接收回放进度信息
 		if (ret)
 		{
@@ -832,7 +836,7 @@ int CMediaStreamManager::dealStreamDel(u32 stream_id, u32 stop_reason)
 	MAP_ID_PSTREAM::iterator map_iter;
 	u8 req_cmd = INVALID_VALUE;
 
-	DBG_PRINT("manager lock\n");
+	//DBG_PRINT("manager lock\n");
 	plock4param->Lock();
 	
 	map_iter = map_pstream.find(stream_id);
@@ -853,7 +857,7 @@ int CMediaStreamManager::dealStreamDel(u32 stream_id, u32 stop_reason)
 		return -EPARAM;
 	}
 	
-	DBG_PRINT("lock\n");
+	//DBG_PRINT("lock\n");
 	pstream->plock4param->Lock();
 
 	dev_type = pstream->dev_type;
@@ -939,7 +943,7 @@ int CMediaStreamManager::dealStreamMsgStop(u32 stream_id, s32 stream_errno)
 	s32 stop_reason = SUCCESS;
 	SBizMsg_t msg;
 	
-	DBG_PRINT("manager lock\n");
+	//DBG_PRINT("manager lock\n");
 	plock4param->Lock();
 	
 	map_iter = map_pstream.find(stream_id);
@@ -959,7 +963,7 @@ int CMediaStreamManager::dealStreamMsgStop(u32 stream_id, s32 stream_errno)
 		plock4param->Unlock();
 		return -EPARAM;
 	}
-	DBG_PRINT("lock\n");
+	//DBG_PRINT("lock\n");
 	pstream->plock4param->Lock();
 
 	obj = pstream->m_obj;
@@ -1219,7 +1223,7 @@ void CMediaStreamManager::threadMsg(uint param)//读消息
 		{
 			ret = SUCCESS;
 			s32 msg_type = msg.msg_type;
-			//DBG_PRINT("msg type: %d\n", msg_type);		
+			DBG_PRINT("msg type: %d\n", msg_type);		
 			
 			switch (msg_type)
 			{
@@ -1525,9 +1529,11 @@ int BizSendMsg2StreamManager(SBizMsg_t *pmsg, u32 msg_len)
 //成功返回并不表示连接成功，只是写入了消息列表，之后在消息线程连接
 int BizStreamReqPlaybackByFile (
 	EM_DEV_TYPE dev_type,
+	int connect_type,/* 0 回放 1 下载*/
 	u32 dev_ip,
 	char *file_name,
 	u32 offset,
+	u32 size,
 	CObject *obj,
 	PDEAL_FRAME deal_frame_cb,
 	PDEAL_STATUS deal_status_cb,
@@ -1552,9 +1558,19 @@ int BizStreamReqPlaybackByFile (
 	//0：预览 1：文件回放 2：时间回放 3：文件下载 4：升级 
 	//5 VOIP 6 文件按帧下载 7 时间按帧下载 8 透明通道
 	//9 远程格式化硬盘 10 主机端抓图 11 多路按时间回放 12 按时间下载文件
-	req.command = 1;
-	strcpy(req.FilePlayBack_t.filename, file_name);
-	req.FilePlayBack_t.offset = offset;
+	if (connect_type == 0)
+	{
+		req.command = 1;
+		strcpy(req.FilePlayBack_t.filename, file_name);
+		req.FilePlayBack_t.offset = offset;
+	}
+	else
+	{
+		req.command = 3;
+		strcpy(req.FileDownLoad_t.filename, file_name);
+		req.FileDownLoad_t.offset = offset;
+		req.FileDownLoad_t.size = size;
+	}
 	
 	return g_biz_stream_manager.ReqStreamStart(dev_type, dev_ip, &req, obj, deal_frame_cb, deal_status_cb, pstream_id);
 }
@@ -1563,6 +1579,7 @@ int BizStreamReqPlaybackByFile (
 //成功返回并不表示连接成功，只是写入了消息列表，之后在消息线程连接
 int BizStreamReqPlaybackByTime (
 	EM_DEV_TYPE dev_type,
+	int connect_type,/* 0 回放 1 下载*/
 	u32 dev_ip,
 	u8 chn, 
 	u32 start_time, 
