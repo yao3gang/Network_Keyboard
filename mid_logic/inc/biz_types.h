@@ -194,6 +194,7 @@ typedef enum
 		
     EM_BIZ_DATA_PREVIEW = 10,	//预览数据
     EM_BIZ_DATA_PLAYBACK,  		//回放数据
+    EM_BIZ_DATA_DOWNLOAD,		//下载
     EM_BIZ_DATA_UPGRADE,		//远程升级数据
     
 } EMBIZDATA;

@@ -374,7 +374,7 @@ int umount_user(const char *user_path)
 
 	DBG_PRINT("success, path: %s, resolved_path: %s\n", user_path, path);
 
-	return SUCCESS;;
+	return SUCCESS;
 }
 
 int mount_user(const char *mounted_path, const char *user_path)
@@ -423,10 +423,8 @@ int mount_user(const char *mounted_path, const char *user_path)
 int BizMountUdisk()
 {
 	int j;
-	char devname[32] = {0};
-	
-	s32 rtn = SUCCESS;
-	s32 ret = 0;
+	s32 ret = SUCCESS;
+	char devname[32] = {0};	
 	
 	if(0==access("udisk", F_OK))
 	{
@@ -449,19 +447,29 @@ int BizMountUdisk()
 		//sprintf(devname,"/dev/sd%c%d",'a'+nIdx,j);
 		sprintf(devname,"/dev/sda%d", j);
 		
-		ret = mount_user(devname, "udisk");		
-		if(ret == 0)
+		if (access("udisk", F_OK))
 		{
-			DBG_PRINT("mount %s success\n", devname);
-			break;
+			ret = -EUDISK_NOTFOUND;
+		}
+		else
+		{	
+			if(mount_user(devname, "udisk"))
+			{
+				ERR_PRINT("mount %s failed\n", devname);
+
+				ret = -EUDISK_MOUNT;
+			}
 		}
 	}
+	
+#if 0
 
 	if(ret == 0)
 	{
 		rtn = 0;
 		goto END;
 	}	
+
 	
 	//sprintf(devname,"/dev/sd%c",'a');	
 	sprintf(devname,"/dev/sda");
@@ -473,29 +481,30 @@ int BizMountUdisk()
 	}
 
 	rtn = -FAILURE;
-	
-END:
+#endif	
+//END:
 	//printf("mount %s rtn %d\n", devname, rtn);
 	
-	return rtn;
+	return ret;
 	
 }
 
 int BizUnmountUdisk()
 {
-	if(0==access("udisk", F_OK))
+	s32 ret = SUCCESS;
+	
+	if (access("udisk", F_OK))
 	{
-		DBG_PRINT("udisk dir exist!!! then umount & unlink\n");
-		
-		if( umount_user("udisk") )
-		{
-			unlink("udisk");
-			mkdir("udisk", 0600);			
-		}
+		ERR_PRINT("udisk dir not exist!!!\n");
+		ret = -EUDISK_NOTFOUND;
 	}
 	else
 	{
-		ERR_PRINT("udisk dir not exist!!!\n");
+		if( umount_user("udisk") )
+		{
+			ERR_PRINT("udisk umount failed!!!\n");
+			ret = -EUDISK_UMOUNT;
+		}
 	}
 
 	return SUCCESS;

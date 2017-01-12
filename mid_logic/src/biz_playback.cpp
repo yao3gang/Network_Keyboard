@@ -26,6 +26,7 @@
 
 
 #include "biz_playback.h"
+#include "biz_system_complex.h"
 
 
 #include <stdio.h>
@@ -41,6 +42,9 @@
 #include <sys/time.h>
 #include <sys/select.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 
 
 #include <map>
@@ -92,6 +96,7 @@ private:
 	s32 rate;		//当前播放速度[-8 -4 -2 1 2 4 8]  <==   1<<[-3, 3]
 	u32 cur_pos;	//当前播放时间
 	u32 total_size;	//总时间长度
+	int fd;//下载
 };
 
 
@@ -110,7 +115,7 @@ CBizPlayback::CBizPlayback()
 , rate(1)					//正常播放
 , cur_pos(INVALID_VALUE)	//当前播放时间
 , total_size(INVALID_VALUE) //总时间长度
-
+, fd(INVALID_FD)
 {
 	memset(&file_info, 0, sizeof(ifly_recfileinfo_t));
 	memset(&time_info, 0, sizeof(SPlayback_Time_Info_t));
@@ -994,9 +999,19 @@ int CBizPlaybackManager::dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr)
 
 	SBizDataPara para;
 	memset(&para, 0, sizeof(SBizDataPara));
-	para.type = EM_BIZ_DATA_PLAYBACK;
-	para.un_part_chn.playback_chn = playback_chn;
-	para.un_part_data.pframe_hdr = pframe_hdr;
+
+	if (playback_chn < 0x10)//回放
+	{
+		para.type = EM_BIZ_DATA_PLAYBACK;
+		para.un_part_chn.playback_chn = playback_chn;
+		para.un_part_data.pframe_hdr = pframe_hdr;
+	}
+	else //下载
+	{
+		para.type = EM_BIZ_DATA_DOWNLOAD;
+		para.un_part_chn.playback_chn = playback_chn;
+		para.un_part_data.pframe_hdr = pframe_hdr;
+	}
 
 	return BizDataCB(&para);
 	
@@ -1040,6 +1055,7 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 	int connect_type = 0;
 	struct in_addr in;
 	in.s_addr = dev_ip;
+	int fd = INVALID_FD;//下载
 
 	//DBG_PRINT("start\n"); 
 	
@@ -1068,6 +1084,37 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 		}
 	}
 
+	if (playback_chn < 0x10) //回放
+	{
+		connect_type = 0;
+	}
+	else	//下载
+	{
+		connect_type = 1;
+
+		ret = BizMountUdisk();
+		if (ret)
+		{
+			return ret;
+		}
+
+		char filename[128] = 0;
+		sprintf(filename, "./udisk/%s", pfile_info.filename);
+		DBG_PRINT("filename %s.\n", filename);
+		
+		if (0 == access(filename, F_OK))//存在，先删除
+		{
+			unlink(filename);
+		}
+		
+		fd = open(filename, O_RDWR, 0666);
+		if (fd < 0)
+		{
+			ERR_PRINT("open file %s failed\n", filename);
+			return -FAILURE;
+		}
+	}
+
 	CBizPlayback *pcplayback = NULL;
 
 	pcplayback = new CBizPlayback;
@@ -1075,7 +1122,8 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 	{
 		ERR_PRINT("dev_ip: %s, playback_chn: %d, new CBizPlayback failed\n", inet_ntoa(in), playback_chn);
 		
-		return -ESPACE;
+		ret = -ESPACE;
+		goto fail;
 	}
 
 	ret = pcplayback->Init();
@@ -1085,15 +1133,6 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 		
 		ret = -ESPACE;
 		goto fail;
-	}
-
-	if (playback_chn < 0x10) //回放
-	{
-		connect_type = 0;
-	}
-	else	//下载
-	{
-		connect_type = 1;
 	}
 	
 	//成功返回并不表示连接成功，只是写入了消息列表，之后在消息线程连接
@@ -1149,7 +1188,12 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 		ERR_PRINT("EM_STREAM_STATUS_INIT != pcplayback->status(%d)\n", pcplayback->status);
 	}
 	pcplayback->status = EM_STREAM_STATUS_DISCONNECT;
-	pcplayback->stream_errno = SUCCESS;	
+	pcplayback->stream_errno = SUCCESS;
+
+	if (connect_type == 1) //下载
+	{
+		pcplayback->fd = fd;
+	}
 
 	pcplayback->plock4param->Unlock();
 	
@@ -1174,6 +1218,12 @@ fail:
 	{
 		delete pcplayback;
 		pcplayback = NULL;
+	}
+
+	if (INVALID_FD != fd)
+	{
+		close(fd);
+		fd = INVALID_FD;
 	}
 
 	return ret;

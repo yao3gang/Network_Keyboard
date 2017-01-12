@@ -852,7 +852,7 @@ int BizPlaybackSeek(u32 playback_chn, u32 time)
 
 //文件下载
 int BizDownloadByFile(u32 dev_ip, ifly_recfileinfo_t *pfile_info)
-{
+{	
 	return BizPlaybackStartByFile(0x10, dev_ip, pfile_info);// 0回放 0x10下载
 }
 int BizDownloadByTime(u32 dev_ip, u8 chn, u32 start_time, u32 end_time)

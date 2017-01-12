@@ -192,7 +192,8 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 	int inside_err = SUCCESS;//标识线程内部是否出错
 	CObject *obj = NULL;
 	PDEAL_FRAME deal_frame_cb = NULL;
-
+	u32 rcv_cnt = 0;
+		
 	u64 ms64 = 0;
 	
 	fd_set rset;
@@ -358,7 +359,7 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 			else if (req_cmd == 3)	//文件下载
 			{
 				ret = recv(sock_stream, pframe_data, MAX_FRAME_SIZE, 0);
-				if (ret <= 0)
+				if (ret < 0)
 				{					
 					ERR_PRINT("dev IP: %s, stream_id: %d, req_cmd: %d, recv failed, ret: %d, errno(%d, %s)\n",
 						inet_ntoa(in), _stream_id, req_cmd, ret, errno, strerror(errno));					
@@ -366,11 +367,26 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 					inside_err = -ERECV;
 					break;
 				}
+				else if (ret == 0)//对方关闭socket，可能下载完成
+				{
+					if (rcv_cnt == req.FileDownLoad_t.size)//下载数据完成
+					{
+						inside_err = SUCCESS;
+					}
+					else
+					{
+						inside_err = -ERECV;
+					}
+					
+					break;
+				}
 				//仅仅一个数据包，与帧无关，只是借用frame_hdr 传递数据
 				frame_hdr.m_pData = (u8 *)pframe_data;
 				frame_hdr.m_dwDataSize = ret;
 
-			#if 0
+				rcv_cnt += ret;
+				
+			#if 1
 				//帧回调
 				if (obj && deal_frame_cb)
 				{
@@ -379,6 +395,7 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 			#else
 				DBG_PRINT("download file m_dwDataSize: %d, \n", ret);
 			#endif
+			
 			}
 			else if (req_cmd == 4)	//升级
 			{
