@@ -1215,7 +1215,7 @@ int CBizDevice::DevDisconnect()
 		DBG_PRINT("svr IP: %s, DeviceLogout failed\n", inet_ntoa(in));
 	}
 	//DBG_PRINT("svr IP: %s, DeviceLogout success\n", inet_ntoa(in));
-
+	
 #if 0
 	//设置接收报警信息
 	ret = _DevSetAlarmUpload(0);
@@ -1225,6 +1225,8 @@ int CBizDevice::DevDisconnect()
 	}
 	DBG_PRINT("svr IP: %s, Device SetAlarmUpload success\n", inet_ntoa(in));
 #endif
+
+	b_alive = FALSE;
 
 	//通知设备离线
 	memset(&gdev, 0, sizeof(gdev));
@@ -1271,7 +1273,7 @@ int CBizDevice::ReqStreamStart(u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *ps
 	//9 远程格式化硬盘 10 主机端抓图 11 多路按时间回放 12 按时间下载文件
 
 	req_cmd = preq->command;
-	//memset(&send_req, 0, sizeof(ifly_TCP_Stream_Req));
+	
 	send_req = *preq;
 
 	//send_req 结构转换为网络字节序
@@ -1354,7 +1356,7 @@ int CBizDevice::ReqStreamStart(u32 stream_id, ifly_TCP_Stream_Req *preq, s32 *ps
 		goto fail;
 	}
 
-	ret = loopsend(fd_tmp, (char *)&send_req, sizeof(ifly_TCP_Stream_Req));
+	ret = loopsend(fd_tmp, (char *)&send_req, sizeof(ifly_TCP_Stream_Req));//send_req
 	if (ret < 0)
 	{
 		ERR_PRINT("svr IP: %s, stream req cmd: %d, Send ifly_TCP_Stream_Req failed\n", inet_ntoa(in), preq->command);
@@ -1479,7 +1481,12 @@ fail2:
 	}
 	
 fail:
-	close(fd_tmp);	
+	
+	if (INVALID_SOCKET != fd_tmp)
+	{
+		close(fd_tmp);
+		fd_tmp = INVALID_SOCKET;
+	}
 
 	return -FAILURE;
 }
@@ -4304,6 +4311,7 @@ void CBizDeviceManager::_SplitDevFromMap(EM_DEV_TYPE dev_type,
 	s32 dev_idx;
 	
 	struct in_addr in;
+	//DBG_PRINT("1\n");
 	
 	if (dev_type <= EM_DEV_TYPE_NONE
             || dev_type >= EM_DEV_TYPE_MAX)
@@ -4340,7 +4348,7 @@ void CBizDeviceManager::_SplitDevFromMap(EM_DEV_TYPE dev_type,
 			if (pcdev->b_alive)
 			{
 				//DBG_PRINT("device online, IP(%s)\n", inet_ntoa(in));
-				if (pcdev->err_cnt > NETDIALOGUE_ERR_MAX)//出错
+				if (pcdev->err_cnt >= NETDIALOGUE_ERR_MAX)//出错
 				{
 					//断开流连接
 					pcdev->ShutdownStreamAll();
@@ -5272,7 +5280,7 @@ void CBizDeviceManager::threadKeepAlive(uint param)
 				}
 				
 				in.s_addr = pcdev->dev_info.deviceIP;
-				
+				//DBG_PRINT("svr(%s) keepalive start\n", inet_ntoa(in));
 				if (pcdev->GetDevSysTime(&dev_sys_time))//出错
 				{
 					DBG_PRINT("svr(%s) keepalive failed\n", inet_ntoa(in));

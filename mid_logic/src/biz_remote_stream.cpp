@@ -192,7 +192,7 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 	int inside_err = SUCCESS;//标识线程内部是否出错
 	CObject *obj = NULL;
 	PDEAL_FRAME deal_frame_cb = NULL;
-	u32 rcv_cnt = 0;
+	//u32 rcv_cnt = 0;
 		
 	u64 ms64 = 0;
 	
@@ -369,22 +369,15 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 				}
 				else if (ret == 0)//对方关闭socket，可能下载完成
 				{
-					if (rcv_cnt == req.FileDownLoad_t.size)//下载数据完成
-					{
-						inside_err = SUCCESS;
-					}
-					else
-					{
-						inside_err = -ERECV;
-					}
-					
+					inside_err = -EPEER;
 					break;
 				}
+				
 				//仅仅一个数据包，与帧无关，只是借用frame_hdr 传递数据
 				frame_hdr.m_pData = (u8 *)pframe_data;
 				frame_hdr.m_dwDataSize = ret;
 
-				rcv_cnt += ret;
+				//rcv_cnt += ret;
 				
 			#if 1
 				//帧回调
@@ -437,10 +430,18 @@ done:
 	//只在模块内部出错退出时发消息
 	if (inside_err) 
 	{
-	 	memset(&msg, 0, sizeof(SBizMsg_t));
-		msg.msg_type = EM_STREAM_MSG_STOP;
+		memset(&msg, 0, sizeof(SBizMsg_t));
 		msg.un_part_chn.stream_id = _stream_id;
-		msg.un_part_data.stream_errno = inside_err;
+		
+		if (-EPEER == inside_err)
+		{
+			msg.msg_type = EM_STREAM_MSG_SVR_SHUTDOWM;
+		}
+		else
+		{
+			msg.msg_type = EM_STREAM_MSG_STOP;
+			msg.un_part_data.stream_errno = inside_err;
+		}
 
 		ret = BizSendMsg2StreamManager(&msg, sizeof(SBizMsg_t));
 		if (ret)
@@ -509,6 +510,7 @@ private: //function
 	int dealStreamMsgStop(u32 stream_id, s32 stream_errno);
 	int dealStreamMsgProgess(u32 stream_id, u32 cur_pos, u32 total_size);
 	int dealStreamMsgFinish(u32 stream_id);
+	int dealStreamMsgSvrShutdown(u32 stream_id);
 	void threadMsg(uint param);//消息线程执行函数
 	//外部加锁
 	u32 _createStreamID();//得到一个新的流ID
@@ -1180,6 +1182,80 @@ int CMediaStreamManager::dealStreamMsgFinish(u32 stream_id)
 	return SUCCESS;
 }
 
+
+int CMediaStreamManager::dealStreamMsgSvrShutdown(u32 stream_id)
+{
+	int ret = SUCCESS;
+	struct in_addr in;
+	CMediaStream *pstream = NULL;
+	MAP_ID_PSTREAM::iterator map_iter;
+	EM_DEV_TYPE dev_type;//服务器类型
+	u32 dev_ip = INADDR_NONE;//服务器IP
+	u8 req_cmd = INVALID_VALUE;
+	CObject *obj = NULL;
+	PDEAL_STATUS deal_status_cb = NULL;
+	SBizMsg_t msg;
+	
+	//DBG_PRINT("manager lock\n");
+	plock4param->Lock();
+	
+	map_iter = map_pstream.find(stream_id);
+	if (map_iter == map_pstream.end())
+	{
+		ERR_PRINT("stream_id(%d) not found in map\n", stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM; 
+	}
+	
+	pstream = map_iter->second;
+	if (NULL == pstream)
+	{
+		ERR_PRINT("stream_id(%d) NULL == pstream\n", stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+	
+	//DBG_PRINT("lock\n");
+	pstream->plock4param->Lock();
+	
+	obj = pstream->m_obj;
+	deal_status_cb = pstream->m_deal_status_cb;
+		
+	dev_type = pstream->dev_type;
+	dev_ip = pstream->dev_ip;
+	req_cmd = pstream->req.command;
+	in.s_addr = dev_ip;
+
+	pstream->plock4param->Unlock();
+	
+	plock4param->Unlock();
+	
+	
+
+	memset(&msg, 0, sizeof(SBizMsg_t));
+	msg.msg_type = EM_STREAM_MSG_SVR_SHUTDOWM;
+	msg.un_part_chn.stream_id = stream_id;
+	if (obj && deal_status_cb)
+	{
+		ret = (obj->*deal_status_cb)(&msg, sizeof(SBizMsg_t));
+		if (ret)
+		{
+			ERR_PRINT("deal_status_cb failed, ret: %d, stream_id: %d, msg_type: %d\n",
+				ret, stream_id, msg.msg_type);
+		}
+	}
+	
+	
+
+	DBG_PRINT("dev ip: %s, stream_id: %d, req cmd: %d\n",
+			inet_ntoa(in), stream_id, req_cmd);
+	
+	return SUCCESS;
+}
+
+
 void CMediaStreamManager::threadMsg(uint param)//读消息
 {
 	VD_BOOL b_process = FALSE;
@@ -1285,7 +1361,11 @@ void CMediaStreamManager::threadMsg(uint param)//读消息
 				{
 					ret = dealStreamMsgFinish(msg.un_part_chn.stream_id);
 				} break;
-				
+			
+				case EM_STREAM_MSG_SVR_SHUTDOWM:	//连接对端关闭
+				{
+					ret = dealStreamMsgSvrShutdown(msg.un_part_chn.stream_id);
+				} break;
 				
 				//CMediaStreamManager 内部命令
 				case EM_STREAM_CMD_CONNECT:	//连接流
@@ -1581,12 +1661,17 @@ int BizStreamReqPlaybackByFile (
 		strcpy(req.FilePlayBack_t.filename, file_name);
 		req.FilePlayBack_t.offset = offset;
 	}
-	else
+	else if (connect_type == 1)
 	{
 		req.command = 3;
 		strcpy(req.FileDownLoad_t.filename, file_name);
 		req.FileDownLoad_t.offset = offset;
 		req.FileDownLoad_t.size = size;
+	}
+	else
+	{
+		ERR_PRINT("connect_type invalid, 0: playback, 1: download\n");
+		return -EPARAM;
 	}
 	
 	return g_biz_stream_manager.ReqStreamStart(dev_type, dev_ip, &req, obj, deal_frame_cb, deal_status_cb, pstream_id);

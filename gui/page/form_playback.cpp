@@ -31,6 +31,7 @@ form_playback::form_playback(QWidget *parent)
     , slider_pressed_pos(0)
     , play_pos(0)
     , play_rate_index(3)
+    , file_down_index(INVALID_VALUE)
 {
     memset(&search_para, 0, sizeof(ifly_recsearch_param_t));
 
@@ -395,6 +396,10 @@ void form_playback::tableWidgetClicked(QTableWidgetItem * item)
         return ;
     }
 
+    int row_clicked = item->row();
+    DBG_PRINT("row_clicked: %d\n", row_clicked);
+    //file_down_index
+
     QTableWidget *ptable_widget = NULL;
     ptable_widget = item->tableWidget();
     if (NULL == ptable_widget)
@@ -406,14 +411,17 @@ void form_playback::tableWidgetClicked(QTableWidgetItem * item)
     if (ui->tableWidget_left == ptable_widget)
     {
         ui->tableWidget_right->clearSelection();//清除选择区域
+        file_down_index = row_clicked;
     }
     else if (ui->tableWidget_right == ptable_widget)
     {
         ui->tableWidget_left->clearSelection();
+        file_down_index = row_clicked + MAX_FILE_NUMS/2;
     }
     else
     {
         ERR_PRINT("ptable_widget neither left nor right\n");
+        file_down_index = INVALID_VALUE;
         return ;
     }
 }
@@ -713,7 +721,7 @@ void form_playback::slotNotifyPlaybackInfo(SPlaybackNotify_t playback_msg)
             DBG_PRINT("playback done\n");
             if (EM_PLAY_STATUS_STOP == play_status)
             {
-                ERR_PRINT("EM_PLAY_STATUS_STOP == play_status");
+                ERR_PRINT("EM_PLAY_STATUS_STOP == play_status\n");
                 return ;
             }
 
@@ -1009,6 +1017,9 @@ enum NETDVR_REC_INDEX_MASK
 #endif
 
     refreshWidgetResult();
+
+    //showTableWidget(true);
+    ui->btn_extra->setChecked(true);
 }
 
 void form_playback::on_btn_page_start_clicked()
@@ -1180,23 +1191,55 @@ void form_playback::on_btn_to_dec_clicked()
 
 void form_playback::on_btn_backup_clicked()
 {
-    //test udisk
-    //BizMountUdisk();
-#if 0
-    DialogProgress dialog;
+    if (INVALID_VALUE == file_down_index)
+    {
+        ShowMessageBoxInfo(QString::fromUtf8("请先在搜索文件列表框中选定一个文件！"));
+        return ;
+    }
+    //DBG_PRINT("file_down_index: %d\n", file_down_index);
 
-    dialog.setTitle(QString::fromUtf8("文件下载"));
+    u32 start_time = 0;
+    u32 end_time = 0;
 
-    int ret = dialog.exec();
-    DBG_PRINT("dialog return: %d\n", ret);
-#endif
-    int ret = SUCCESS;
-    DBG_PRINT("offset: %u, size: %u\n", search_result.pfile_info[0].offset, search_result.pfile_info[0].size);
-    ret = BizDownloadByFile(search_nvr_ip, &search_result.pfile_info[0]);
+    start_time = search_result.pfile_info[file_down_index].start_time;
+    end_time = search_result.pfile_info[file_down_index].end_time;
+    start_time += 8*3600;
+    end_time += 8*3600;
+
+    struct tm tm_time;
+    gmtime_r((time_t *)&start_time, &tm_time);
+    QTime qtime_start(tm_time.tm_hour, tm_time.tm_min, tm_time.tm_sec);
+
+    gmtime_r((time_t *)&end_time, &tm_time);
+    QTime qtime_end(tm_time.tm_hour, tm_time.tm_min, tm_time.tm_sec);
+
+    QString msg = QString(QString::fromUtf8("%1-%2 确认下载该文件?").arg(qtime_start.toString(QString::fromUtf8("HH:mm:ss"))).arg(qtime_end.toString(QString::fromUtf8("HH:mm:ss"))));
+    int ret = ShowMessageBoxQuesion(msg);
+    if (0 == ret)
+    {
+        return ;
+    }
+
+#if 1
+    ret = SUCCESS;
+    DBG_PRINT("offset: %u, size: %u\n", search_result.pfile_info[file_down_index].offset, search_result.pfile_info[file_down_index].size);
+    ret = BizDownloadByFile(search_nvr_ip, &search_result.pfile_info[file_down_index]);
     if (ret)
     {
         ERR_PRINT("BizDownloadByFile failed, ret: %d\n", ret);
     }
+#endif
+
+#if 0
+    DialogProgress dialog;
+    dialog.setTitle(QString::fromUtf8("文件下载"));
+    connect;
+
+    ret = dialog.exec();
+    DBG_PRINT("dialog return: %d\n", ret);
+#endif
+
+
 }
 
 //play ctl
@@ -1374,7 +1417,7 @@ void form_playback::slider_moved(int pos)
         return ;
     }
 
-    DBG_PRINT("slider cur_value: %d, value: %d\n", ui->slider_play->value(), pos);
+    //DBG_PRINT("slider cur_value: %d, value: %d\n", ui->slider_play->value(), pos);
 
     u32 label_time = play_file.start_time + pos;
     label_time += 8*3600;

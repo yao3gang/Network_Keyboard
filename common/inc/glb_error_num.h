@@ -11,6 +11,7 @@ enum GLB_ERROR_NUM
 	ETIMEOUT,
 	ESEND,
 	ERECV,
+	EPEER,	/* 连接对端关闭 */
 	
 	/* CcircularBuffer */
 	ESPACE,	/* 剩余空间不足 */

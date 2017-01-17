@@ -674,7 +674,7 @@ void page_tvWall::slotDropEvent(int row, int col, QString data)
         return ;
     }
 
-    u8 nvr_chn = 0xff;
+    u32 nvr_chn = 0xff;
     if (1 != sscanf(str_chn.toUtf8().constData(), "通道%d", &nvr_chn))
     {
         ERR_PRINT("chn str: %s, sscanf invalid\n", str_chn.toUtf8().constData());

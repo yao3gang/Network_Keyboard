@@ -379,6 +379,8 @@ void page_dev_mgt::refreshDevInfo(SGuiDev dev)
         }
     }
 
+    //DBG_PRINT("2 index: %d\n", index);
+
     if (iter == pmap->end())
     {
         ERR_PRINT("not find dev(%s)\n", inet_ntoa(in));
@@ -416,13 +418,11 @@ void page_dev_mgt::refreshDevInfo(SGuiDev dev)
         mutex.unlock();
         return;
     }
-
     pdev->maxChnNum = dev.maxChnNum;
 
     if (pdev->b_alive != dev.b_alive)//在线状态发生改变
     {
         pdev->b_alive = dev.b_alive;
-
         if (isVisible() && (ui->cmb_added_type->currentIndex() == pdev->devicetype-EM_NVR))//当前正在显示该类型的设备，需要改变界面控件
         {
             modifyRowTableDev(index, pdev);

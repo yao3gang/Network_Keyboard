@@ -175,8 +175,8 @@ typedef struct
 		//回放、文件下载进度
 		struct
 		{
-			u32 cur_pos;
-			u32 total_size;
+			u32 cur_pos;//回放时秒，下载百分比
+			u32 total_size;//回放时文件时间长度
 		} stream_progress;
 		
 	} un_part_data;   

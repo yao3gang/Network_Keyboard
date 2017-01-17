@@ -61,6 +61,7 @@ private:
     int slider_pressed_pos;
     int play_pos;
     int play_rate_index;
+    int file_down_index;
 
 private slots:
     void refreshDevInfo(SGuiDev dev);

@@ -355,7 +355,7 @@ int umount_user(const char *user_path)
 		
 		return -FAILURE;
 	}
-	//DBG_PRINT("realpath success, path: %s\n", path);
+	DBG_PRINT("realpath success, path: %s\n", path);
 
 	s32 curstat = umount(path);
 	if(curstat)
@@ -447,17 +447,16 @@ int BizMountUdisk()
 		//sprintf(devname,"/dev/sd%c%d",'a'+nIdx,j);
 		sprintf(devname,"/dev/sda%d", j);
 		
-		if (access("udisk", F_OK))
+		if (access(devname, F_OK))
 		{
 			ret = -EUDISK_NOTFOUND;
 		}
 		else
 		{	
-			if(mount_user(devname, "udisk"))
+			DBG_PRINT("devname: %s\n", devname);
+			if(mount_user(devname, "udisk") == 0)
 			{
-				ERR_PRINT("mount %s failed\n", devname);
-
-				ret = -EUDISK_MOUNT;
+				break;
 			}
 		}
 	}

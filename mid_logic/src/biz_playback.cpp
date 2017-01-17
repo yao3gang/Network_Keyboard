@@ -97,6 +97,7 @@ private:
 	u32 cur_pos;	//当前播放时间
 	u32 total_size;	//总时间长度
 	int fd;//下载
+	u32 wr_cnt;		//写入数据量累计
 };
 
 
@@ -116,6 +117,7 @@ CBizPlayback::CBizPlayback()
 , cur_pos(INVALID_VALUE)	//当前播放时间
 , total_size(INVALID_VALUE) //总时间长度
 , fd(INVALID_FD)
+, wr_cnt(0)
 {
 	memset(&file_info, 0, sizeof(ifly_recfileinfo_t));
 	memset(&time_info, 0, sizeof(SPlayback_Time_Info_t));
@@ -159,6 +161,21 @@ void CBizPlayback::FreeSrc()//释放资源
 
 CBizPlayback::~CBizPlayback()
 {
+	if (plock4param)
+		plock4param->Lock();
+
+	if (playback_chn >= 0x10)//下载
+	{
+		if (INVALID_FD != fd)
+		{
+			close(fd);
+			fd = INVALID_FD;
+		}
+	}
+
+	if (plock4param)
+		plock4param->Unlock();
+	
 	FreeSrc();
 }
 
@@ -226,6 +243,7 @@ private:
 	int dealStreamMsgStop(u32 stream_id, s32 stream_errno);
 	int dealStreamMsgProgess(u32 stream_id,u32 cur_pos, u32 total_size);
 	int dealStreamMsgFinish(u32 stream_id);
+	int dealStreamMsgSvrShutdown(u32 stream_id);
 	
 private:
 	VD_BOOL b_inited;
@@ -598,6 +616,7 @@ int CBizPlaybackManager::dealStreamMsgStop(u32 stream_id, s32 stream_errno)
 	u32 playback_chn = INVALID_VALUE;
 	CBizPlayback *pcplayback = NULL;
 	MAP_ID_PCPLAYBACK::iterator map_ppb_iter;
+	s32 stop_reason = SUCCESS;
 	
 	plock4param->Lock();
 
@@ -621,6 +640,7 @@ int CBizPlaybackManager::dealStreamMsgStop(u32 stream_id, s32 stream_errno)
 	pcplayback->plock4param->Lock();
 
 	playback_chn = pcplayback->playback_chn;
+	pcplayback->stream_errno = stream_errno;
 
 	pcplayback->plock4param->Unlock();
 
@@ -657,11 +677,19 @@ int CBizPlaybackManager::dealStreamMsgStop(u32 stream_id, s32 stream_errno)
 		para.type = EM_BIZ_EVENT_PLAYBACK_NETWORK_ERR;
 		para.un_part_chn.playback_chn = playback_chn;
 		para.un_part_data.stream_errno = stream_errno;
+		stop_reason = stream_errno;
 	}
 	else//无错
 	{
 		para.type = EM_BIZ_EVENT_PLAYBACK_DONE;
 		para.un_part_chn.playback_chn = playback_chn;
+	}
+
+	ret = BizStreamReqStop(stream_id, stop_reason);
+	if (ret)
+	{
+		ERR_PRINT("BizStreamReqStop failed, ret: %d, playback_chn: %d, stream_id: %d\n",
+			ret, playback_chn, stream_id);
 	}
 
 	DBG_PRINT("BizEventCB, playback_chn: %d, msg_type: %d, stream_errno: %d\n",
@@ -833,6 +861,116 @@ int CBizPlaybackManager::dealStreamMsgFinish(u32 stream_id)
 	return ret;
 }
 
+int CBizPlaybackManager::dealStreamMsgSvrShutdown(u32 stream_id)
+{
+	int ret = SUCCESS;
+	u32 playback_chn = INVALID_VALUE;
+	CBizPlayback *pcplayback = NULL;
+	MAP_ID_PCPLAYBACK::iterator map_ppb_iter;
+	s32 stop_reason = SUCCESS;
+
+	DBG_PRINT("1\n");
+	
+	plock4param->Lock();
+
+	map_ppb_iter = map_pcplayback.find(stream_id);
+	if (map_ppb_iter == map_pcplayback.end())
+	{
+		ERR_PRINT("MAP_PBChn_SID find success, but MAP_ID_PCPLAYBACK find failed, stream_id: %d\n", stream_id);
+
+		ret = -EPARAM;
+	}
+	
+	pcplayback = map_ppb_iter->second;
+	if (NULL == pcplayback)
+	{
+		ERR_PRINT("NULL == pcplayback, stream_id: %d\n", stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+
+	pcplayback->plock4param->Lock();
+
+	playback_chn = pcplayback->playback_chn;
+	if (playback_chn < 0x10)//回放
+	{
+		
+	}
+	else
+	{
+		//下载未完成，对端关闭
+		if (pcplayback->wr_cnt != pcplayback->file_info.size)
+		{
+			stop_reason = -ERECV;
+		}
+	}
+
+	pcplayback->plock4param->Unlock();
+
+	//删除
+	map_pcplayback.erase(stream_id);
+	map_pbchn_sid.erase(playback_chn);
+
+	delete pcplayback;
+	pcplayback = NULL;
+	
+	plock4param->Unlock();
+
+	//上传msg 2 biz manager
+#if 0
+	SBizMsg_t msg;
+
+	memset(&msg, 0, sizeof(SBizMsg_t));
+	msg.msg_type = EM_PLAYBACK_MSG_STOP;
+	msg.un_part_chn.playback_chn = playback_chn;
+	msg.un_part_data.stream_errno = stream_errno;
+
+	ret = BizSendMsg2BizManager(&msg, sizeof(SBizMsg_t));
+	if (ret)
+	{
+		ERR_PRINT("BizSendMsg2StreamManager failed, ret: %d, playback_chn: %d, msg_type: %d\n",
+			ret, playback_chn, msg.msg_type);
+	}
+#else
+	SBizEventPara para;
+	memset(&para, 0, sizeof(SBizEventPara));
+	
+	if (stop_reason)
+	{
+		para.type = EM_BIZ_EVENT_PLAYBACK_NETWORK_ERR;
+		para.un_part_chn.playback_chn = playback_chn;
+		para.un_part_data.stream_errno = stop_reason;
+	}
+	else//无错
+	{
+		para.type = EM_BIZ_EVENT_PLAYBACK_DONE;
+		para.un_part_chn.playback_chn = playback_chn;
+	}
+
+	ret = BizStreamReqStop(stream_id, stop_reason);
+	if (ret)
+	{
+		ERR_PRINT("BizStreamReqStop failed, ret: %d, playback_chn: %d, stream_id: %d\n",
+			ret, playback_chn, stream_id);
+	}
+
+	DBG_PRINT("BizEventCB, playback_chn: %d, msg_type: %d, stop_reason: %d\n",
+			playback_chn, para.type, stop_reason);
+	
+	ret = BizEventCB(&para);
+	if (ret)
+	{
+		ERR_PRINT("BizEventCB failed, ret: %d, playback_chn: %d, msg_type: %d\n",
+			ret, playback_chn, para.type);
+	}
+				
+#endif
+
+
+	return ret;
+}
+
 
 void CBizPlaybackManager::threadMsg(uint param)//读消息
 {
@@ -937,6 +1075,13 @@ void CBizPlaybackManager::threadMsg(uint param)//读消息
 					ret = dealStreamMsgFinish(msg.un_part_chn.stream_id);
 				} break;
 
+				case EM_STREAM_MSG_SVR_SHUTDOWM:		//连接对端关闭
+				{
+					ret = dealStreamMsgSvrShutdown(msg.un_part_chn.stream_id);
+				} break;
+
+				
+
 				default:
 					ERR_PRINT("msg_type: %d, not support\n", msg_type);
 			}
@@ -950,6 +1095,9 @@ thread_exit:
 
 int CBizPlaybackManager::dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr)
 {
+	int fd = INVALID_FD;
+	int ret = SUCCESS;
+	
 	if (!b_inited)
 	{
 		ERR_PRINT("module not inited\n");
@@ -992,29 +1140,131 @@ int CBizPlaybackManager::dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr)
 	pcplayback->plock4param->Lock();
 
 	playback_chn = pcplayback->playback_chn;
-
-	pcplayback->plock4param->Unlock();
-	
-	plock4param->Unlock();
-
-	SBizDataPara para;
-	memset(&para, 0, sizeof(SBizDataPara));
-
+		
 	if (playback_chn < 0x10)//回放
 	{
+		pcplayback->plock4param->Unlock();
+		plock4param->Unlock();
+
+		SBizDataPara para;
+		memset(&para, 0, sizeof(SBizDataPara));
 		para.type = EM_BIZ_DATA_PLAYBACK;
 		para.un_part_chn.playback_chn = playback_chn;
 		para.un_part_data.pframe_hdr = pframe_hdr;
-	}
-	else //下载
-	{
-		para.type = EM_BIZ_DATA_DOWNLOAD;
-		para.un_part_chn.playback_chn = playback_chn;
-		para.un_part_data.pframe_hdr = pframe_hdr;
+		
+		return BizDataCB(&para);
 	}
 
-	return BizDataCB(&para);
+	//下载
+	fd = pcplayback->fd;
+	if (INVALID_FD == fd)
+	{
+		pcplayback->plock4param->Unlock();
+		plock4param->Unlock();
+		
+		ERR_PRINT("playback_chn: %d, fd == INVALID_FD, inconceivable\n", playback_chn);
+
+		SBizMsg_t msg;//发消息给自己
+		memset(&msg, 0, sizeof(SBizMsg_t));
+		msg.msg_type = EM_STREAM_MSG_STOP;
+		msg.un_part_chn.stream_id = stream_id;
+		msg.un_part_data.stream_errno = -EUDISK_WR;
+
+		return WriteMsg(&msg, sizeof(SBizMsg_t));
+	}
+
+	//写udisk
+	u32 file_size = pcplayback->file_info.size;
+
+	//error	pcplayback->wr_cnt > file_size
+	if (pcplayback->wr_cnt + pframe_hdr->m_dwDataSize > file_size)
+	{
+		pcplayback->plock4param->Unlock();
+		plock4param->Unlock();
+		
+		ERR_PRINT("playback_chn: %d, wr_cnt(%u) + rcv_size(%u) > file_size(%u), inconceivable\n",
+			playback_chn, pcplayback->wr_cnt, pframe_hdr->m_dwDataSize, file_size);
+
+		SBizMsg_t msg;//发消息给自己
+		memset(&msg, 0, sizeof(SBizMsg_t));
+		msg.msg_type = EM_STREAM_MSG_STOP;
+		msg.un_part_chn.stream_id = stream_id;
+		msg.un_part_data.stream_errno = -ERECV;
+
+		return WriteMsg(&msg, sizeof(SBizMsg_t));
+	}
 	
+	ret = write(fd, pframe_hdr->m_pData, pframe_hdr->m_dwDataSize);
+	if (ret != pframe_hdr->m_dwDataSize)
+	{
+		pcplayback->plock4param->Unlock();
+		plock4param->Unlock();
+		
+		ERR_PRINT("playback_chn: %d, udisk write failed, ret: %d, data len: %d, err(%d, %s)\n", 
+			playback_chn, ret, pframe_hdr->m_dwDataSize, errno, strerror(errno));
+
+		SBizMsg_t msg;//发消息给自己
+		memset(&msg, 0, sizeof(SBizMsg_t));
+		msg.msg_type = EM_STREAM_MSG_STOP;
+		msg.un_part_chn.stream_id = stream_id;
+		msg.un_part_data.stream_errno = -EUDISK_WR;
+
+		return WriteMsg(&msg, sizeof(SBizMsg_t));
+	}
+	
+	pcplayback->wr_cnt += ret;
+
+	pcplayback->plock4param->Unlock();
+	plock4param->Unlock();
+	
+	u32 cur_pos = (double)100.0 * pcplayback->wr_cnt / file_size; //百分比
+	DBG_PRINT("wr_cnt: %d, cur_pos: %d\n", pcplayback->wr_cnt, cur_pos);
+
+	//file down over
+	if(pcplayback->wr_cnt == file_size)
+	{
+		DBG_PRINT("file down over\n");
+		
+		pcplayback->cur_pos = 100;
+			
+		SBizEventPara para;
+		memset(&para, 0, sizeof(SBizEventPara));		
+		para.type = EM_BIZ_EVENT_PLAYBACK_DONE;
+		para.un_part_chn.playback_chn = playback_chn;
+
+		ret = BizEventCB(&para);
+		if (ret)
+		{
+			ERR_PRINT("BizEventCB failed, ret: %d, playback_chn: %d, msg_type: %d\n",
+				ret, playback_chn, para.type);
+		}
+		return ret;
+	}
+
+	//上传进度
+	if (cur_pos != pcplayback->cur_pos)
+	{
+		pcplayback->cur_pos = cur_pos;
+		
+		SBizEventPara para;//上传进度
+		memset(&para, 0, sizeof(SBizEventPara));		
+		para.type = EM_BIZ_EVENT_PLAYBACK_RUN;
+		para.un_part_chn.playback_chn = playback_chn;
+		para.un_part_data.stream_progress.cur_pos = cur_pos;
+		para.un_part_data.stream_progress.total_size = 100;
+
+		DBG_PRINT("BizEventCB, playback_chn: %d, msg_type: %d, cur_pos: %d\n",
+				playback_chn, para.type, cur_pos);
+
+		ret = BizEventCB(&para);
+		if (ret)
+		{
+			ERR_PRINT("BizEventCB failed, ret: %d, playback_chn: %d, msg_type: %d\n",
+				ret, playback_chn, para.type);
+		}		
+	}
+
+	return ret;
 }
 
 //WriteMsg
@@ -1098,16 +1348,24 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 			return ret;
 		}
 
-		char filename[128] = 0;
-		sprintf(filename, "./udisk/%s", pfile_info.filename);
-		DBG_PRINT("filename %s.\n", filename);
+		char filename[128] = {0};
+		//rec/c2/fly00592.ifv 去除路径rec/c2/
+		char *pos = strstr(pfile_info->filename, "fly");
+		if (NULL == pos)
+		{
+			ERR_PRINT("open file %s, invalid\n", pfile_info->filename);
+			return -FAILURE;
+		}
+		
+		sprintf(filename, "./udisk/%s", pos);
+		DBG_PRINT("filename %s\n", filename);
 		
 		if (0 == access(filename, F_OK))//存在，先删除
 		{
 			unlink(filename);
 		}
 		
-		fd = open(filename, O_RDWR, 0666);
+		fd = open(filename, O_WRONLY|O_CREAT, 0666);
 		if (fd < 0)
 		{
 			ERR_PRINT("open file %s failed\n", filename);
