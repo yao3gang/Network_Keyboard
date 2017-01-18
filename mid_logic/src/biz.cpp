@@ -111,6 +111,7 @@ int _checkPlayback(u32 playback_chn)
 
 int BizEventCB(SBizEventPara* pSBizEventPara)
 {
+	s32 ret = SUCCESS;
 	EMBIZEVENT type = pSBizEventPara->type;
 
 	//DBG_PRINT("type: %d\n", type);
@@ -121,7 +122,9 @@ int BizEventCB(SBizEventPara* pSBizEventPara)
 		{
 			u32 playback_chn = pSBizEventPara->un_part_chn.playback_chn;
 
-			s32 ret = _checkPlayback(playback_chn);
+			DBG_PRINT("playback_chn: %u start\n", playback_chn);
+
+			ret = _checkPlayback(playback_chn);
 			if (ret)
 			{
 				DBG_PRINT("_checkPlayback(%d) failed, event type: %d, ret: %d\n", playback_chn, type, ret);
@@ -138,11 +141,8 @@ int BizEventCB(SBizEventPara* pSBizEventPara)
 			//notify gui
 			SPlaybackNotify_t para;
 			memset(&para, 0, sizeof(SPlaybackNotify_t));
-			
 			para.type = EM_BIZ_EVENT_PLAYBACK_START;
 			para.playback_chn = playback_chn;
-
-			DBG_PRINT("playback_chn: %u start\n", playback_chn);
 		
 			notifyPlaybackInfo(&para);
 			
@@ -153,8 +153,12 @@ int BizEventCB(SBizEventPara* pSBizEventPara)
 			u32 playback_chn = pSBizEventPara->un_part_chn.playback_chn;
 			u32 cur_pos = pSBizEventPara->un_part_data.stream_progress.cur_pos;
 			u32 total_size = pSBizEventPara->un_part_data.stream_progress.total_size;
-			
-			s32 ret = _checkPlayback(playback_chn);
+
+		#if 0
+			DBG_PRINT("cur_pos: %u, total_size: %u\n", cur_pos, total_size);
+		#endif
+		
+			ret = _checkPlayback(playback_chn);
 			if (ret)
 			{
 				DBG_PRINT("_checkPlayback(%d) failed, event type: %d, ret: %d\n", playback_chn, type, ret);
@@ -165,16 +169,11 @@ int BizEventCB(SBizEventPara* pSBizEventPara)
 			//notify gui
 			SPlaybackNotify_t para;
 			memset(&para, 0, sizeof(SPlaybackNotify_t));
-			
 			para.type = EM_BIZ_EVENT_PLAYBACK_RUN;
 			para.playback_chn = playback_chn;
 			para.stream_progress.cur_pos = cur_pos;
 			para.stream_progress.total_size = total_size;
-
-		#if 0
-			DBG_PRINT("cur_pos: %u, total_size: %u\n", cur_pos, total_size);
-		#endif
-		
+			
 			notifyPlaybackInfo(&para);
 			
 		} break;
@@ -183,35 +182,23 @@ int BizEventCB(SBizEventPara* pSBizEventPara)
 		{
 			u32 playback_chn = pSBizEventPara->un_part_chn.playback_chn;
 			
-			plock4param->Lock();
-
-			if (!b_playback)
+			ret = _checkPlayback(playback_chn);
+			if (ret)
 			{
-				ERR_PRINT("b_playback FALSE\n");
+				DBG_PRINT("_checkPlayback(%d) failed, event type: %d, ret: %d\n", playback_chn, type, ret);
 
-				plock4param->Unlock();
-				return -ESYS_MODE;
+				return ret;
 			}
-			
-			if ( (playback_chn_mask & (1<<playback_chn)) == FALSE)
-			{
-				ERR_PRINT("playback_chn(%d) unused\n", playback_chn);
-
-				plock4param->Unlock();
-				return -EPARAM;
-			}
-			
-			playback_chn_mask &= ~(1<<playback_chn);
-			
-			plock4param->Unlock();
 
 			//hisi process
-			hisi_chn_stop(playback_chn);
+			if (playback_chn < 0x10)
+			{
+				hisi_chn_stop(playback_chn);
+			}
 			
 			//notify gui
 			SPlaybackNotify_t para;
 			memset(&para, 0, sizeof(SPlaybackNotify_t));
-
 			para.type = EM_BIZ_EVENT_PLAYBACK_DONE;
 			para.playback_chn = playback_chn;
 			
@@ -224,30 +211,19 @@ int BizEventCB(SBizEventPara* pSBizEventPara)
 			u32 playback_chn = pSBizEventPara->un_part_chn.playback_chn;
 			u32 stream_errno = pSBizEventPara->un_part_data.stream_errno;
 			
-			plock4param->Lock();
-
-			if (!b_playback)
+			ret = _checkPlayback(playback_chn);
+			if (ret)
 			{
-				ERR_PRINT("b_playback FALSE\n");
+				DBG_PRINT("_checkPlayback(%d) failed, event type: %d, ret: %d\n", playback_chn, type, ret);
 
-				plock4param->Unlock();
-				return -ESYS_MODE;
+				return ret;
 			}
-			
-			if ( (playback_chn_mask & (1<<playback_chn)) == FALSE)
-			{
-				ERR_PRINT("playback_chn(%d) unused\n", playback_chn);
-
-				plock4param->Unlock();
-				return -EPARAM;
-			}
-
-			playback_chn_mask &= ~(1<<playback_chn);
-
-			plock4param->Unlock();
 
 			//hisi process
-			hisi_chn_stop(playback_chn);
+			if (playback_chn < 0x10)
+			{
+				hisi_chn_stop(playback_chn);
+			}
 			
 			//notify gui
 			SPlaybackNotify_t para;
@@ -602,7 +578,7 @@ int BizPlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfi
 
 	plock4param->Unlock();
 
-	//DBG_PRINT("end\n");
+	DBG_PRINT("end, playback_chn_mask: 0x%x\n", playback_chn_mask);
 	return SUCCESS;
 }
 
@@ -617,6 +593,7 @@ VD_BOOL BizPlaybackIsStarted(u32 playback_chn)
 {
 	u32 chn_mask = 0;
 
+	DBG_PRINT("playback_chn: %d\n", playback_chn);
 	plock4param->Lock();
 
 	if (!b_playback)
@@ -639,8 +616,9 @@ int BizPlaybackStop(u32 playback_chn)
 	u32 chn_mask = 0;
 	int ret = SUCCESS;
 
+	//DBG_PRINT("1 playback_chn: %d\n", playback_chn);
 	plock4param->Lock();
-
+	//DBG_PRINT("2 playback_chn: %d\n", playback_chn);
 	if (!b_playback)
 	{
 		ERR_PRINT("b_playback FALSE\n");
@@ -654,10 +632,14 @@ int BizPlaybackStop(u32 playback_chn)
 	plock4param->Unlock();
 
 	//hisi process
-	hisi_chn_stop(playback_chn);
-
+	if (playback_chn < 0x10)
+	{
+		hisi_chn_stop(playback_chn);
+	}
+	//DBG_PRINT("3 playback_chn: %d, chn_mask: 0x%x\n", playback_chn, chn_mask);
 	if (chn_mask & (1<<playback_chn))
 	{
+		//DBG_PRINT("4 playback_chn: %d\n", playback_chn);
 		ret = BizModulePlaybackStop(playback_chn);
 		if (ret)
 		{

@@ -17,10 +17,9 @@
 typedef enum
 {
 	EM_STREAM_STATUS_INIT,			//初始状态
-	EM_STREAM_STATUS_DISCONNECT,	//未连接，初始状态
 	EM_STREAM_STATUS_RUNNING,		//已连接，正在运行
 	EM_STREAM_STATUS_WAIT_DEL,		//等待删除，stream_errno 指示是否出错
-	EM_STREAM_STATUS_STOP,			//停止，本模块内流无此状态
+	EM_STREAM_STATUS_STOP,			//停止，stream_errno 指示是否出错
 } EM_STREAM_STATUS_TYPE;
 
 

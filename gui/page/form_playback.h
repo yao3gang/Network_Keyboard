@@ -19,7 +19,7 @@ class form_playback : public QWidget
     
     typedef enum{
         EM_PLAY_STATUS_STOP,
-        EM_PLAY_STATUS_PLAYING,
+        EM_PLAY_STATUS_RUNNING,
         EM_PLAY_STATUS_PAUSE,
         EM_PLAY_STATUS_STEP,
     } EM_PLAY_STATUS_T;

@@ -484,7 +484,7 @@ void form_playback::tableWidgetDoubleClicked(QTableWidgetItem * item)
     play_file = search_result.pfile_info[file_idx];
     play_pos = 0;
     play_rate_index = 3;
-    play_status = EM_PLAY_STATUS_PLAYING;
+    play_status = EM_PLAY_STATUS_RUNNING;
 }
 
 void form_playback::showTableWidget(bool b)
@@ -605,8 +605,8 @@ void form_playback::refreshDevInfo(SGuiDev dev)
 void form_playback::slotNotifyPlaybackInfo(SPlaybackNotify_t playback_msg)
 {
     EMBIZEVENT type = playback_msg.type;
-
-    //DBG_PRINT("type: %d\n", type);
+    u32 playback_chn = playback_msg.playback_chn;
+    DBG_PRINT("type: %d, chn: %d\n", type, playback_chn);
 
     switch (type)
     {
@@ -617,14 +617,14 @@ void form_playback::slotNotifyPlaybackInfo(SPlaybackNotify_t playback_msg)
 
         case EM_BIZ_EVENT_PLAYBACK_START:
         {
-            u32 start_time = 0;
-            u32 end_time = 0;
-            struct tm tm_time;
-
-            DBG_PRINT("play_status(%d)\n", play_status);
-            //if (EM_PLAY_STATUS_STOP == play_status)
-            if (playback_msg.playback_chn < 0x10)
+            if (playback_chn < 0x10)//回放
             {
+                u32 start_time = 0;
+                u32 end_time = 0;
+                struct tm tm_time;
+
+                DBG_PRINT("play_status(%d)\n", play_status);
+
                 //time: start & end
                 start_time = play_file.start_time;
                 end_time = play_file.end_time;
@@ -655,7 +655,7 @@ void form_playback::slotNotifyPlaybackInfo(SPlaybackNotify_t playback_msg)
                 ui->slider_play->setMaximum(end_time - start_time);
 
                 play_pos = 0;
-                play_status = EM_PLAY_STATUS_PLAYING;
+                play_status = EM_PLAY_STATUS_RUNNING;
 
                 //ui
                 //播放控制
@@ -664,11 +664,13 @@ void form_playback::slotNotifyPlaybackInfo(SPlaybackNotify_t playback_msg)
 
                 DBG_PRINT("start_time: %s, end_time: %s\n", ui->lab_time_start->text().toUtf8().constData(),
                           ui->lab_time_end->text().toUtf8().constData());
+
             }
 #if 1
-            else
+            else //下载
             {
-                DBG_PRINT("file download start, chn: %d\n", playback_msg.playback_chn);
+                play_status = EM_PLAY_STATUS_RUNNING;
+                DBG_PRINT("file download start, chn: %d\n", playback_chn);
             }
 #endif
         } break;
@@ -677,75 +679,84 @@ void form_playback::slotNotifyPlaybackInfo(SPlaybackNotify_t playback_msg)
         {
             u32 cur_pos = playback_msg.stream_progress.cur_pos;
             u32 total_size = playback_msg.stream_progress.total_size;
-            DBG_PRINT("cur_pos: %d, total_size: %d, %d\n", cur_pos, total_size, play_file.end_time - play_file.start_time);
 
-            play_pos = cur_pos;
-            u32 cur_time = play_file.start_time + cur_pos;
-            u32 end_time = play_file.end_time;
-            struct tm tm_time;
-
-            if (cur_time > end_time)
+            if (playback_chn < 0x10) //回放
             {
-                ERR_PRINT("start_time >= end_time\n");
+                DBG_PRINT("cur_pos: %d, total_size: %d, %d\n", cur_pos, total_size, play_file.end_time - play_file.start_time);
 
-                return;
-            }
+                play_pos = cur_pos;
+                u32 cur_time = play_file.start_time + cur_pos;
+                u32 end_time = play_file.end_time;
+                struct tm tm_time;
 
-            cur_time += 8*3600;
-            end_time += 8*3600;
-
-            gmtime_r((time_t *)&cur_time, &tm_time);
-            QTime qtime_cur(tm_time.tm_hour, tm_time.tm_min, tm_time.tm_sec);
-
-            gmtime_r((time_t *)&end_time, &tm_time);
-            QTime qtime_end(tm_time.tm_hour, tm_time.tm_min, tm_time.tm_sec);
-            ui->lab_time_end->setText(qtime_cur.toString(QString::fromUtf8("HH:mm:ss"))
-                                      + QString::fromUtf8("/")
-                                      + qtime_end.toString(QString::fromUtf8("HH:mm:ss")));//play_cur_time/play_end_time
-
-
-            if (!b_slider_mover
-                    && EM_PLAY_STATUS_STOP != play_status)
-            {
-                //if (total_size != ui->slider_play->maximum())
+                if (cur_time > end_time)
                 {
-                    //ERR_PRINT("total_size(%u) != ui->slider_play->maximum(%u)\n", total_size, ui->slider_play->maximum());
+                    ERR_PRINT("start_time >= end_time\n");
+
+                    return;
                 }
-                ui->slider_play->setValue(play_pos);
-                DBG_PRINT("update progress pos: %d\n", play_pos);
+
+                cur_time += 8*3600;
+                end_time += 8*3600;
+
+                gmtime_r((time_t *)&cur_time, &tm_time);
+                QTime qtime_cur(tm_time.tm_hour, tm_time.tm_min, tm_time.tm_sec);
+
+                gmtime_r((time_t *)&end_time, &tm_time);
+                QTime qtime_end(tm_time.tm_hour, tm_time.tm_min, tm_time.tm_sec);
+                ui->lab_time_end->setText(qtime_cur.toString(QString::fromUtf8("HH:mm:ss"))
+                                          + QString::fromUtf8("/")
+                                          + qtime_end.toString(QString::fromUtf8("HH:mm:ss")));//play_cur_time/play_end_time
+
+
+                if (!b_slider_mover
+                        && EM_PLAY_STATUS_STOP != play_status)
+                {
+                    //if (total_size != ui->slider_play->maximum())
+                    {
+                        //ERR_PRINT("total_size(%u) != ui->slider_play->maximum(%u)\n", total_size, ui->slider_play->maximum());
+                    }
+                    ui->slider_play->setValue(play_pos);
+                    DBG_PRINT("update progress pos: %d\n", play_pos);
+                }
+            }
+            else // 下载
+            {
+
             }
         } break;
 
         case EM_BIZ_EVENT_PLAYBACK_DONE:
         {
             DBG_PRINT("playback done\n");
-            if (EM_PLAY_STATUS_STOP == play_status)
-            {
-                ERR_PRINT("EM_PLAY_STATUS_STOP == play_status\n");
-                return ;
-            }
-
             play_status = EM_PLAY_STATUS_STOP;
-            //播放控制
-            //btn play/pause
-            ui->btn_play->setIcon(QIcon(QString::fromUtf8(":/image/pctl_play.bmp")));
+
+            if (playback_chn < 0x10) //回放
+            {
+                //播放控制
+                //btn play/pause
+                ui->btn_play->setIcon(QIcon(QString::fromUtf8(":/image/pctl_play.bmp")));
+            }
+            else // 下载
+            {
+
+            }
+            BizPlaybackStop(playback_chn);
 
         } break;
 
         case EM_BIZ_EVENT_PLAYBACK_NETWORK_ERR:
         {
-            u32 playback_chn = playback_msg.playback_chn;
             s32 stream_errno = playback_msg.stream_errno;
+            play_status = EM_PLAY_STATUS_STOP;
 
             DBG_PRINT("stream_errno: %d\n", stream_errno);
+            BizPlaybackStop(playback_chn);
         } break;
 
         default:
             ERR_PRINT("type: %d, not support\n", type);
     }
-
-    //ShowMessageBoxInfo(QString::fromUtf8("播放结束"));
-    //ShowMessageBoxError(QString::fromUtf8("与设备%1通信故障，请检查网络").arg(dev_ip));
 }
 
 
@@ -1276,7 +1287,7 @@ void form_playback::on_btn_play_clicked()
             ShowMessageBoxInfo(QString::fromUtf8("请双击文件进行播放"));
         } break;
 
-        case EM_PLAY_STATUS_PLAYING:
+        case EM_PLAY_STATUS_RUNNING:
         {
             ret = BizPlaybackPause(0);
             if (ret)
@@ -1300,7 +1311,7 @@ void form_playback::on_btn_play_clicked()
             }
             else
             {
-                play_status = EM_PLAY_STATUS_PLAYING;
+                play_status = EM_PLAY_STATUS_RUNNING;
                 ui->btn_play->setIcon(QIcon(QString::fromUtf8(":/image/pctl_play.bmp")));
             }
         } break;
@@ -1323,7 +1334,7 @@ void form_playback::on_btn_step_clicked()
             //ShowMessageBoxInfo(QString::fromUtf8("请双击文件进行播放"));
         } break;
 
-        case EM_PLAY_STATUS_PLAYING:
+        case EM_PLAY_STATUS_RUNNING:
         {
             ShowMessageBoxInfo(QString::fromUtf8("请先暂停播放"));
         } break;
@@ -1351,7 +1362,7 @@ void form_playback::set_play_rate(int index)
 {
     int ret = SUCCESS;
 
-    if (EM_PLAY_STATUS_PLAYING != play_status)
+    if (EM_PLAY_STATUS_RUNNING != play_status)
     {
         ShowMessageBoxInfo(QString::fromUtf8("回放速率只能在回放状态下操作"));
         ui->cmb_rate->setCurrentIndex(play_rate_index);
@@ -1381,7 +1392,7 @@ void form_playback::set_play_rate(int index)
 
 void form_playback::slider_pressed(int pos)
 {
-    if (EM_PLAY_STATUS_PLAYING != play_status)
+    if (EM_PLAY_STATUS_RUNNING != play_status)
     {
         ShowMessageBoxInfo(QString::fromUtf8("拖动定位只能在回放状态下操作"));
         return ;
@@ -1411,7 +1422,7 @@ void form_playback::slider_pressed(int pos)
 
 void form_playback::slider_moved(int pos)
 {
-    if (EM_PLAY_STATUS_PLAYING != play_status)
+    if (EM_PLAY_STATUS_RUNNING != play_status)
     {
         ShowMessageBoxInfo(QString::fromUtf8("拖动定位只能在回放状态下操作"));
         return ;
@@ -1439,7 +1450,7 @@ void form_playback::slider_released(int pos)
 {
     int ret = SUCCESS;
 
-    if (EM_PLAY_STATUS_PLAYING != play_status)
+    if (EM_PLAY_STATUS_RUNNING != play_status)
     {
         ShowMessageBoxInfo(QString::fromUtf8("拖动定位只能在回放状态下操作"));
         return ;

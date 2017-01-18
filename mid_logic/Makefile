@@ -6,7 +6,7 @@ CPP := $(CCARCH)g++
 
 LIB_TARGET := libbiz.so
 
-INC_DIR := ./inc ../gui/inc ../common/inc ../gui/bond ../low_module/config/inc ../low_module/net/inc ../hisi_lib/inc
+INC_DIR := ./inc ../gui/inc ../common/inc ../gui/bond ../low_module/config/inc ../low_module/net/inc ../low_module/TLFileLib/inc ../hisi_lib/inc 
 SRC_DIR := ./src
 OBJ_DIR := ./obj
 

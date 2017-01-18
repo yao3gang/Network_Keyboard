@@ -11,7 +11,7 @@ typedef enum
 	EM_STREAM_MSG_STOP,			//流关闭，可能出错
 	EM_STREAM_MSG_PROGRESS,		//文件回放/下载进度
 	EM_STREAM_MSG_FINISH,		//文件下载完成
-	EM_STREAM_MSG_SVR_SHUTDOWM,	//连接对端关闭
+	//EM_STREAM_MSG_SVR_SHUTDOWM,	//连接对端关闭
 	
 	//CMediaStreamManager 内部命令
 	EM_STREAM_CMD_CONNECT,	//连接流

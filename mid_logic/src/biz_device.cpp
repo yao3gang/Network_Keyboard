@@ -78,7 +78,7 @@ typedef struct DevStream_t
 	DevStream_t()
 	: link_id(INVALID_VALUE)
 	, stream_id(INVALID_VALUE)
-	, status(EM_STREAM_STATUS_DISCONNECT)
+	, status(EM_STREAM_STATUS_INIT)
 	, stream_errno(SUCCESS)
 	{
 		
