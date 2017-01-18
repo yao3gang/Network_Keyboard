@@ -24,7 +24,8 @@ endif
 
 OBJS :=	$(OBJ_DIR)/util		\
 		$(OBJ_DIR)/custommp4	\
-		$(OBJ_DIR)/TLFileLib
+		$(OBJ_DIR)/TLFileLib	\
+		$(OBJ_DIR)/avilib
 
 OBJS := $(foreach obj,$(OBJS),$(obj).o)
 
