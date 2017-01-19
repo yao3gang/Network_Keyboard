@@ -360,10 +360,10 @@ int umount_user(const char *user_path)
 	s32 curstat = umount(path);
 	if(curstat)
 	{
-		if(errno == 22)//Invalid argument
+		if(errno == 22)//target  is not a mount point
 		{
-			ERR_PRINT("umount failed1, errno(%d: %s)\n", errno, strerror(errno));
-			return -EPARAM;
+			DBG_PRINT("umount failed1, errno(%d: %s is not a mount point)\n", errno, path);
+			return SUCCESS;
 		}
 		else
 		{
@@ -422,87 +422,62 @@ int mount_user(const char *mounted_path, const char *user_path)
 
 int BizMountUdisk()
 {
-	int j;
+	int i,j;
 	s32 ret = SUCCESS;
 	char devname[32] = {0};	
 	
 	if(0==access("udisk", F_OK))
 	{
 		DBG_PRINT("udisk dir exist!!! umount & unlink first.\n");
-		
-		if( umount_user("udisk") )
+
+		ret = umount_user("udisk");
+		if(ret)
 		{
-			unlink("udisk");
-			mkdir("udisk", 0600);			
+			return ret;			
 		}
-	}
-	else
-	{
+		
 		unlink("udisk");
-		mkdir("udisk", 0600);
 	}
 
-	for(j=1; j<=USB_MAX_PTN_NUM; j++)
+	mkdir("udisk", 0600);
+	ret = -EUDISK_NOTFOUND;
+
+	for (i=0; i<2; ++i)// sda sdb
 	{
-		//sprintf(devname,"/dev/sd%c%d",'a'+nIdx,j);
-		sprintf(devname,"/dev/sda%d", j);
-		
-		if (access(devname, F_OK))
+		for (j=1; j<=USB_MAX_PTN_NUM; ++j)
 		{
-			ret = -EUDISK_NOTFOUND;
-		}
-		else
-		{	
-			DBG_PRINT("devname: %s\n", devname);
-			if(mount_user(devname, "udisk") == 0)
+			sprintf(devname,"/dev/sd%c%d",'a'+i,j);
+			
+			if (access(devname, F_OK) == 0)
 			{
-				break;
+				DBG_PRINT("devname: %s exist\n", devname);
+				
+				ret = mount_user(devname, "udisk");
+				if(ret == 0)
+				{
+					break;
+				}
 			}
 		}
 	}
 	
-#if 0
-
-	if(ret == 0)
-	{
-		rtn = 0;
-		goto END;
-	}	
-
-	
-	//sprintf(devname,"/dev/sd%c",'a');	
-	sprintf(devname,"/dev/sda");
-	if( mount_user(devname, "udisk")==0 )
-	{
-		DBG_PRINT("mount %s success\n", devname);
-		rtn = 0;
-		goto END;
-	}
-
-	rtn = -FAILURE;
-#endif	
-//END:
-	//printf("mount %s rtn %d\n", devname, rtn);
-	
 	return ret;
-	
 }
 
 int BizUnmountUdisk()
 {
 	s32 ret = SUCCESS;
 	
-	if (access("udisk", F_OK))
+	if (access("udisk", F_OK) == 0)
 	{
-		ERR_PRINT("udisk dir not exist!!!\n");
-		ret = -EUDISK_NOTFOUND;
-	}
-	else
-	{
-		if( umount_user("udisk") )
+		if( umount_user("udisk") )//fail
 		{
 			ERR_PRINT("udisk umount failed!!!\n");
 			ret = -EUDISK_UMOUNT;
+		}
+		else
+		{
+			unlink("udisk");
 		}
 	}
 

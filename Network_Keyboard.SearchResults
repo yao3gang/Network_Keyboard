@@ -1,12 +1,108 @@
----- SetReadDataFlag Matches (11 in 1 files) ----
-custommp4.c (low_module\TLFileLib\src):extern int SetReadDataFlag(u8 byFlag);
-custommp4.c (low_module\TLFileLib\src):int SetReadDataFlag(u8 byFlag)
-custommp4.c (low_module\TLFileLib\src):	SetReadDataFlag(1);
-custommp4.c (low_module\TLFileLib\src):		SetReadDataFlag(3);
-custommp4.c (low_module\TLFileLib\src):		SetReadDataFlag(2);
-custommp4.c (low_module\TLFileLib\src):			SetReadDataFlag(3);
-custommp4.c (low_module\TLFileLib\src):			SetReadDataFlag(2);
-custommp4.c (low_module\TLFileLib\src):		SetReadDataFlag(3);
-custommp4.c (low_module\TLFileLib\src):		SetReadDataFlag(2);
-custommp4.c (low_module\TLFileLib\src):			SetReadDataFlag(3);
-custommp4.c (low_module\TLFileLib\src):			SetReadDataFlag(2);
+---- video_frames Matches (108 in 5 files) ----
+avilib.c (low_module\TLFileLib\src):   if (AVI->video_pos >= AVI->video_frames) return 1;
+avilib.c (low_module\TLFileLib\src):		AVI->fps = (double)AVI->video_frames*1000.0/(double)AVI->file_totaltime;
+avilib.c (low_module\TLFileLib\src):		printf("avi_close_output_file fps: %f, video_frames: %d, file_totaltime: %d\n", AVI->fps, AVI->video_frames, AVI->file_totaltime);
+avilib.c (low_module\TLFileLib\src):   OUTLONG(AVI->video_frames);  /* TotalFrames */
+avilib.c (low_module\TLFileLib\src):   OUTLONG(AVI->video_frames);  /* Length */
+avilib.c (low_module\TLFileLib\src):  AVI->video_frames++;
+avilib.c (low_module\TLFileLib\src):   AVI->video_frames++;
+avilib.c (low_module\TLFileLib\src):    AVI->video_frames = vid_chunks;
+avilib.c (low_module\TLFileLib\src):    if(AVI->video_frames==0) ERR_EXIT(AVI_ERR_NO_VIDS);
+avilib.c (low_module\TLFileLib\src):            AVI->video_frames = str2ulong(hdrl_data+i+32);
+avilib.c (low_module\TLFileLib\src):      AVI->video_frames = nvi;
+avilib.c (low_module\TLFileLib\src):      nvi = AVI->video_frames = AVI->total_frames;
+avilib.c (low_module\TLFileLib\src):      AVI->video_frames = nvi;
+avilib.c (low_module\TLFileLib\src):   AVI->video_frames = nvi;
+avilib.c (low_module\TLFileLib\src):   if(AVI->video_frames==0) ERR_EXIT(AVI_ERR_NO_VIDS);
+avilib.c (low_module\TLFileLib\src):   return AVI->video_frames;
+avilib.c (low_module\TLFileLib\src):   if(frame < 0 || frame >= AVI->video_frames) return 0;
+avilib.c (low_module\TLFileLib\src):   if(frame < 0 || frame >= AVI->video_frames) return 0;
+avilib.c (low_module\TLFileLib\src):   if(AVI->video_pos < 0 || AVI->video_pos >= AVI->video_frames) return -1;
+avilib.h (low_module\TLFileLib\inc):  long   video_frames;      /* Number of video frames */
+custommp4.c (low_module\TLFileLib\src):	p_mdat_sect_t->video_frames = 0;
+custommp4.c (low_module\TLFileLib\src):	/*printf("ReadmdatSegmentObject%d start_time=%d,end_time=%d,video_frames=%d,audio_frames=%d,video_allocated=%d,audio_allocated=%d,sizeof(msot)=%d\n",
+custommp4.c (low_module\TLFileLib\src):		msot.video_frames,
+custommp4.c (low_module\TLFileLib\src):	file->p_mdat_sect_t[index].video_frames = msot.video_frames;
+custommp4.c (low_module\TLFileLib\src):	file->total_video_frames += msot.video_frames;
+custommp4.c (low_module\TLFileLib\src):		frame_count += file->p_mdat_sect_t[i].video_frames;
+custommp4.c (low_module\TLFileLib\src):	*p_sect_offset = frame-(frame_count-file->p_mdat_sect_t[i].video_frames);
+custommp4.c (low_module\TLFileLib\src):	//printf("video_frames: %d\n", file->p_mdat_sect_t[index].video_frames);
+custommp4.c (low_module\TLFileLib\src):	if(file->video_table_allocated < file->p_mdat_sect_t[index].video_frames)
+custommp4.c (low_module\TLFileLib\src):		file->video_table_allocated = file->p_mdat_sect_t[index].video_frames;
+custommp4.c (low_module\TLFileLib\src):	if(file->p_mdat_sect_t[index].video_frames)
+custommp4.c (low_module\TLFileLib\src):		ret = custommp4_read_data(file, file->p_video_table_t, file->p_mdat_sect_t[index].video_frames*sizeof(video_frame_info_table_t));
+custommp4.c (low_module\TLFileLib\src):		for(i=0;i<file->p_mdat_sect_t[index].video_frames;i++)
+custommp4.c (low_module\TLFileLib\src):	if(file->video_table_allocated < file->p_mdat_sect_t[index].video_frames)
+custommp4.c (low_module\TLFileLib\src):		file->video_table_allocated = file->p_mdat_sect_t[index].video_frames;
+custommp4.c (low_module\TLFileLib\src):	if(file->p_mdat_sect_t[index].video_frames)
+custommp4.c (low_module\TLFileLib\src):		ret = custommp4_read_data(file,file->p_video_table_t,file->p_mdat_sect_t[index].video_frames*sizeof(video_frame_info_table_t));
+custommp4.c (low_module\TLFileLib\src):		for(i=0;i<file->p_mdat_sect_t[index].video_frames;i++)
+custommp4.c (low_module\TLFileLib\src):		msot.video_frames = 0;
+custommp4.c (low_module\TLFileLib\src):		if(file->p_mdat_sect_t->video_frames || file->p_mdat_sect_t->audio_frames)
+custommp4.c (low_module\TLFileLib\src):			custommp4_write_data(file, file->p_video_table_t, sizeof(video_frame_info_table_t) * file->p_mdat_sect_t->video_frames);
+custommp4.c (low_module\TLFileLib\src):			msot.video_frames = file->p_mdat_sect_t->video_frames;
+custommp4.c (low_module\TLFileLib\src):	if(file->p_mdat_sect_t->video_frames == 0 && file->p_mdat_sect_t->audio_frames == 0) file->p_mdat_sect_t->video_allocated = 3000;
+custommp4.c (low_module\TLFileLib\src):	if(file->p_mdat_sect_t->video_frames == 0 && file->p_mdat_sect_t->audio_frames == 0) file->p_mdat_sect_t->audio_allocated = 4000;
+custommp4.c (low_module\TLFileLib\src):	if(file->current_video_offset >= file->p_mdat_sect_t[file->current_media_sect_pos].video_frames && file->current_audio_offset >= file->p_mdat_sect_t[file->current_media_sect_pos].audio_frames)
+custommp4.c (low_module\TLFileLib\src):	if(file->current_video_offset >= file->p_mdat_sect_t[file->current_media_sect_pos].video_frames && file->current_audio_offset >= file->p_mdat_sect_t[file->current_media_sect_pos].audio_frames)
+custommp4.c (low_module\TLFileLib\src):	if(file->current_video_offset >= file->p_mdat_sect_t[file->current_media_sect_pos].video_frames)
+custommp4.c (low_module\TLFileLib\src):	if(file->current_video_offset >= file->p_mdat_sect_t[file->current_media_sect_pos].video_frames && file->current_audio_offset >= file->p_mdat_sect_t[file->current_media_sect_pos].audio_frames)
+custommp4.c (low_module\TLFileLib\src):	if(file->current_video_offset >= file->p_mdat_sect_t[file->current_media_sect_pos].video_frames && file->current_audio_offset >= file->p_mdat_sect_t[file->current_media_sect_pos].audio_frames)
+custommp4.c (low_module\TLFileLib\src):	if(file->current_video_offset >= file->p_mdat_sect_t[file->current_media_sect_pos].video_frames)
+custommp4.c (low_module\TLFileLib\src):		//printf("frame=%d,sect=%d,offset=%d,videos=%d,audios=%d\n",frame,sect,sect_offset,file->p_mdat_sect_t[sect].video_frames,file->p_mdat_sect_t[sect].audio_frames);
+custommp4.c (low_module\TLFileLib\src):		//printf("frame=%d,sect=%d,offset=%d,videos=%d,audios=%d\n",frame,sect,sect_offset,file->p_mdat_sect_t[sect].video_frames,file->p_mdat_sect_t[sect].audio_frames);
+custommp4.c (low_module\TLFileLib\src):		//printf("frame=%d,sect=%d,offset=%d,videos=%d,audios=%d\n",frame,sect,sect_offset,file->p_mdat_sect_t[sect].video_frames,file->p_mdat_sect_t[sect].audio_frames);
+custommp4.c (low_module\TLFileLib\src):		if(sect_offset < file->p_mdat_sect_t[sect].video_frames-1)
+custommp4.c (low_module\TLFileLib\src):		//printf("frame=%d,sect=%d,offset=%d,videos=%d,audios=%d\n",frame,sect,sect_offset,file->p_mdat_sect_t[sect].video_frames,file->p_mdat_sect_t[sect].audio_frames);
+custommp4.c (low_module\TLFileLib\src):		if(sect_offset < file->p_mdat_sect_t[sect].video_frames-1)
+custommp4.c (low_module\TLFileLib\src):		if(cur_video_pos >= (int)file->p_mdat_sect_t[file->current_media_sect_pos].video_frames)
+custommp4.c (low_module\TLFileLib\src):			cur_video_pos = file->p_mdat_sect_t[file->current_media_sect_pos].video_frames-1;
+custommp4.c (low_module\TLFileLib\src):		cur_video_pos = file->p_mdat_sect_t[file->current_media_sect_pos].video_frames-1;
+custommp4.c (low_module\TLFileLib\src):			if(file->current_video_offset+4 < file->p_mdat_sect_t[file->current_media_sect_pos].video_frames)
+custommp4.c (low_module\TLFileLib\src):	for(i=cur_video_pos; i<file->p_mdat_sect_t[file->current_media_sect_pos].video_frames; i++)
+custommp4.c (low_module\TLFileLib\src):	if(i<file->p_mdat_sect_t[file->current_media_sect_pos].video_frames)
+custommp4.c (low_module\TLFileLib\src):		for(i=cur_video_pos; i<file->p_mdat_sect_t[file->current_media_sect_pos].video_frames; i++)
+custommp4.c (low_module\TLFileLib\src):		if(i<file->p_mdat_sect_t[file->current_media_sect_pos].video_frames)
+custommp4.c (low_module\TLFileLib\src):		for(i=0;i<file->p_mdat_sect_t[file->current_media_sect_pos].video_frames;i++)
+custommp4.c (low_module\TLFileLib\src):		if(i<file->p_mdat_sect_t[file->current_media_sect_pos].video_frames)
+custommp4.c (low_module\TLFileLib\src):		for(i=0;i<file->p_mdat_sect_t[file->current_media_sect_pos].video_frames;i++)
+custommp4.c (low_module\TLFileLib\src):		if(i<file->p_mdat_sect_t[file->current_media_sect_pos].video_frames)
+custommp4.c (low_module\TLFileLib\src):		for(j=0;j<file->p_mdat_sect_t[file->current_media_sect_pos].video_frames;j++)
+custommp4.c (low_module\TLFileLib\src):		//printf("[j = %d, video_frames = %d], [j'timestamp:%d, timestamp:%d], pts:%llu\n", j, file->p_mdat_sect_t[file->current_media_sect_pos].video_frames, file->p_video_table_t[j].timestamp, timestamp,file->p_video_table_t[j].pts);
+custommp4.c (low_module\TLFileLib\src):		if(j<file->p_mdat_sect_t[file->current_media_sect_pos].video_frames)
+custommp4.c (low_module\TLFileLib\src):					v_frames += file->p_mdat_sect_t[m].video_frames;
+custommp4.c (low_module\TLFileLib\src):	if(file->p_mdat_sect_t->video_frames == 0 && file->p_mdat_sect_t->audio_frames == 0)
+custommp4.c (low_module\TLFileLib\src):		file->p_video_table_t[file->p_mdat_sect_t->video_frames].offset = tmp_offset;
+custommp4.c (low_module\TLFileLib\src):		file->p_video_table_t[file->p_mdat_sect_t->video_frames].offset = custommp4_position(file)-file->open_offset;
+custommp4.c (low_module\TLFileLib\src):	file->p_video_table_t[file->p_mdat_sect_t->video_frames].length = bytes;
+custommp4.c (low_module\TLFileLib\src):	file->p_video_table_t[file->p_mdat_sect_t->video_frames].timestamp = timestamp;
+custommp4.c (low_module\TLFileLib\src):	file->p_video_table_t[file->p_mdat_sect_t->video_frames].key = isKeyFrame;
+custommp4.c (low_module\TLFileLib\src):	file->p_video_table_t[file->p_mdat_sect_t->video_frames].pts= pts;
+custommp4.c (low_module\TLFileLib\src):		if((file->p_mdat_sect_t->video_frames + 1) >= file->video_table_allocated)
+custommp4.c (low_module\TLFileLib\src):	file->p_mdat_sect_t->video_frames++;
+custommp4.c (low_module\TLFileLib\src):	if(file->p_mdat_sect_t->video_frames >= file->video_table_allocated)
+custommp4.c (low_module\TLFileLib\src):		ret = custommp4_write_data(file, file->p_video_table_t, sizeof(video_frame_info_table_t) * file->p_mdat_sect_t->video_frames);
+custommp4.c (low_module\TLFileLib\src):		//printf("one segment finish 1,video frames:%d,audio frames:%d\n",file->p_mdat_sect_t->video_frames,file->p_mdat_sect_t->audio_frames);
+custommp4.c (low_module\TLFileLib\src):		msot.video_frames = file->p_mdat_sect_t->video_frames;
+custommp4.c (low_module\TLFileLib\src):	file->p_mdat_sect_t->video_frames++;
+custommp4.c (low_module\TLFileLib\src):	if(file->p_mdat_sect_t->video_frames == 1 && file->p_mdat_sect_t->audio_frames == 0)
+custommp4.c (low_module\TLFileLib\src):	custommp4_set_position(file,file->p_mdat_sect_t->offset+sizeof(mdat_segment_object_t)+(file->p_mdat_sect_t->video_frames-1)*sizeof(video_frame_info_table_t));
+custommp4.c (low_module\TLFileLib\src):	if(file->p_mdat_sect_t->video_frames >= file->video_table_allocated)
+custommp4.c (low_module\TLFileLib\src):		//printf("one segment finish 1,video frames:%d,audio frames:%d\n",file->p_mdat_sect_t->video_frames,file->p_mdat_sect_t->audio_frames);
+custommp4.c (low_module\TLFileLib\src):		msot.video_frames = file->p_mdat_sect_t->video_frames;
+custommp4.c (low_module\TLFileLib\src):	file->p_mdat_sect_t->video_frames++;
+custommp4.c (low_module\TLFileLib\src):	if(file->p_mdat_sect_t->video_frames == 1 && file->p_mdat_sect_t->audio_frames == 0)
+custommp4.c (low_module\TLFileLib\src):	custommp4_set_position(file,file->p_mdat_sect_t->offset+sizeof(mdat_segment_object_t)+(file->p_mdat_sect_t->video_frames-1)*sizeof(video_frame_info_table_t));
+custommp4.c (low_module\TLFileLib\src):	if(file->p_mdat_sect_t->video_frames >= file->video_table_allocated)
+custommp4.c (low_module\TLFileLib\src):		//printf("one segment finish 1,video frames:%d,audio frames:%d\n",file->p_mdat_sect_t->video_frames,file->p_mdat_sect_t->audio_frames);
+custommp4.c (low_module\TLFileLib\src):		msot.video_frames = file->p_mdat_sect_t->video_frames;
+custommp4.c (low_module\TLFileLib\src):	if(file->p_mdat_sect_t->audio_frames == 0 && file->p_mdat_sect_t->video_frames == 0)
+custommp4.c (low_module\TLFileLib\src):		ret = custommp4_write_data(file, file->p_video_table_t, sizeof(video_frame_info_table_t) * file->p_mdat_sect_t->video_frames);
+custommp4.c (low_module\TLFileLib\src):		//printf("one segment finish 2,video frames:%d,audio frames:%d\n",file->p_mdat_sect_t->video_frames,file->p_mdat_sect_t->audio_frames);
+custommp4.c (low_module\TLFileLib\src):		msot.video_frames = file->p_mdat_sect_t->video_frames;
+custommp4.c (low_module\TLFileLib\src):	if(file->p_mdat_sect_t->audio_frames == 1 && file->p_mdat_sect_t->video_frames == 0)
+custommp4.c (low_module\TLFileLib\src):		//printf("one segment finish 2,video frames:%d,audio frames:%d\n",file->p_mdat_sect_t->video_frames,file->p_mdat_sect_t->audio_frames);
+custommp4.c (low_module\TLFileLib\src):		msot.video_frames = file->p_mdat_sect_t->video_frames;
+custommp4.h (low_module\TLFileLib\inc):	u32 video_frames;
+custommp4.h (low_module\TLFileLib\inc):	u32 video_frames;
+util.c (low_module\TLFileLib\src):		//ret = custommp4_position(file)+file->p_mdat_sect_t->video_frames*sizeof(video_frame_info_table_t)+file->p_mdat_sect_t->audio_frames*sizeof(audio_frame_info_table_t);

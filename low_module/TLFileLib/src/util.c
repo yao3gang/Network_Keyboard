@@ -1,4 +1,5 @@
 #include "custommp4.h"
+
 #include <string.h>
 #ifndef WIN32
 #include <unistd.h>
@@ -6,12 +7,30 @@
 #endif
 #include <errno.h>
 
-//#define SIZE_OF_FILE_VECTOR		((s64)128*1024*1024)
-#define SIZE_OF_FILE_VECTOR		((s64)256*1024*1024)
+#include <time.h>
+
+//debug
+static u8 read_data_flag = 0;// 1 // 1:mdattable 2:video 3:audio
+int SetReadDataFlag(u8 byFlag)
+{
+	read_data_flag = byFlag;
+	return 0;
+}
+
+int PrintReadDataFlag()
+{
+	printf("read data reason:%d\n",read_data_flag);
+	return 0;
+}
 
 int fileflush(FILE *fp)
 {
 #ifndef WIN32
+	//pw 2010/10/14
+	if(NULL == fp)
+	{
+		return -1;
+	}
 	fflush(fp);
 	fsync(fileno(fp));
 #endif
@@ -35,7 +54,7 @@ int filecp(char *src,char *dst)
 	fp2 = fopen(dst,"wb");
 	if(fp2 == NULL)
 	{
-		printf("errno=%d,str=%s\n",errno,strerror(errno));
+		printf("fopen %s failed,errno=%d,str=%s\n",dst,errno,strerror(errno));
 		fclose(fp1);
 		return 0;
 	}
@@ -79,6 +98,12 @@ int custommp4_position(custommp4_t *file)
 
 int custommp4_set_position(custommp4_t *file, int position)
 {
+	if(position > (int)SIZE_OF_FILE_VECTOR || position < 0)
+	{
+		file->error_flag = 1;
+		printf("warning:set pos error:cur_pos=%ld,set_pos=%d\n",file->file_position,position);
+		return -1;//csp modify//MR HDD
+	}
 	file->file_position = position;
 	return 1;
 }
@@ -86,6 +111,13 @@ int custommp4_set_position(custommp4_t *file, int position)
 int custommp4_end_position(custommp4_t *file)
 {
 	int ret;
+	
+	//pw 2010/10/14
+	if(NULL == file)
+	{
+		return -1;
+	}
+	
 	if(file->open_mode == O_R)
 	{
 		ret = file->open_offset+file->fpot.file_Size;
@@ -95,90 +127,186 @@ int custommp4_end_position(custommp4_t *file)
 		//ret = custommp4_position(file)+file->p_mdat_sect_t->video_frames*sizeof(video_frame_info_table_t)+file->p_mdat_sect_t->audio_frames*sizeof(audio_frame_info_table_t);
 		ret = custommp4_position(file);
 	}
+	
 	return ret;
 }
 
-int custommp4_read_data(custommp4_t *file,void *data,int size)
+int custommp4_read_data(custommp4_t *file, void *data, int size)
 {
 	int result;
-	if(file->file_position >= (int)SIZE_OF_FILE_VECTOR)
+	long last_pos,cur_pos;
+	
+	if((u32)(file->file_position) > (u32)SIZE_OF_FILE_VECTOR)
 	{
-		printf("custommp4_read_data:file_pos=%ld\n",file->file_position);
-#ifndef WIN32
-// 		sleep(1);
-#endif
-// 		exit(1);
-		return 0;
+		printf("warning:pos error 1:file_pos=%ld,size=%d\n",file->file_position,size);
+		PrintReadDataFlag();
+		return -1;
 	}
-	if(ftell(file->stream) != file->file_position)
+	if((u32)((u32)(file->file_position) + (u32)(size)) > (u32)(SIZE_OF_FILE_VECTOR))
+	{
+		printf("warning:pos error 2:file_pos=%ld,size=%d\n",file->file_position,size);
+		PrintReadDataFlag();
+		return -1;
+	}
+	
+	//unsigned char cur_atx_flag = tl_power_atx_check();
+	//if(cur_atx_flag == 0 || file->error_flag)
+	if(file->error_flag)
+	{
+		file->error_flag = 1;
+		return -1;
+	}
+	
+	last_pos = ftell(file->stream);
+	//if(ftell(file->stream) != file->file_position)//zlb 20090113
+	if(last_pos != file->file_position)
 	{
 		result = fseek(file->stream, file->file_position, SEEK_SET);
 		if(result)
 		{
-			printf("custommp4_read_data:fseek error=%d,errno=%d,errstr=%s\n",result,errno,strerror(errno));
+			printf("warning:fseek error 1,result=%d,errno=%d,errstr=%s\n",result,errno,strerror(errno));
 			result = ftell(file->stream);
-			printf("custommp4_read_data:right_pos=%ld,real_pos=%d\n",file->file_position,result);
-#ifndef WIN32
-// 			sleep(1);
-#endif
-// 			exit(1);
-			return 0;
+			printf("warning:file_pos=%ld,last_pos=%ld,real_pos=%d,size=%d\n",file->file_position,last_pos,result,size);
+			PrintReadDataFlag();
+			return -1;
+		}
+		result = ftell(file->stream);
+		if(result != file->file_position)
+		{
+			printf("warning:fseek error 2,file_pos=%ld,last_pos=%ld,real_pos=%d\n",file->file_position,last_pos,result);
+			PrintReadDataFlag();
+			return -1;
 		}
 	}
+	
+	last_pos = file->file_position;
+	//last_pos = ftell(file->stream);//zlb 20090113
 	result = fread(data, size, 1, file->stream);
+	cur_pos = ftell(file->stream);
+	if(result <= 0 || cur_pos - last_pos != size)
+	{
+		printf("warning:fread error,size=%d,result=%d,file_pos=%ld,last_pos=%ld,cur_pos=%ld\n",size,result,file->file_position,last_pos,cur_pos);
+		PrintReadDataFlag();
+		//return -1;//wrchen 081223
+	}
 	
 	file->file_position += size;
 	
-	return result;
+	SetReadDataFlag(0);
+	
+	//return result;
+	return size;//返回实际长度
 }
 
 int custommp4_write_data(custommp4_t *file,void *data,int size)
 {
 	int result;
-	if(file->file_position >= (int)SIZE_OF_FILE_VECTOR)
+	
+	//if(size <= 0)
+	if(size < 0)
 	{
-		printf("custommp4_write_data:file_pos=%ld\n",file->file_position);
-#ifndef WIN32
-// 		sleep(1);
-#endif
-// 		exit(1);
+		file->error_flag = 1;
+		printf("custommp4_write_data error,size=%d\n",size);
+		//return size;
+		return -1;
 	}
+	if(size == 0)
+	{
+		//printf("custommp4_write_data warning,size=%d\n",size);
+		return 1;
+	}
+	
+	if(file->file_position > (int)SIZE_OF_FILE_VECTOR)
+	{
+		file->error_flag = 1;
+		printf("custommp4_write_data:file_pos=%ld\n",file->file_position);
+		//exit(1);
+		return -1;
+	}
+	if(file->file_position + size > (int)SIZE_OF_FILE_VECTOR || size > (int)SIZE_OF_FILE_VECTOR)
+	{
+		file->error_flag = 1;
+		printf("custommp4_write_data:file_pos=%ld,size=%d\n",file->file_position,size);
+		//exit(1);
+		return -1;
+	}
+	
+	//unsigned char cur_atx_flag = tl_power_atx_check();
+	//if(cur_atx_flag == 0 || file->error_flag)
+	if(file->error_flag)
+	{
+		file->error_flag = 1;
+		return -1;
+	}
+	
 	if(ftell(file->stream) != file->file_position)
 	{
 		result = fseek(file->stream, file->file_position, SEEK_SET);
 		if(result)
 		{
-			printf("custommp4_write_data:fseek error=%d,errno=%d,errstr=%s\n",result,errno,strerror(errno));
+			time_t cur;
+			
+			printf("custommp4_write_data:fseek error=%d,errno=%d,errstr=%s, fd: %d\n", 
+				result, errno, strerror(errno), fileno(file->stream));
+			
+			system("netstat");			
+			
+			cur = time(NULL);
+			//printf("system current time  : %s\n",ctime(&cur));
+			
 			result = ftell(file->stream);
 			printf("custommp4_write_data:right_pos=%ld,real_pos=%d\n",file->file_position,result);
-#ifndef WIN32
-// 			sleep(1);
-#endif
-// 			exit(1);
+			
+			file->error_flag = 1;
+			
+			//exit(1);
+			return -1;
 		}
 	}
+	
 	result = fwrite(data, size, 1, file->stream);
+	//printf("fwrite file name:%s, size=%d\n", file->file_name, size);//yaogang hdd
 	file->file_position += size;
-	/*fileflush(file->stream);
+	/*fileflush(file->stream);*/
 	if(result != 1)
 	{
-		printf("custommp4_write_data failed\n");
-		exit(1);
-	}*/
+		file->error_flag = 1;
+		printf("custommp4_write_data:fwrite error=%d,,errno=%d,errstr=%s, fd: %d, file_name=%s,size=%d, file_position: %d\n",
+			result, errno, strerror(errno), fileno(file->stream), file->file_name, size, file->file_position);
+
+		system("netstat");
+		
+		return -1;
+	}
+	
 	return result;
 }
 
-int custommp4_object_read_header(custommp4_t *file,base_object_t *pobj)
+/*int custommp4_object_read_header(custommp4_t *file, base_object_t *pobj)
 {
-	int result = custommp4_read_data(file,pobj,sizeof(base_object_t));
+	int result = custommp4_read_data(file, pobj, sizeof(base_object_t));
 	return !result;
-}
+}*/
 
 BOOL custommp4_object_is(base_object_t *pobj,GUID type)
 {
+	int i;
+	u8 *pdata = (u8 *)&pobj->object_id;
+	printf("file GUID: \n");
+	for (i=0; i<sizeof(GUID); ++i)
+		printf("0x%x ", *(pdata+i));
+	printf("\n");
+
+	pdata = (u8 *)&type;
+	printf("GUID: \n");
+	for (i=0; i<sizeof(GUID); ++i)
+		printf("0x%x ", *(pdata+i));
+	printf("\n");
+	
 	if(!memcmp(&pobj->object_id,&type,sizeof(GUID)))
 	{
 		return TRUE;
 	}
 	return FALSE;
 }
+

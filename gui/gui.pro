@@ -20,7 +20,7 @@ INCLUDEPATH = $${PROJECT_PATH}/common/inc \
 	$${PROJECT_PATH}/hisi_lib/inc
 
 LIBS = -lpthread -lrt
-LIBS += -L$${PROJECT_PATH}/ext_libs -lcommon -lconfig -lnet -lz -lbiz -ltl_hslib_nvr
+LIBS += -L$${PROJECT_PATH}/ext_libs -lcommon -lconfig -lnet -lz -lbiz -ltl_hslib_nvr -ltlfile
 
 TL_APP_LIB_PATH = /home/hdb1/Hi3535_SDK_V1.0.5.0/mpp/lib
 LIBS += -L$${TL_APP_LIB_PATH} -lhdmi -lmpi -ltde -lvqe -lVoiceEngine -ljpeg -lresampler

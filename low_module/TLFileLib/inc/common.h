@@ -8,56 +8,15 @@
 #include <assert.h>
 #include <time.h>
 
-#include "iflytype.h"
 
-#ifndef WIN32
-#include <unistd.h>
-#include <pthread.h>
-typedef pthread_t THREADHANDLE;
-typedef void* (*LINUXFUNC)(void*);
-#else
-#include <wtypes.h>
-typedef HANDLE THREADHANDLE;
-#endif
+#include "types.h"
 
-#define PID_TIMER				0x10
-#define PID_MAIN_CONTROL		0x20
-#define PID_SYSLOG				0x30
-#define PID_PANEL				0x40
-#define PID_EVENT				0x50
 
-#define THREAD_PRI_LOW			100
-#define THREAD_PRI_HIGH			60
-
-#define PRI_TIMER				THREAD_PRI_HIGH
-#define PRI_UI					THREAD_PRI_HIGH
-#define PRI_CP					THREAD_PRI_LOW
-#define PRI_CPCHECK				THREAD_PRI_LOW
-#define PRI_CAPTURE				THREAD_PRI_HIGH
-#define PRI_DISPLAY				THREAD_PRI_HIGH
-#define PRI_ENCODE				THREAD_PRI_HIGH
-#define PRI_DECODE				THREAD_PRI_HIGH
-#define PRI_RECORD				THREAD_PRI_HIGH
-#define PRI_MEDIASND			THREAD_PRI_HIGH
-#define PRI_MEDIARCV			THREAD_PRI_HIGH
 #define PRI_RECMSGQ				THREAD_PRI_HIGH
-#define PRI_ALARM				THREAD_PRI_LOW
 
 #define THREAD_STKSIZE_DEFAULT	(8<<20)
 
-#define STKSIZE_TIMER			(256<<10)
-#define STKSIZE_UI				(2<<20)
-#define STKSIZE_CP				(512<<10)
-#define STKSIZE_CPCHECK			(256<<10)
-#define STKSIZE_CAPTURE			(1<<20)
-#define STKSIZE_DISPLAY			(1<<20)
-#define STKSIZE_ENCODE			(1<<20)
-#define STKSIZE_DECODE			(1<<20)
-#define STKSIZE_RECORD			(2<<20)
-#define STKSIZE_MEDIASND		(512<<10)
-#define STKSIZE_MEDIARCV		(512<<10)
 #define STKSIZE_RECMSGQ			(256<<10)
-#define STKSIZE_ALARM			(256<<10)
 
 typedef struct _MSGQueue
 {

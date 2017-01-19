@@ -719,6 +719,7 @@ void AVI_set_video(avi_t *AVI, int width, int height, double fps, char *compress
    AVI->width  = width;
    AVI->height = height;
    AVI->fps    = fps;
+   //printf("%s fps: %0.2f\n", fps);
    
    if(strncmp(compressor, "RGB", 3)==0) {
      memset(AVI->compressor, 0, 4);
@@ -1275,9 +1276,10 @@ static int avi_close_output_file(avi_t *AVI)
 	//统计总帧数，计算帧率，更新AVI头
 	if (AVI->file_totaltime)
 	{
-		AVI->fps = (double)AVI->video_frames*1000.0/(double)AVI->file_totaltime;
+		AVI->fps = AVI->video_frames*1.0/(double)AVI->file_totaltime;
+		printf("avi_close_output_file fps: %f, video_frames: %d, file_totaltime: %d\n", AVI->fps, AVI->video_frames, AVI->file_totaltime);
 	}
-	//printf("avi_close_output_file fps: %f, video_frames: %d, file_totaltime: %d\n", AVI->fps, AVI->video_frames, AVI->file_totaltime);
+	
 
    if(AVI->fps < 0.001) {
      frate=0;

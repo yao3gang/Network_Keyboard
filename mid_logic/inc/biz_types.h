@@ -90,8 +90,9 @@ typedef enum
     EM_BIZ_EVENT_PLAYBACK_NETWORK_ERR, //回放时发生网络错误
 
     EM_BIZ_EVENT_BACKUP_INIT = 200,  //备份初始化
-    EM_BIZ_EVENT_BACKUP_RUN, //备份中
-    EM_BIZ_EVENT_BACKUP_DONE, //备份结束
+    EM_BIZ_EVENT_BACKUP_RUN,	//备份中
+    EM_BIZ_EVENT_BACKUP_DONE,	//备份结束
+    EM_BIZ_EVENT_BACKUP_ERR,	//备份出错
 
     
     EM_BIZ_EVENT_UPGRADE_INIT = 250,  //升级初始化

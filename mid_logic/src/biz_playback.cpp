@@ -1091,6 +1091,11 @@ thread_exit:
 	ERR_PRINT("CBizPlaybackManager::threadMsg exit, inconceivable\n");
 }
 
+#define USB_NOERROR 0
+#define USB_ERROR_WRITE_ACCESS 1
+#define USB_ERROR_WRITE_FULL 2
+#define USB_ERROR_WRITE_CANCEL 3
+
 int CBizPlaybackManager::dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr)
 {
 	int fd = INVALID_FD;
@@ -1218,16 +1223,16 @@ int CBizPlaybackManager::dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr)
 	//进度构成: 下载占80%，转换占20%
 	u32 cur_pos = 0;
 	if(pcplayback->wr_cnt < file_size) //下载中
-	{
-		pcplayback->plock4param->Unlock();
-		plock4param->Unlock();
-		
+	{		
 		cur_pos = (double)80.0 * pcplayback->wr_cnt / file_size; //百分比
 
 		//上传进度
 		if (cur_pos != pcplayback->cur_pos)
 		{
 			pcplayback->cur_pos = cur_pos;
+
+			pcplayback->plock4param->Unlock();
+			plock4param->Unlock();
 			
 			SBizEventPara para;//上传进度
 			memset(&para, 0, sizeof(SBizEventPara));		
@@ -1241,215 +1246,285 @@ int CBizPlaybackManager::dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr)
 
 			BizEventCB(&para);	
 		}
+		else
+		{
+			pcplayback->plock4param->Unlock();
+			plock4param->Unlock();
+		}
+
+		return SUCCESS;
 	}
-	else //下载完成转换成AVI格式
-	{	
-		close(fd);
-		pcplayback->fd = INVALID_FD;
-		
-		pcplayback->plock4param->Unlock();
-		plock4param->Unlock();
 
-		//convert ifv 2 avi
-		custommp4_t* pFile1 = NULL;
-		avi_t* pAviHandle = NULL;
-		char fly_file_path[128];
-		char avi_file_path[128];
-		VD_BOOL haveerror = FALSE;
-		u8  errcode = 0;
+	//下载完成转换成AVI格式	
+	fsync(fd);
+	close(fd);
+	pcplayback->fd = INVALID_FD;
 	
-		char *pos = strstr(file_info.filename, "fly");
-		if (NULL == pos)
-		{
-			ERR_PRINT("fly_file_name %s, invalid\n", file_name);
-			return -EPARAM;
-		}
-		sprintf(fly_file_path, "./udisk/%s", pos);
+	
+	pcplayback->plock4param->Unlock();
+	plock4param->Unlock();
 
+	//convert ifv 2 avi
+	custommp4_t* pFile1 = NULL;
+	avi_t* pAviHandle = NULL;
+	char fly_file_path[128];
+	char avi_file_path[128];
+	int inside_err = SUCCESS;
+	s8 *buf = NULL;
+	u32 update_pos = 80;//进度构成: 下载占80%，转换占20%
+	u32 start_time = file_info.start_time;
+	struct tm tm_time;
+	u32 file_totaltime = 0;
+	u32 size = 0;//文件内视频帧数量
+	u32 total_frames = 0;
+	u32 wr_frames = 0;//已经写入的视频帧
+	u8 Iframe_cnt = 1;
+	u8 key = 0;
+	int readlen = 0;
+	int ret_avi = 0;
+	SBizEventPara para;
+	SBizMsg_t msg;
+	char *pos = NULL;
+	
+	#ifdef USE_AUDIO_PCMU
+	u8 media_type = 0;
+	u64 pts = 0;
+	#endif
+	
+	buf = new s8[MAX_FRAME_SIZE];
+	if (NULL == buf)
+	{
+		ERR_PRINT("buf new failed\n");
 		
-		u32 start_time = file_info.start_time;
-		start_time += 8*3600;//时区偏移
-		struct tm tm_time;
-		gmtime_r((time_t *)&start_time, &tm_time);
-		sprintf(avi_file_path, "./udisk/chn%d_%04d%02d%02d_%02d%02d%02d.avi",
-				file_info.channel_no,
-				tm_time.tm_year+1900,
-				tm_time.tm_mon+1,
-				tm_time.tm_mday,
-				tm_time.tm_hour,
-				tm_time.tm_min,
-				tm_time.tm_sec);
+		inside_err = -ESPACE;
+		goto END;
+	}
+
+	pos = strstr(file_info.filename, "fly");
+	if (NULL == pos)
+	{
+		ERR_PRINT("fly_file_name %s, invalid\n", file_info.filename);
 		
-		DBG_PRINT("fly_file_path: %s, avi_file_path %s\n", fly_file_path, avi_file_path);
-		
-		if (0 == access(avi_file_path, F_OK))//存在，先删除
-		{
-			unlink(avi_file_path);
-		}
+		inside_err = -EPARAM;
+		goto END;
+	}
+	sprintf(fly_file_path, "./udisk/%s", pos);
+
+	
+	start_time += 8*3600;//时区偏移	
+	gmtime_r((time_t *)&start_time, &tm_time);
+	sprintf(avi_file_path, "./udisk/chn%d_%04d%02d%02d_%02d%02d%02d.avi",
+			file_info.channel_no,
+			tm_time.tm_year+1900,
+			tm_time.tm_mon+1,
+			tm_time.tm_mday,
+			tm_time.tm_hour,
+			tm_time.tm_min,
+			tm_time.tm_sec);
+	
+	DBG_PRINT("fly_file_path: %s, avi_file_path %s\n", fly_file_path, avi_file_path);
+	
+	if (0 == access(avi_file_path, F_OK))//存在，先删除
+	{
+		unlink(avi_file_path);
+	}
 
 /////////////////////////////////
-		pFile1 = custommp4_open(fly_file_path, O_R, file_info.offset);
-		if(pFile1 == NULL)
-		{
-			printf("avi custommp4_open recfile error\n");
-			haveerror = TRUE;
-			errcode = USB_NOERROR;
-			goto END;
-		}
-		
-		pAviHandle = AVI_open_output_file(avi_file_path);
-		if (!pAviHandle)
-		{
-			printf("avi file open failed \n");
-			haveerror = TRUE;
-			errcode = USB_ERROR_WRITE_ACCESS;
-			goto END;
-		}
-		
-		//USE_AUDIO_PCMU begin
- 		u32 file_totaltime = file_info.end_time - file_info.start_time;
-		if (0 == file_totaltime) file_totaltime = 1;
-		
-		AVI_set_video(pAviHandle,
-				 custommp4_video_width(pFile1),
-				 custommp4_video_height(pFile1),
-				 (float)custommp4_video_length(pFile1)/(float)file_totaltime/*custommp4_video_frame_rate(pFile1)*/,
-				 "H264" );
-		
-		AVI_set_audio(pAviHandle,
-				custommp4_audio_channels(pFile1),
-				custommp4_audio_sample_rate(pFile1),
-				custommp4_audio_bits(pFile1),
-				WAVE_FORMAT_PCM, 0 );
-		//USE_AUDIO_PCMU end
-		
-		u32 size = custommp4_video_length(pFile1);
-		
-		#ifdef USE_AUDIO_PCMU
-		u8 media_type;
-		u64 pts = 0;
-		#endif
-		
-		while(size > 0)
-		{
-			// check if need break backup
-			if(modsysCmplx_QueryBreakBackup())
-			{
-				bBreakBackup = TRUE;
-				break;
-			}
-			
-			if(tCopy.cancel)
-			{
-				haveerror = TRUE;
-				errcode = USB_ERROR_WRITE_CANCEL;
-				tCopy.cancel = 0;
-				break;
-			}
-			
-			#ifdef USE_AUDIO_PCMU
-			int readlen = custommp4_read_one_media_frame(pFile1, buf, sizeof(buf), &start_time, &key, &pts,&media_type);
-			#else
-			int readlen = custommp4_read_one_video_frame(pFile1, buf, sizeof(buf), &start_time, &duration, &key);
-			#endif
-			if (readlen <= 0)
-			{
-				tCopy.curpos += size;
-				haveerror = TRUE;
-				errcode = USB_NOERROR;
-				printf( "avi Read error 10,errcode=%d,errstr=%s\n", errno, strerror(errno));
-				break;
-			}
-			#ifdef USE_AUDIO_PCMU
-			if(0 == media_type){
-			#endif
-				int ret_avi = AVI_write_frame(pAviHandle, buf, readlen, key);
-				if (ret_avi)
-				{
-					haveerror = TRUE;
-					errcode = USB_ERROR_WRITE_FULL;
-					if(errno == 5)//Input/output error
-					{
-						errcode = USB_ERROR_WRITE_ACCESS;
-					}
-					printf( "avi Write error 1,errcode=%d,errstr=%s\n", errno, strerror(errno) );
-					break;
-				}
+	pFile1 = custommp4_open(fly_file_path, O_R, file_info.offset);
+	if(pFile1 == NULL)
+	{
+		ERR_PRINT("avi custommp4_open recfile error\n");
+		//errcode = USB_NOERROR;
+		inside_err = -EUDISK_WR;
+		goto END;
+	}
+	
+	pAviHandle = AVI_open_output_file(avi_file_path);
+	if (!pAviHandle)
+	{
+		ERR_PRINT("avi file open failed \n");
+		//errcode = USB_ERROR_WRITE_ACCESS;
+		inside_err = -EUDISK_WR;
+		goto END;
+	}
+	
+	//USE_AUDIO_PCMU begin
+	size = custommp4_video_length(pFile1);//文件内视频帧数量
+	file_totaltime = file_info.end_time - file_info.start_time;
+	if (0 == file_totaltime) file_totaltime = 1;
 
-				tCopy.curpos++;
-				size--;
-			#ifdef USE_AUDIO_PCMU
-			}
-			else
-			{
-				int ret_avi = AVI_write_audio(pAviHandle, buf, readlen);
-				if (ret_avi)
-				{
-					haveerror = TRUE;
-					errcode = USB_ERROR_WRITE_FULL;
-					if(errno == 5)//Input/output error
-					{
-						errcode = USB_ERROR_WRITE_ACCESS;
-					}
-					printf( "avi Write error 1,errcode=%d,errstr=%s\n", errno, strerror(errno) );
-					break;
-				}
-			}
-			#endif
-			
-			sEventParaIns.sProgress.lCurSize = tCopy.curpos;
-			u8 nProg = 100*tCopy.curpos/tCopy.totalpos;
-			if(nProg != sEventParaIns.sProgress.nProgress)
-			{
-				sEventParaIns.sProgress.nProgress = nProg;
-				
-				EvNotify(sModSysIns.pFNSysNotifyCB, EM_SYSEVENT_BACKUP_RUN, &sEventParaIns);
-			}
-		}
-END:
-		if (pFile1)
+	DBG_PRINT("total_frames: %d, total_time: %d, fps: %f\n", size, file_totaltime, (double)size/(float)file_totaltime);
+#if 0	
+	AVI_set_video(pAviHandle,
+			 custommp4_video_width(pFile1),
+			 custommp4_video_height(pFile1),
+			 (double)size/(float)file_totaltime/*custommp4_video_frame_rate(pFile1)*/,
+			 "H264" );
+#else
+	AVI_set_video2(pAviHandle,
+			 custommp4_video_width(pFile1),
+			 custommp4_video_height(pFile1),
+			 (double)size/(float)file_totaltime/*custommp4_video_frame_rate(pFile1)*/,
+			 file_totaltime,
+			 "H264" );
+#endif	
+	AVI_set_audio(pAviHandle,
+			custommp4_audio_channels(pFile1),
+			custommp4_audio_sample_rate(pFile1),
+			custommp4_audio_bits(pFile1),
+			WAVE_FORMAT_PCM, 0 );
+	//USE_AUDIO_PCMU end
+	
+	total_frames = size;
+	wr_frames = 0;//已经写入的视频帧
+	key = 0;
+	
+	#ifdef USE_AUDIO_PCMU
+	pts = 0;
+	#endif
+	
+	while(size > 0)
+	{
+	#if 0
+		// check if need break backup
+		if(modsysCmplx_QueryBreakBackup())
 		{
-			custommp4_close(pFile1);
-			pFile1 = NULL;
-		}
-		
-		if (pAviHandle)
-		{
-			AVI_close(pAviHandle);
-			pAviHandle = NULL;
-		}
-		if(haveerror)
-		{
-			printf("avi copy failed\n");
+			bBreakBackup = TRUE;
 			break;
 		}
 		
-		if(bBreakBackup)
+		if(tCopy.cancel)
 		{
-			printf("backup break!\n");
-			modsysCmplx_ClrBreakBackup();
-			umount_user("myusb");//cw_backup
-			return 0;
-//			break;
+			haveerror = TRUE;
+			errcode = USB_ERROR_WRITE_CANCEL;
+			tCopy.cancel = 0;
+			break;
 		}
+	#endif	
+		#ifdef USE_AUDIO_PCMU
+		Iframe_cnt = 1;
+		//readlen = custommp4_read_one_media_frame(pFile1, (u8 *)buf, MAX_FRAME_SIZE, &start_time, &key, &pts,&media_type);
+		//组合sps pps I帧版本，解决AVI播放卡顿
+		readlen = custommp4_read_one_media_frame2(pFile1, (u8 *)buf, MAX_FRAME_SIZE, &start_time, &key, &pts,&media_type, &Iframe_cnt);
+		#else
+		readlen = custommp4_read_one_video_frame(pFile1, buf, MAX_FRAME_SIZE, &start_time, &duration, &key);
+		#endif
+		if (readlen <= 0)
+		{
+			ERR_PRINT( "avi Read error 10,errcode=%d,errstr=%s\n", errno, strerror(errno));
+			//errcode = USB_NOERROR;
+			inside_err = -EUDISK_WR;			
+			break;
+		}
+		//DBG_PRINT("media_type: %d, key: %d, readlen: %d\n", media_type, key, readlen);
 		
+		#ifdef USE_AUDIO_PCMU
+		if(0 == media_type){
+		#endif
+			ret_avi = AVI_write_frame(pAviHandle, buf, readlen, key);
+			if (ret_avi)
+			{
+				ERR_PRINT( "avi Write error 1,errcode=%d,errstr=%s\n", errno, strerror(errno) );
+				//errcode = USB_ERROR_WRITE_FULL;
+				inside_err = -EUDISK_WR;
+				if(errno == 5)//Input/output error
+				{
+					//errcode = USB_ERROR_WRITE_ACCESS;
+					inside_err = -EUDISK_WR;
+				}
+				
+				break;
+			}
 
-		
-//////////////////////////		
-		DBG_PRINT("file down over, convert it\n");
-		
-		pcplayback->cur_pos = 100;
+			wr_frames += Iframe_cnt;
+			size -= Iframe_cnt;
+		#ifdef USE_AUDIO_PCMU
+		}
+		else
+		{
+			ret_avi = AVI_write_audio(pAviHandle, buf, readlen);
+			if (ret_avi)
+			{
+				ERR_PRINT( "avi Write error 1,errcode=%d,errstr=%s\n", errno, strerror(errno) );
+				//errcode = USB_ERROR_WRITE_FULL;
+				inside_err = -EUDISK_WR;
+				if(errno == 5)//Input/output error
+				{
+					//errcode = USB_ERROR_WRITE_ACCESS;
+					inside_err = -EUDISK_WR;
+				}
+				
+				break;
+			}
+		}
+		#endif
+
+		//进度构成: 下载占80%，转换占20%
+		cur_pos = 80 + (double)20.0 * wr_frames / total_frames;
+
+		//上传进度
+		if (cur_pos != update_pos)
+		{
+			update_pos = cur_pos;
 			
-		SBizEventPara para;
-		memset(&para, 0, sizeof(SBizEventPara));		
-		para.type = EM_BIZ_EVENT_PLAYBACK_DONE;
-		para.un_part_chn.playback_chn = playback_chn;
+			//上传进度
+			memset(&para, 0, sizeof(SBizEventPara));		
+			para.type = EM_BIZ_EVENT_PLAYBACK_RUN;
+			para.un_part_chn.playback_chn = playback_chn;
+			para.un_part_data.stream_progress.cur_pos = cur_pos;
+			para.un_part_data.stream_progress.total_size = 100;
 
-		BizEventCB(&para);
+			DBG_PRINT("BizEventCB, playback_chn: %d, msg_type: %d, convert avi cur_pos: %d\n",
+					playback_chn, para.type, cur_pos);
 
+			BizEventCB(&para);	
+		}
+	}
+	
+END:
+	if (buf)
+	{
+		delete[] buf;
+		buf = NULL;
+	}
+	
+	if (pFile1)
+	{
+		custommp4_close(pFile1);
+		pFile1 = NULL;
+	}
+	
+	if (pAviHandle)
+	{
+		AVI_close(pAviHandle);
+		pAviHandle = NULL;
 	}
 
-	return ret;
+	//发消息给自己
+	memset(&msg, 0, sizeof(SBizMsg_t));
+	msg.msg_type = EM_STREAM_MSG_STOP;
+	msg.un_part_chn.stream_id = stream_id;
+	
+	if(inside_err == SUCCESS) //成功
+	{
+		DBG_PRINT("file convert success\n");		
+	}
+	else //失败
+	{
+		ERR_PRINT("file convert failed, err: %d\n", inside_err);
+		msg.un_part_data.stream_errno = inside_err;
+
+		//删除文件
+		DBG_PRINT("rm avi file: %s\n", avi_file_path);
+		//unlink(avi_file_path);
+	}
+
+	DBG_PRINT("rm ifv file: %s\n", fly_file_path);
+	//unlink(fly_file_path);
+	
+	BizUnmountUdisk();
+
+	return WriteMsg(&msg, sizeof(SBizMsg_t));
 }
 
 //WriteMsg
@@ -1533,27 +1608,27 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 			return ret;
 		}
 
-		char filename[128] = {0};
 		//rec/c2/fly00592.ifv 去除路径rec/c2/
+		char fly_file_path[128] = {0};
 		char *pos = strstr(pfile_info->filename, "fly");
 		if (NULL == pos)
 		{
-			ERR_PRINT("open file %s, invalid\n", pfile_info->filename);
+			ERR_PRINT("fly_file_name %s, invalid\n", pfile_info->filename);
+			
 			return -EPARAM;
 		}
+		sprintf(fly_file_path, "./udisk/%s", pos);
+		DBG_PRINT("fly_file_path %s\n", fly_file_path);
 		
-		sprintf(filename, "./udisk/%s", pos);
-		DBG_PRINT("filename %s\n", filename);
-		
-		if (0 == access(filename, F_OK))//存在，先删除
+		if (0 == access(fly_file_path, F_OK))//存在，先删除
 		{
-			unlink(filename);
+			unlink(fly_file_path);
 		}
 		
-		fd = open(filename, O_WRONLY|O_CREAT, 0666);
+		fd = open(fly_file_path, O_WRONLY|O_CREAT, 0666);
 		if (fd < 0)
 		{
-			ERR_PRINT("open file %s failed\n", filename);
+			ERR_PRINT("open file %s failed\n", fly_file_path);
 			return -FAILURE;
 		}
 	}
@@ -1843,6 +1918,7 @@ int CBizPlaybackManager::PlaybackStop(u32 playback_chn)
 	CBizPlayback *pcplayback = NULL;
 	MAP_PBChn_SID::iterator map_id_iter;
 	MAP_ID_PCPLAYBACK::iterator map_ppb_iter;
+	ifly_recfileinfo_t file_info;
 
 	//DBG_PRINT("1 playback_chn: %d\n", playback_chn);
 
@@ -1879,6 +1955,12 @@ int CBizPlaybackManager::PlaybackStop(u32 playback_chn)
 		return -EPARAM;
 	}
 
+	pcplayback->plock4param->Lock();
+
+	file_info = pcplayback->file_info;
+
+	pcplayback->plock4param->Unlock();
+	
 	//移除
 	map_pcplayback.erase(stream_id);
 	map_pbchn_sid.erase(playback_chn);
@@ -1896,6 +1978,26 @@ int CBizPlaybackManager::PlaybackStop(u32 playback_chn)
 		ERR_PRINT("BizStreamReqStop failed, ret: %d, playback_chn: %d, stream_id: %d\n",
 			ret, playback_chn, stream_id);
 	}
+
+	//rec/c2/fly00592.ifv 去除路径rec/c2/
+	char fly_file_path[128] = {0};
+	char *pos = strstr(file_info.filename, "fly");
+	if (NULL == pos)
+	{
+		ERR_PRINT("fly_file_name %s, invalid\n", file_info.filename);
+	}
+	else
+	{
+		sprintf(fly_file_path, "./udisk/%s", pos);
+		DBG_PRINT("fly_file_path %s\n", fly_file_path);
+		
+		if (0 == access(fly_file_path, F_OK))//存在，删除
+		{
+			//unlink(fly_file_path);
+		}
+	}
+
+	BizUnmountUdisk();
 
 	//DBG_PRINT("end\n");
 	return ret;
