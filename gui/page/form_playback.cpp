@@ -682,7 +682,7 @@ void form_playback::slotNotifyPlaybackInfo(SPlaybackNotify_t playback_msg)
 
             if (playback_chn < 0x10) //回放
             {
-                DBG_PRINT("cur_pos: %d, total_size: %d, %d\n", cur_pos, total_size, play_file.end_time - play_file.start_time);
+                DBG_PRINT("cur_pos: %u, total_size: %u, %d\n", cur_pos, total_size, play_file.end_time - play_file.start_time);
 
                 play_pos = cur_pos;
                 u32 cur_time = play_file.start_time + cur_pos;
@@ -722,7 +722,8 @@ void form_playback::slotNotifyPlaybackInfo(SPlaybackNotify_t playback_msg)
             }
             else // 下载
             {
-
+                //进度
+                DBG_PRINT("cur_pos: %u, total_size: %u\n", cur_pos, total_size);
             }
         } break;
 

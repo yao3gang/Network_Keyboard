@@ -369,6 +369,9 @@ void CMediaStream::threadRcv(uint param)//接收服务器数据
 				}
 				else if (ret == 0)//对方关闭socket，可能下载完成
 				{
+					ERR_PRINT("dev IP: %s, stream_id: %d, req_cmd: %d, svr shutdown!!!\n",
+						inet_ntoa(in), _stream_id, req_cmd);
+					
 					inside_err = -EPEER;
 					break;
 				}
@@ -455,7 +458,6 @@ done:
 	}
 
 	ms64 = SystemGetMSCount64();
-	DBG_PRINT("exit 2: %llu\n", ms64);
 	
 	DBG_PRINT("dev IP: %s, req_cmd: %d, threadRcv exit\n",
 				inet_ntoa(in), req_cmd);

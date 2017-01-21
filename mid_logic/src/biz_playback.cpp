@@ -628,6 +628,15 @@ int CBizPlaybackManager::dealStreamMsgStop(u32 stream_id, s32 stream_errno)
 	pcplayback->plock4param->Lock();
 
 	//内部数据
+	if (EM_STREAM_STATUS_STOP == pcplayback->status)
+	{
+		pcplayback->plock4param->Unlock();
+		plock4param->Unlock();
+
+		DBG_PRINT("status == EM_STREAM_STATUS_STOP, return\n");
+		return SUCCESS;
+	}
+	
 	pcplayback->status = EM_STREAM_STATUS_STOP;
 	
 	if (SUCCESS == pcplayback->stream_errno
@@ -1241,8 +1250,8 @@ int CBizPlaybackManager::dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr)
 			para.un_part_data.stream_progress.cur_pos = cur_pos;
 			para.un_part_data.stream_progress.total_size = 100;
 
-			DBG_PRINT("BizEventCB, playback_chn: %d, msg_type: %d, cur_pos: %d\n",
-					playback_chn, para.type, cur_pos);
+			//DBG_PRINT("BizEventCB, playback_chn: %d, msg_type: %d, cur_pos: %d\n",
+					//playback_chn, para.type, cur_pos);
 
 			BizEventCB(&para);	
 		}
@@ -1271,7 +1280,7 @@ int CBizPlaybackManager::dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr)
 	char avi_file_path[128];
 	int inside_err = SUCCESS;
 	s8 *buf = NULL;
-	u32 update_pos = 80;//进度构成: 下载占80%，转换占20%
+	u32 update_pos = 79;//进度构成: 下载占80%，转换占20%
 	u32 start_time = file_info.start_time;
 	struct tm tm_time;
 	u32 file_totaltime = 0;
@@ -1322,7 +1331,7 @@ int CBizPlaybackManager::dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr)
 			tm_time.tm_min,
 			tm_time.tm_sec);
 	
-	DBG_PRINT("fly_file_path: %s, avi_file_path %s\n", fly_file_path, avi_file_path);
+	DBG_PRINT("fly_file_path: %s, avi_file_path %s, file offset: %u\n", fly_file_path, avi_file_path, file_info.offset);
 	
 	if (0 == access(avi_file_path, F_OK))//存在，先删除
 	{
@@ -1330,7 +1339,7 @@ int CBizPlaybackManager::dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr)
 	}
 
 /////////////////////////////////
-	pFile1 = custommp4_open(fly_file_path, O_R, file_info.offset);
+	pFile1 = custommp4_open(fly_file_path, O_R, 0);//file_info.offset); 下载的文件已经由NVR端处理过偏移
 	if(pFile1 == NULL)
 	{
 		ERR_PRINT("avi custommp4_open recfile error\n");
@@ -1474,8 +1483,8 @@ int CBizPlaybackManager::dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr)
 			para.un_part_data.stream_progress.cur_pos = cur_pos;
 			para.un_part_data.stream_progress.total_size = 100;
 
-			DBG_PRINT("BizEventCB, playback_chn: %d, msg_type: %d, convert avi cur_pos: %d\n",
-					playback_chn, para.type, cur_pos);
+			//DBG_PRINT("BizEventCB, playback_chn: %d, msg_type: %d, convert avi cur_pos: %d\n",
+			//		playback_chn, para.type, cur_pos);
 
 			BizEventCB(&para);	
 		}
@@ -1514,13 +1523,14 @@ END:
 		ERR_PRINT("file convert failed, err: %d\n", inside_err);
 		msg.un_part_data.stream_errno = inside_err;
 
-		//删除文件
+		//删除AVI 文件
 		DBG_PRINT("rm avi file: %s\n", avi_file_path);
-		//unlink(avi_file_path);
+		unlink(avi_file_path);
 	}
 
+	//删除IFV 文件
 	DBG_PRINT("rm ifv file: %s\n", fly_file_path);
-	//unlink(fly_file_path);
+	unlink(fly_file_path);
 	
 	BizUnmountUdisk();
 
@@ -1993,7 +2003,7 @@ int CBizPlaybackManager::PlaybackStop(u32 playback_chn)
 		
 		if (0 == access(fly_file_path, F_OK))//存在，删除
 		{
-			//unlink(fly_file_path);
+			unlink(fly_file_path);
 		}
 	}
 

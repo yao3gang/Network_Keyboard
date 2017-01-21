@@ -290,6 +290,7 @@ int custommp4_write_data(custommp4_t *file,void *data,int size)
 
 BOOL custommp4_object_is(base_object_t *pobj,GUID type)
 {
+#if 0
 	int i;
 	u8 *pdata = (u8 *)&pobj->object_id;
 	printf("file GUID: \n");
@@ -302,7 +303,8 @@ BOOL custommp4_object_is(base_object_t *pobj,GUID type)
 	for (i=0; i<sizeof(GUID); ++i)
 		printf("0x%x ", *(pdata+i));
 	printf("\n");
-	
+#endif
+
 	if(!memcmp(&pobj->object_id,&type,sizeof(GUID)))
 	{
 		return TRUE;

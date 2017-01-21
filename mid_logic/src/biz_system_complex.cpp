@@ -475,13 +475,11 @@ int BizUnmountUdisk()
 			ERR_PRINT("udisk umount failed!!!\n");
 			ret = -EUDISK_UMOUNT;
 		}
-		else
-		{
-			unlink("udisk");
-		}
+		
+		unlink("udisk");		
 	}
 
-	return SUCCESS;
+	return ret;
 }
 
 
