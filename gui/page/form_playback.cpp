@@ -724,6 +724,7 @@ void form_playback::slotNotifyPlaybackInfo(SPlaybackNotify_t playback_msg)
             {
                 //进度
                 DBG_PRINT("cur_pos: %u, total_size: %u\n", cur_pos, total_size);
+                emit signalFileDownloadProgress(cur_pos);
             }
         } break;
 
@@ -737,13 +738,12 @@ void form_playback::slotNotifyPlaybackInfo(SPlaybackNotify_t playback_msg)
                 //播放控制
                 //btn play/pause
                 ui->btn_play->setIcon(QIcon(QString::fromUtf8(":/image/pctl_play.bmp")));
+                BizPlaybackStop(playback_chn);
             }
             else // 下载
             {
-
+                emit signalFileDownloadClose(0); // to download progress dialog
             }
-            BizPlaybackStop(playback_chn);
-
         } break;
 
         case EM_BIZ_EVENT_PLAYBACK_NETWORK_ERR:
@@ -751,8 +751,17 @@ void form_playback::slotNotifyPlaybackInfo(SPlaybackNotify_t playback_msg)
             s32 stream_errno = playback_msg.stream_errno;
             play_status = EM_PLAY_STATUS_STOP;
 
-            DBG_PRINT("stream_errno: %d\n", stream_errno);
-            BizPlaybackStop(playback_chn);
+            if (playback_chn < 0x10) //回放
+            {
+                //播放控制
+                //btn play/pause
+                ui->btn_play->setIcon(QIcon(QString::fromUtf8(":/image/pctl_play.bmp")));
+                BizPlaybackStop(playback_chn);
+            }
+            else // 下载
+            {
+                emit signalFileDownloadClose(1); // to download progress dialog
+            }
         } break;
 
         default:
@@ -1225,33 +1234,53 @@ void form_playback::on_btn_backup_clicked()
     gmtime_r((time_t *)&end_time, &tm_time);
     QTime qtime_end(tm_time.tm_hour, tm_time.tm_min, tm_time.tm_sec);
 
+    //下载文件名
+    char save_file_name[128];
+    sprintf(save_file_name, "chn%02d_%04d%02d%02d_%02d%02d%02d.avi",
+            search_nvr_chn,
+            tm_time.tm_year+1900,
+            tm_time.tm_mon+1,
+            tm_time.tm_mday,
+            tm_time.tm_hour,
+            tm_time.tm_min,
+            tm_time.tm_sec);
+    DBG_PRINT("save_file_name: %s\n", save_file_name);
+
     QString msg = QString(QString::fromUtf8("%1-%2 确认下载该文件?").arg(qtime_start.toString(QString::fromUtf8("HH:mm:ss"))).arg(qtime_end.toString(QString::fromUtf8("HH:mm:ss"))));
     int ret = ShowMessageBoxQuesion(msg);
-    if (0 == ret)
+    if (0 == ret) //用户点取消
     {
         return ;
     }
 
-#if 1
+    //下载进度对话框
+    DialogProgress dialog;
+    dialog.setTitle(QString::fromUtf8("下载文件名：%1").arg(save_file_name));
+    dialog.setRange(0, 100);
+    connect(this, SIGNAL(signalFileDownloadProgress(int)), &dialog, SLOT(slotSetProgressBarValue(int)));
+    connect(this, SIGNAL(signalFileDownloadClose(int)), &dialog, SLOT(slotClose(int)));
+    //
     ret = SUCCESS;
     DBG_PRINT("offset: %u, size: %u\n", search_result.pfile_info[file_down_index].offset, search_result.pfile_info[file_down_index].size);
-    ret = BizDownloadByFile(search_nvr_ip, &search_result.pfile_info[file_down_index]);
+    ret = BizDownloadByFile(search_nvr_ip, &search_result.pfile_info[file_down_index], save_file_name);
     if (ret)
     {
         ERR_PRINT("BizDownloadByFile failed, ret: %d\n", ret);
-    }
-#endif
 
-#if 0
-    DialogProgress dialog;
-    dialog.setTitle(QString::fromUtf8("文件下载"));
-    connect;
+        ShowMessageBoxError(QString::fromUtf8("下载失败"));
+        return ;
+    }
 
     ret = dialog.exec();
     DBG_PRINT("dialog return: %d\n", ret);
-#endif
-
-
+    if (ret)
+    {
+        BizDownloadCancel();
+    }
+    else
+    {
+        BizDownloadStop();
+    }
 }
 
 //play ctl

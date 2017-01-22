@@ -522,7 +522,7 @@ void BizLeavePlayback(void)
 }
 
 //playback_chn 上层传递
-int BizPlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfile_info)
+int BizPlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfile_info, char *psave_file_name)
 {
 	u32 chn_mask = 0;
 	int ret = SUCCESS;
@@ -563,7 +563,7 @@ int BizPlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfi
 		plock4param->Unlock();
 	}
 	
-	ret = BizModulePlaybackStartByFile(playback_chn, dev_ip, pfile_info);
+	ret = BizModulePlaybackStartByFile(playback_chn, dev_ip, pfile_info, psave_file_name);
 	if (ret)
 	{
 		ERR_PRINT("BizModulePlaybackStartByFile failed, playback_chn: %d, ret: %d\n",
@@ -641,6 +641,50 @@ int BizPlaybackStop(u32 playback_chn)
 	{
 		//DBG_PRINT("4 playback_chn: %d\n", playback_chn);
 		ret = BizModulePlaybackStop(playback_chn);
+		if (ret)
+		{
+			ERR_PRINT("BizModulePlaybackStop(%d) failed, ret: %d\n",
+				playback_chn, ret);
+
+			return ret;
+		}
+		
+		plock4param->Lock();
+			
+		playback_chn_mask &= ~(1<<playback_chn);
+
+		plock4param->Unlock();
+	}
+	
+	return SUCCESS;
+}
+
+//用于下载
+int BizPlaybackCancel(u32 playback_chn)
+{	
+	u32 chn_mask = 0;
+	int ret = SUCCESS;
+
+	//DBG_PRINT("1 playback_chn: %d\n", playback_chn);
+	plock4param->Lock();
+	//DBG_PRINT("2 playback_chn: %d\n", playback_chn);
+	if (!b_playback)
+	{
+		ERR_PRINT("b_playback FALSE\n");
+
+		plock4param->Unlock();
+		return -FAILURE;
+	}
+
+	chn_mask = playback_chn_mask;
+	
+	plock4param->Unlock();
+
+	//DBG_PRINT("3 playback_chn: %d, chn_mask: 0x%x\n", playback_chn, chn_mask);
+	if (chn_mask & (1<<playback_chn))
+	{
+		//DBG_PRINT("4 playback_chn: %d\n", playback_chn);
+		ret = BizModulePlaybackCancel(playback_chn);
 		if (ret)
 		{
 			ERR_PRINT("BizModulePlaybackStop(%d) failed, ret: %d\n",
@@ -833,9 +877,9 @@ int BizPlaybackSeek(u32 playback_chn, u32 time)
 }
 
 //文件下载
-int BizDownloadByFile(u32 dev_ip, ifly_recfileinfo_t *pfile_info)
+int BizDownloadByFile(u32 dev_ip, ifly_recfileinfo_t *pfile_info, char *psave_file_name)
 {	
-	return BizPlaybackStartByFile(0x10, dev_ip, pfile_info);// 0回放 0x10下载
+	return BizPlaybackStartByFile(0x10, dev_ip, pfile_info, psave_file_name);// 0回放 0x10下载
 }
 int BizDownloadByTime(u32 dev_ip, u8 chn, u32 start_time, u32 end_time)
 {
@@ -849,7 +893,7 @@ int BizDownloadStop()
 
 int BizDownloadCancel()
 {
-	return BizPlaybackStop(0x10);
+	return BizPlaybackCancel(0x10);
 }
 
 

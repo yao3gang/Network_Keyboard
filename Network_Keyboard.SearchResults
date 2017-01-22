@@ -1,19 +1,9 @@
----- ifly_recfileinfo_t Matches (18 in 8 files) ----
-biz.cpp (mid_logic\src):int BizPlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfile_info)
-biz.cpp (mid_logic\src):int BizDownloadByFile(u32 dev_ip, ifly_recfileinfo_t *pfile_info)
-biz_4_gui.h (mid_logic\inc):int BizPlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfile_info);
-biz_4_gui.h (mid_logic\inc):int BizDownloadByFile(u32 dev_ip, ifly_recfileinfo_t *pfile_info);
-biz_device.cpp (mid_logic\src):		file_nums * sizeof(ifly_recfileinfo_t));
-biz_playback.cpp (mid_logic\src):	ifly_recfileinfo_t file_info;
-biz_playback.cpp (mid_logic\src):	memset(&file_info, 0, sizeof(ifly_recfileinfo_t));
-biz_playback.cpp (mid_logic\src):	int PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfile_info);
-biz_playback.cpp (mid_logic\src):	ifly_recfileinfo_t file_info;
-biz_playback.cpp (mid_logic\src):int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfile_info)
-biz_playback.cpp (mid_logic\src):	ifly_recfileinfo_t file_info;
-biz_playback.cpp (mid_logic\src):int BizModulePlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfile_info)
-biz_playback.h (mid_logic\inc):int BizModulePlaybackStartByFile(u32 playback_chn, u32 _dev_ip, ifly_recfileinfo_t *pfile_info);
-ctrlprotocol.h (low_module\net\inc):}ifly_recfileinfo_t;
-ctrlprotocol.h (low_module\net\inc):	ifly_recfileinfo_t *pfile_info;
-ctrlprotocol.h (low_module\net\inc):	ifly_recfileinfo_t fileinfo; //文件信息
-form_playback.cpp (gui\page):    search_result.pfile_info = new ifly_recfileinfo_t[MAX_FILE_NUMS];
-form_playback.h (gui\page):    ifly_recfileinfo_t play_file;
+---- BizPlaybackStop Matches (8 in 3 files) ----
+biz.cpp (mid_logic\src):				BizPlaybackStop(i);
+biz.cpp (mid_logic\src):int BizPlaybackStop(u32 playback_chn, VD_BOOL b_cancel)
+biz.cpp (mid_logic\src):	return BizPlaybackStop(0x10);
+biz.cpp (mid_logic\src):	return BizPlaybackStop(0x10, TRUE);
+biz_4_gui.h (mid_logic\inc):int BizPlaybackStop(u32 playback_chn);
+form_playback.cpp (gui\page):                BizPlaybackStop(playback_chn);
+form_playback.cpp (gui\page):                BizPlaybackStop(playback_chn);
+form_playback.cpp (gui\page):    ret = BizPlaybackStop(0);

@@ -91,6 +91,7 @@ private:
 	C_Lock *plock4param;	//mutex
 	int playback_type;
 	ifly_recfileinfo_t file_info;
+	char save_file_name[128];//下载文件名
 	SPlayback_Time_Info_t time_info;
 
 	u32 playback_chn;	//回放通道
@@ -126,6 +127,7 @@ CBizPlayback::CBizPlayback()
 {
 	memset(&file_info, 0, sizeof(ifly_recfileinfo_t));
 	memset(&time_info, 0, sizeof(SPlayback_Time_Info_t));
+	memset(&save_file_name, 0, sizeof(save_file_name));
 }
 
 int CBizPlayback::Init(void)
@@ -223,11 +225,12 @@ public:
 	int WriteMsg(SBizMsg_t *pmsg, u32 msg_len);
 	int dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr);//to BizDataCB
 	int dealStateFunc(SBizMsg_t *pmsg, u32 len);//WriteMsg
-	int PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfile_info);
+	int PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfile_info, char *psave_file_name=NULL);
 	int PlaybackStartByTime(u32 playback_chn, u32 dev_ip, u8 chn, u32 start_time, u32 end_time);
 	//预览是否已经处于进行中
 	VD_BOOL PlaybackIsStarted(u32 playback_chn);
 	int PlaybackStop(u32 playback_chn);
+	int PlaybackCancel(u32 playback_chn);
 	//回放控制
 	int PlaybackPause(u32 playback_chn);
 	int PlaybackResume(u32 playback_chn);
@@ -1268,7 +1271,20 @@ int CBizPlaybackManager::dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr)
 	fsync(fd);
 	close(fd);
 	pcplayback->fd = INVALID_FD;
+
+	int inside_err = SUCCESS;
+	char avi_file_path[128];
 	
+	if (0 == strlen(pcplayback->save_file_name))
+	{
+		ERR_PRINT("save_file_name invalid\n");
+		
+		inside_err = -EPARAM;
+	}
+	else
+	{
+		sprintf(avi_file_path, "./udisk/%s", pcplayback->save_file_name);	
+	}
 	
 	pcplayback->plock4param->Unlock();
 	plock4param->Unlock();
@@ -1277,12 +1293,10 @@ int CBizPlaybackManager::dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr)
 	custommp4_t* pFile1 = NULL;
 	avi_t* pAviHandle = NULL;
 	char fly_file_path[128];
-	char avi_file_path[128];
-	int inside_err = SUCCESS;
 	s8 *buf = NULL;
 	u32 update_pos = 79;//进度构成: 下载占80%，转换占20%
-	u32 start_time = file_info.start_time;
-	struct tm tm_time;
+	u32 start_time = 0;
+	//struct tm tm_time;
 	u32 file_totaltime = 0;
 	u32 size = 0;//文件内视频帧数量
 	u32 total_frames = 0;
@@ -1293,12 +1307,17 @@ int CBizPlaybackManager::dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr)
 	int ret_avi = 0;
 	SBizEventPara para;
 	SBizMsg_t msg;
-	char *pos = NULL;
+	char *pos = NULL;	
 	
 	#ifdef USE_AUDIO_PCMU
 	u8 media_type = 0;
 	u64 pts = 0;
 	#endif
+
+	if (-EPARAM == inside_err)
+	{
+		goto END;
+	}
 	
 	buf = new s8[MAX_FRAME_SIZE];
 	if (NULL == buf)
@@ -1318,18 +1337,6 @@ int CBizPlaybackManager::dealFrameFunc(u32 stream_id, FRAMEHDR *pframe_hdr)
 		goto END;
 	}
 	sprintf(fly_file_path, "./udisk/%s", pos);
-
-	
-	start_time += 8*3600;//时区偏移	
-	gmtime_r((time_t *)&start_time, &tm_time);
-	sprintf(avi_file_path, "./udisk/chn%d_%04d%02d%02d_%02d%02d%02d.avi",
-			file_info.channel_no,
-			tm_time.tm_year+1900,
-			tm_time.tm_mon+1,
-			tm_time.tm_mday,
-			tm_time.tm_hour,
-			tm_time.tm_min,
-			tm_time.tm_sec);
 	
 	DBG_PRINT("fly_file_path: %s, avi_file_path %s, file offset: %u\n", fly_file_path, avi_file_path, file_info.offset);
 	
@@ -1568,7 +1575,7 @@ int CBizPlaybackManager::dealStateFunc(SBizMsg_t *pmsg, u32 len)
 
 
 
-int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfile_info)
+int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfile_info, char *psave_file_name)
 {
 	int ret = SUCCESS;
 	u32 stream_id = INVALID_VALUE;
@@ -1611,6 +1618,13 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 	else	//下载
 	{
 		connect_type = 1;
+
+		if (NULL == psave_file_name)
+		{
+			ERR_PRINT("NULL == psave_file_name\n");
+			
+			return -EPARAM;
+		}
 
 		ret = BizMountUdisk();
 		if (ret)
@@ -1712,10 +1726,12 @@ int CBizPlaybackManager::PlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_
 	pcplayback->stream_id = stream_id;
 	pcplayback->status = EM_STREAM_STATUS_INIT;
 	pcplayback->stream_errno = SUCCESS;
+	
 
 	if (connect_type == 1) //下载
 	{
 		pcplayback->fd = fd;
+		strcpy(pcplayback->save_file_name, psave_file_name);
 	}
 
 	pcplayback->plock4param->Unlock();
@@ -1989,26 +2005,154 @@ int CBizPlaybackManager::PlaybackStop(u32 playback_chn)
 			ret, playback_chn, stream_id);
 	}
 
-	//rec/c2/fly00592.ifv 去除路径rec/c2/
-	char fly_file_path[128] = {0};
-	char *pos = strstr(file_info.filename, "fly");
-	if (NULL == pos)
+	if (playback_chn >= 0x10) //下载
 	{
-		ERR_PRINT("fly_file_name %s, invalid\n", file_info.filename);
-	}
-	else
-	{
-		sprintf(fly_file_path, "./udisk/%s", pos);
-		DBG_PRINT("fly_file_path %s\n", fly_file_path);
-		
-		if (0 == access(fly_file_path, F_OK))//存在，删除
+		//rec/c2/fly00592.ifv 去除路径rec/c2/
+		char fly_file_path[128] = {0};
+		char *pos = strstr(file_info.filename, "fly");
+		if (NULL == pos)
 		{
-			unlink(fly_file_path);
+			ERR_PRINT("fly_file_name %s, invalid\n", file_info.filename);
 		}
+		else
+		{
+			sprintf(fly_file_path, "./udisk/%s", pos);
+			DBG_PRINT("fly_file_path %s\n", fly_file_path);
+			
+			if (0 == access(fly_file_path, F_OK))//存在，删除
+			{
+				unlink(fly_file_path);
+			}
+		}
+
+		BizUnmountUdisk();
+	}
+	//DBG_PRINT("end\n");
+	return ret;
+}
+//用于下载
+int CBizPlaybackManager::PlaybackCancel(u32 playback_chn)
+{
+	if (!b_inited)
+	{
+		ERR_PRINT("module not inited\n");
+		return -FAILURE;
+	}
+	
+	int ret = SUCCESS;
+	u32 stream_id = INVALID_VALUE;
+	CBizPlayback *pcplayback = NULL;
+	MAP_PBChn_SID::iterator map_id_iter;
+	MAP_ID_PCPLAYBACK::iterator map_ppb_iter;
+	ifly_recfileinfo_t file_info;
+	char save_file_name[128];
+
+	memset(save_file_name, 0, sizeof(save_file_name));
+	
+	//DBG_PRINT("1 playback_chn: %d\n", playback_chn);
+
+	//DBG_PRINT("2 playback_chn: %d\n", playback_chn);
+	plock4param->Lock();
+	//DBG_PRINT("3 playback_chn: %d\n", playback_chn);
+	map_id_iter = map_pbchn_sid.find(playback_chn);
+	if (map_id_iter == map_pbchn_sid.end())//不存在
+	{
+		ERR_PRINT("MAP_PBChn_SID find failed, playback_chn: %d\n", playback_chn);
+
+		plock4param->Unlock();
+		return -EPARAM;
 	}
 
-	BizUnmountUdisk();
+	stream_id = map_id_iter->second;
+	map_ppb_iter = map_pcplayback.find(stream_id);
+	if (map_ppb_iter == map_pcplayback.end())
+	{
+		ERR_PRINT("MAP_PBChn_SID find success, but MAP_ID_PCPLAYBACK find failed, playback_chn: %d, stream_id: %d\n",
+			playback_chn, stream_id);
 
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+	
+	pcplayback = map_ppb_iter->second;
+	if (NULL == pcplayback)
+	{
+		ERR_PRINT("NULL == pcplayback, playback_chn: %d, stream_id: %d\n",
+			playback_chn, stream_id);
+
+		plock4param->Unlock();
+		return -EPARAM;
+	}
+
+	pcplayback->plock4param->Lock();
+
+	if (pcplayback->playback_chn < 0x10) //非下载
+	{
+		pcplayback->plock4param->Unlock();
+		plock4param->Unlock();
+
+		ERR_PRINT("playback_chn < 0x10, mode != download\n");
+		return -EPARAM;
+	}
+
+	file_info = pcplayback->file_info;
+	strcpy(save_file_name, pcplayback->save_file_name);
+
+	pcplayback->plock4param->Unlock();
+	
+	//移除
+	map_pcplayback.erase(stream_id);
+	map_pbchn_sid.erase(playback_chn);
+	
+	delete pcplayback;
+	pcplayback = NULL;
+
+	plock4param->Unlock();
+
+	DBG_PRINT("playback_chn: %u, stream_id: %u\n", playback_chn, stream_id);
+
+	ret = BizStreamReqStop(stream_id);
+	if (ret)
+	{
+		ERR_PRINT("BizStreamReqStop failed, ret: %d, playback_chn: %d, stream_id: %d\n",
+			ret, playback_chn, stream_id);
+	}
+
+	if (playback_chn >= 0x10) //下载
+	{
+		//rec/c2/fly00592.ifv 去除路径rec/c2/
+		char fly_file_path[128] = {0};
+		char *pos = strstr(file_info.filename, "fly");
+		if (NULL == pos)
+		{
+			ERR_PRINT("fly_file_name %s, invalid\n", file_info.filename);
+		}
+		else
+		{
+			sprintf(fly_file_path, "./udisk/%s", pos);
+			DBG_PRINT("fly_file_path %s\n", fly_file_path);
+			
+			if (0 == access(fly_file_path, F_OK))//存在，删除
+			{
+				//删除IFV 文件
+				unlink(fly_file_path);
+			}
+		}
+		
+		//删除AVI 文件
+		if (strlen(save_file_name))
+		{
+			char file_name[128];
+			sprintf(file_name, "./udisk/%s", save_file_name);
+			
+			if (0 == access(file_name, F_OK))//存在，删除
+			{
+				unlink(file_name);
+			}
+		}
+		
+		BizUnmountUdisk();
+	}
 	//DBG_PRINT("end\n");
 	return ret;
 }
@@ -2400,9 +2544,9 @@ int BizSendMsg2PlaybackManager(SBizMsg_t *pmsg, u32 msg_len)
 
 
 //
-int BizModulePlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfile_info)
+int BizModulePlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfile_info, char *psave_file_name)
 {
-	return g_biz_playback_manager.PlaybackStartByFile(playback_chn, dev_ip, pfile_info);
+	return g_biz_playback_manager.PlaybackStartByFile(playback_chn, dev_ip, pfile_info, psave_file_name);
 }
 
 int BizModulePlaybackStartByTime(u32 playback_chn, u32 dev_ip, u8 chn, u32 start_time, u32 end_time)
@@ -2419,6 +2563,11 @@ VD_BOOL BizModulePlaybackIsStarted(u32 playback_chn)
 int BizModulePlaybackStop(u32 playback_chn)
 {
 	return g_biz_playback_manager.PlaybackStop(playback_chn);
+}
+
+int BizModulePlaybackCancel(u32 playback_chn)
+{
+	return g_biz_playback_manager.PlaybackCancel(playback_chn);
 }
 
 

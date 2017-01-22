@@ -37,7 +37,7 @@ int BizSendMsg2PlaybackManager(SBizMsg_t *pmsg, u32 msg_len);
 
 
 //playback_chn 上层传递
-int BizModulePlaybackStartByFile(u32 playback_chn, u32 _dev_ip, ifly_recfileinfo_t *pfile_info);
+int BizModulePlaybackStartByFile(u32 playback_chn, u32 _dev_ip, ifly_recfileinfo_t *pfile_info, char *psave_file_name=NULL);
 int BizModulePlaybackStartByTime(u32 playback_chn, u32 _dev_ip, u8 chn, u32 start_time, u32 end_time);
 
 
@@ -45,6 +45,7 @@ int BizModulePlaybackStartByTime(u32 playback_chn, u32 _dev_ip, u8 chn, u32 star
 VD_BOOL BizModulePlaybackIsStarted(u32 playback_chn);
 
 int BizModulePlaybackStop(u32 playback_chn);
+int BizModulePlaybackCancel(u32 playback_chn);
 
 //回放控制
 int BizModulePlaybackPause(u32 playback_chn);

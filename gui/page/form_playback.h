@@ -28,6 +28,10 @@ public:
     explicit form_playback(QWidget *parent = 0);
     ~form_playback();
 
+signals:
+    void signalFileDownloadProgress(int value);
+    void signalFileDownloadClose(int flag); //0 success, 1 user cancel
+
 protected:
     void mousePressEvent(QMouseEvent *);
     void showEvent ( QShowEvent * event );

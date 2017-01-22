@@ -5,6 +5,8 @@
 #include "appdef.h"
 #include <QDesktopWidget>
 
+#include "types.h"
+
 DialogProgress::DialogProgress(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::DialogProgress)
@@ -21,6 +23,7 @@ DialogProgress::DialogProgress(QWidget *parent) :
     move(movePoint);
 
     ui->progressBar->setValue(0);
+    //ui->btnCancel->setVisible(false);//不可取消
 }
 
 DialogProgress::~DialogProgress()
@@ -46,4 +49,33 @@ void DialogProgress::setTitle(QString str)
 {
     ui->lab_Title->setText(str);
 }
+
+void DialogProgress::setRange(int minimum, int maximum)
+{
+    ui->progressBar->setRange(minimum, maximum);
+}
+
+void DialogProgress::slotSetProgressBarValue(int value)
+{
+    ui->progressBar->setValue(value);
+
+    if (ui->btnCancel->isEnabled())
+    {
+        if (value > 50)
+            ui->btnCancel->setEnabled(false);
+    }
+}
+
+void DialogProgress::slotClose(int flag) //0 success, 1 user cancel
+{
+    DBG_PRINT("flag: %d\n", flag);
+    done(flag);
+}
+
+void DialogProgress::on_btnCancel_clicked()
+{
+    DBG_PRINT("\n");
+    done(1);
+}
+
 

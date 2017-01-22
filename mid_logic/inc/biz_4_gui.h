@@ -22,9 +22,10 @@ void BizLeavePreview(void);
 void BizEnterPlayback(void);
 void BizLeavePlayback(void);
 
-int BizPlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfile_info);
+int BizPlaybackStartByFile(u32 playback_chn, u32 dev_ip, ifly_recfileinfo_t *pfile_info, char *psave_file_name=NULL);
 int BizPlaybackStartByTime(u32 playback_chn, u32 _dev_ip, u8 chn, u32 start_time, u32 end_time);
 int BizPlaybackStop(u32 playback_chn);
+
 
 
 //回放
@@ -35,7 +36,7 @@ int BizPlaybackRate(u32 playback_chn, s32 rate);//{-8, -4, -2, 1, 2, 4, 8}
 int BizPlaybackSeek(u32 playback_chn, u32 time);
 
 //文件下载
-int BizDownloadByFile(u32 dev_ip, ifly_recfileinfo_t *pfile_info);
+int BizDownloadByFile(u32 dev_ip, ifly_recfileinfo_t *pfile_info, char *psave_file_name);
 int BizDownloadByTime(u32 _dev_ip, u8 chn, u32 start_time, u32 end_time);
 int BizDownloadStop();
 int BizDownloadCancel();
